@@ -1,0 +1,40 @@
+# Keep the build context small and secrets out of the image.
+
+# Sensitive: parsed financial data & statements
+data/
+*.pdf
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Env / secrets
+.env
+.env.*
+
+# VCS / editor / OS
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Dev-only
+tests/
+README.md
