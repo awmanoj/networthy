@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Networthy{% endblock %}
+{% block content %}
+
+{% if latest %}
+<section class="summary">
+  <div class="stat">
+    <span class="stat-label">Net worth · {{ latest.statement_date.strftime('%d %b %Y') }}</span>
+    <span class="stat-value">₹{{ "{:,.0f}".format(latest.total_value) }}</span>
+    {% if change is not none %}
+      <span class="stat-change {{ 'up' if change >= 0 else 'down' }}">
+        {{ '▲' if change >= 0 else '▼' }} ₹{{ "{:,.0f}".format(change|abs) }} since previous
+      </span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>Net worth over time</h2>
+  <div id="chart"></div>
+</section>
+
+<section class="card">
+  <h2>Snapshots</h2>
+  <table class="snapshots">
+    <thead>
+      <tr><th>Statement date</th><th class="num">Net worth</th><th class="num">Holdings</th><th>Source</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in snapshots %}
+      <tr>
+        <td>{{ s.statement_date.strftime('%d %b %Y') }}</td>
+        <td class="num">₹{{ "{:,.0f}".format(s.total_value) }}</td>
+        <td class="num">{{ s.holding_count }}</td>
+        <td class="muted">{{ s.source_filename or '—' }}</td>
+        <td>
+          <form method="post" action="/snapshots/{{ s.id }}/delete"
+                onsubmit="return confirm('Delete this snapshot?');">
+            <button class="link-danger" type="submit">delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script src="/static/chart.js"></script>
+<script>
+  drawChart({{ chart | tojson }});
+</script>
+
+{% else %}
+<section class="empty">
+  <h1>No statements yet</h1>
+  <p>Upload your first NSDL CAS PDF to start tracking your net worth.</p>
+  <a href="/upload" class="btn btn-lg">Upload a CAS statement</a>
+</section>
+{% endif %}
+
+{% endblock %}

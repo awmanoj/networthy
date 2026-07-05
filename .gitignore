@@ -1,0 +1,32 @@
+# --- Sensitive: never commit statements or parsed financial data ---
+data/
+*.pdf
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Virtualenv ---
+.venv/
+venv/
+env/
+
+# --- Env / secrets ---
+.env
+.env.*
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store

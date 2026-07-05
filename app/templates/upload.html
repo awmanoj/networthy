@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Upload CAS · Networthy{% endblock %}
+{% block content %}
+
+<section class="card narrow">
+  <h1>Upload a CAS statement</h1>
+  <p class="muted">
+    Your NSDL CAS is a password-protected PDF. Both the file and its password
+    are used only to parse the total value — nothing is stored except the dated
+    net-worth figure.
+  </p>
+
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/upload" enctype="multipart/form-data">
+    <label>
+      CAS PDF
+      <input type="file" name="file" accept="application/pdf" required />
+    </label>
+    <label>
+      PDF password
+      <input type="password" name="password" placeholder="usually your PAN" />
+    </label>
+    <button class="btn btn-lg" type="submit">Parse &amp; save</button>
+  </form>
+</section>
+
+{% endblock %}
