@@ -118,17 +118,81 @@ form { display: inline; }
   font-size: 0.9rem;
 }
 
+.upload-progress { margin-top: 18px; }
+.up-bar {
+  height: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.up-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.15s ease;
+}
+.up-status { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+/* Parsing phase: upload is done (bar full), server is working — pulse it. */
+.upload-progress.parsing .up-fill { animation: up-pulse 1s ease-in-out infinite; }
+@keyframes up-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.results { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
+.results h2 { font-size: 1rem; color: var(--muted); font-weight: 600; margin: 0 0 12px; }
+.result-list { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.result-list li {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+.result-list li.ok { border-left: 3px solid var(--up); }
+.result-list li.fail { border-left: 3px solid var(--down); }
+.result-list .r-icon { font-weight: 700; line-height: 1.5; }
+.result-list li.ok .r-icon { color: var(--up); }
+.result-list li.fail .r-icon { color: var(--down); }
+.result-list .r-body { display: flex; flex-direction: column; gap: 2px; }
+.result-list .r-file { font-weight: 600; word-break: break-all; }
+.result-list .r-msg { color: var(--muted); }
+
 .empty { text-align: center; padding: 80px 20px; }
 .empty h1 { font-size: 1.6rem; }
 .empty p { color: var(--muted); margin-bottom: 24px; }
 
 /* Chart */
 #chart { width: 100%; }
+.chart-wrap { position: relative; }
 .c-line { fill: none; stroke: var(--accent); stroke-width: 2.5; }
 .c-area { fill: rgba(79, 140, 255, 0.12); stroke: none; }
 .c-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
 .c-xlabel { fill: var(--muted); font-size: 11px; text-anchor: middle; }
 .c-ylabel { fill: var(--muted); font-size: 11px; text-anchor: end; }
+.c-guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.c-focus { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.c-hit { cursor: crosshair; }
+
+/* Hover tooltip — light card with dark text for high readability on the
+   dark chart. Positioned above the focused point; centered via transform. */
+.c-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 12px));
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+}
+.c-tip-date { color: #6b7280; font-size: 0.72rem; }
+.c-tip-val { color: #0f1115; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 footer {
   text-align: center;

@@ -5,9 +5,10 @@
 <section class="card narrow">
   <h1>Upload a CAS statement</h1>
   <p class="muted">
-    Your NSDL CAS is a password-protected PDF. Both the file and its password
-    are used only to parse the total value — nothing is stored except the dated
-    net-worth figure.
+    Your NSDL CAS is a password-protected PDF. Select one or more — statements
+    for different periods all share the same password (your PAN). Files and
+    password are used only to parse each total; nothing is stored except the
+    dated net-worth figures.
   </p>
 
   {% if error %}
@@ -16,8 +17,8 @@
 
   <form method="post" action="/upload" enctype="multipart/form-data">
     <label>
-      CAS PDF
-      <input type="file" name="file" accept="application/pdf" required />
+      CAS PDFs (one or more)
+      <input type="file" name="files" accept="application/pdf" multiple required />
     </label>
     <label>
       PDF password
@@ -25,6 +26,99 @@
     </label>
     <button class="btn btn-lg" type="submit">Parse &amp; save</button>
   </form>
+
+  <div id="upload-progress" class="upload-progress" hidden>
+    <div class="up-bar"><div class="up-fill" id="up-fill"></div></div>
+    <p class="up-status" id="up-status">Preparing…</p>
+  </div>
+
+  {% if results %}
+  <div class="results">
+    <h2>Results</h2>
+    <ul class="result-list">
+      {% for r in results %}
+      <li class="{{ 'ok' if r.ok else 'fail' }}">
+        <span class="r-icon" aria-hidden="true">{{ '✓' if r.ok else '✕' }}</span>
+        <span class="r-body">
+          <span class="r-file">{{ r.filename }}</span>
+          <span class="r-msg">{{ r.message }}</span>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if saved %}
+    <a href="/" class="btn">View dashboard · {{ saved }} saved</a>
+    {% endif %}
+  </div>
+  {% endif %}
 </section>
+
+<script>
+// Progressive enhancement: submit via XHR so we can show upload progress and a
+// parsing state. If JS is off, the plain <form> POST above still works.
+(function () {
+  const form = document.querySelector('form[action="/upload"]');
+  if (!form || !window.XMLHttpRequest) return;
+
+  const btn = form.querySelector('button[type="submit"]');
+  const fileInput = form.querySelector('input[type="file"]');
+  const box = document.getElementById('upload-progress');
+  const fill = document.getElementById('up-fill');
+  const status = document.getElementById('up-status');
+
+  form.addEventListener('submit', function (e) {
+    // Let native "required" validation handle the empty case.
+    if (!fileInput.files || fileInput.files.length === 0) return;
+    e.preventDefault();
+
+    const n = fileInput.files.length;
+    const noun = n === 1 ? 'file' : 'files';
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    box.hidden = false;
+    box.classList.remove('parsing');
+    fill.style.width = '0%';
+    status.textContent = 'Starting upload…';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action, true);
+
+    xhr.upload.addEventListener('progress', function (ev) {
+      if (!ev.lengthComputable) return;
+      const pct = Math.round((ev.loaded / ev.total) * 100);
+      fill.style.width = pct + '%';
+      status.textContent = 'Uploading ' + n + ' ' + noun + ' — ' + pct + '%';
+    });
+
+    // Bytes are up; the server is now decrypting + parsing. Go indeterminate.
+    xhr.upload.addEventListener('load', function () {
+      fill.style.width = '100%';
+      box.classList.add('parsing');
+      btn.textContent = 'Parsing…';
+      status.textContent =
+        'Parsing ' + n + ' ' + (n === 1 ? 'statement…' : 'statements…');
+    });
+
+    // Response arrives (200 saved, or 400 all-failed) — either way it's the
+    // rendered results page. Swap it in; document.write re-runs this script so
+    // the next upload keeps the progress UI.
+    xhr.addEventListener('load', function () {
+      document.open();
+      document.write(xhr.responseText);
+      document.close();
+    });
+
+    xhr.addEventListener('error', function () {
+      box.classList.remove('parsing');
+      status.textContent = 'Upload failed — check the connection and try again.';
+      btn.disabled = false;
+      btn.textContent = 'Parse & save';
+    });
+
+    xhr.send(new FormData(form));
+  });
+})();
+</script>
 
 {% endblock %}
