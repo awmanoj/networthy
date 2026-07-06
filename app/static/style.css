@@ -73,6 +73,8 @@ main {
 }
 .card.narrow { max-width: 460px; margin: 40px auto; }
 .card h2 { margin: 0 0 16px; font-size: 1rem; color: var(--muted); font-weight: 600; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; }
+.card-head .link-danger { font-size: 0.85rem; }
 
 .summary { margin-bottom: 22px; }
 .stat { display: flex; flex-direction: column; gap: 4px; }

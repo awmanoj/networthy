@@ -112,3 +112,9 @@ async def upload(
 def delete(snapshot_id: int):
     storage.delete_snapshot(snapshot_id)
     return RedirectResponse(url="/", status_code=303)
+
+
+@app.post("/snapshots/delete-all")
+def delete_all():
+    storage.delete_all_snapshots()
+    return RedirectResponse(url="/", status_code=303)

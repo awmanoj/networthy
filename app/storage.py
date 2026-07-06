@@ -80,6 +80,12 @@ def delete_snapshot(snapshot_id: int) -> None:
         conn.execute("DELETE FROM snapshots WHERE id = ?", (snapshot_id,))
 
 
+def delete_all_snapshots() -> None:
+    """Remove every snapshot, returning the dashboard to its empty state."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM snapshots")
+
+
 def _row_to_snapshot(row: sqlite3.Row) -> Snapshot:
     return Snapshot(
         id=row["id"],

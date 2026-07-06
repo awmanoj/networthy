@@ -21,7 +21,13 @@
 </section>
 
 <section class="card">
-  <h2>Snapshots</h2>
+  <div class="card-head">
+    <h2>Snapshots</h2>
+    <form method="post" action="/snapshots/delete-all"
+          onsubmit="return confirm('Clear all {{ snapshots|length }} snapshot(s)? This can\'t be undone.');">
+      <button class="link-danger" type="submit">Clear all</button>
+    </form>
+  </div>
   <table class="snapshots">
     <thead>
       <tr><th>Statement date</th><th class="num">Net worth</th><th class="num">Holdings</th><th>Source</th><th></th></tr>
