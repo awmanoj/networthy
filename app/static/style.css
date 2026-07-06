@@ -1,13 +1,13 @@
 :root {
-  --bg: #0f1115;
-  --surface: #171a21;
-  --surface-2: #1e222b;
-  --border: #2a2f3a;
-  --text: #e6e9ef;
-  --muted: #8b93a3;
-  --accent: #4f8cff;
-  --up: #35c76a;
-  --down: #ff6b6b;
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e2e5ea;
+  --text: #1a1d24;
+  --muted: #6b7280;
+  --accent: #2f6bff;
+  --up: #12a150;
+  --down: #e5484d;
   --radius: 12px;
 }
 
@@ -39,6 +39,9 @@ body {
 .topbar nav { display: flex; gap: 20px; align-items: center; }
 .topbar nav a { color: var(--muted); text-decoration: none; }
 .topbar nav a:hover { color: var(--text); }
+/* The upload link is a .btn — keep its label white over the accent fill
+   (this selector must out-specify `.topbar nav a` above). */
+.topbar nav a.btn, .topbar nav a.btn:hover { color: #fff; }
 
 main {
   max-width: 860px;
@@ -109,9 +112,9 @@ form { display: inline; }
 }
 
 .alert {
-  background: rgba(255, 107, 107, 0.12);
+  background: rgba(229, 72, 77, 0.1);
   border: 1px solid var(--down);
-  color: #ffb3b3;
+  color: #b42318;
   padding: 12px 14px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -174,25 +177,25 @@ form { display: inline; }
 .c-focus { fill: var(--accent); stroke: #fff; stroke-width: 2; }
 .c-hit { cursor: crosshair; }
 
-/* Hover tooltip — light card with dark text for high readability on the
-   dark chart. Positioned above the focused point; centered via transform. */
+/* Hover tooltip — dark card with light text for high readability against the
+   light chart. Positioned above the focused point; centered via transform. */
 .c-tip {
   position: absolute;
   transform: translate(-50%, calc(-100% - 12px));
-  background: #ffffff;
+  background: #1a1d24;
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 0.82rem;
   line-height: 1.35;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 18px rgba(15, 17, 21, 0.18);
   display: flex;
   flex-direction: column;
   z-index: 5;
 }
-.c-tip-date { color: #6b7280; font-size: 0.72rem; }
-.c-tip-val { color: #0f1115; font-weight: 700; font-variant-numeric: tabular-nums; }
+.c-tip-date { color: #9aa1ad; font-size: 0.72rem; }
+.c-tip-val { color: #ffffff; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 footer {
   text-align: center;
