@@ -79,13 +79,76 @@ def send_login_code(email: str) -> None:
 
     mailer.send_email(
         to=email,
-        subject="Your Networthy login code",
-        html=(
-            f"<p>Your Networthy login code is:</p>"
-            f"<p style='font-size:24px;font-weight:700;letter-spacing:2px'>{code}</p>"
-            f"<p>It expires in 10 minutes. If you didn't request this, ignore it.</p>"
-        ),
+        subject=f"{code} is your Networthy login code",
+        html=_login_code_email_html(code),
     )
+
+
+def _login_code_email_html(code: str) -> str:
+    """A branded, client-robust HTML email for the login code.
+
+    Table-based layout with inline styles so it renders consistently across
+    email clients (Gmail, Outlook, Apple Mail), which strip <style>/external CSS.
+    """
+    minutes = int(CODE_TTL.total_seconds() // 60)
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f7f8fa;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="background:#f7f8fa;padding:32px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="max-width:440px;background:#ffffff;border:1px solid #e2e5ea;
+                        border-radius:12px;overflow:hidden;
+                        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <tr>
+              <td style="padding:24px 28px 8px;">
+                <div style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#1a1d24;">
+                  Networthy
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 28px 0;">
+                <p style="margin:0;font-size:15px;line-height:1.5;color:#1a1d24;">
+                  Use this code to sign in:
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 28px;">
+                <div style="background:#f0f2f5;border:1px solid #e2e5ea;border-radius:10px;
+                            padding:18px 0;text-align:center;">
+                  <span style="font-family:'SFMono-Regular',Menlo,Consolas,monospace;
+                               font-size:32px;font-weight:700;letter-spacing:8px;color:#1a1d24;">
+                    {code}
+                  </span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 28px 24px;">
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#6b7280;">
+                  This code expires in {minutes} minutes. If you didn't request it,
+                  you can safely ignore this email.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 28px;background:#f7f8fa;border-top:1px solid #e2e5ea;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#8b93a3;">
+                  Networthy · Your data is private to your account.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
 
 
 def verify_login_code(email: str, code: str) -> str | None:
