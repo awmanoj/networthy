@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Log in · Networthy{% endblock %}
+{% block content %}
+
+<section class="card narrow">
+  <h1 class="auth-title">Log in</h1>
+  <p class="muted auth-sub">Enter your email and we'll send you a one-time code.</p>
+  <form method="post" action="/login">
+    <label>
+      Email
+      <input type="email" name="email" placeholder="you@example.com" required autofocus />
+    </label>
+    <button class="btn btn-lg" type="submit">Send code</button>
+  </form>
+</section>
+
+{% endblock %}

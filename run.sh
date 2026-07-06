@@ -42,6 +42,11 @@ docker run -d \
   --name "${CONTAINER_NAME}" \
   --restart unless-stopped \
   -e "APP_PORT=${PORT}" \
+  -e "RESEND_API_KEY=${RESEND_API_KEY:-}" \
+  -e "EMAIL_FROM=${EMAIL_FROM:-}" \
+  -e "OWNER_EMAIL=${OWNER_EMAIL:-}" \
+  -e "APP_SECRET=${APP_SECRET:-}" \
+  -e "COOKIE_SECURE=${COOKIE_SECURE:-true}" \
   -p "${PORT}:${PORT}" \
   -v "${DATA_VOLUME}:/app/data" \
   "${REPO}:${TAG}"

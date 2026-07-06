@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
+
+
+@dataclass
+class User:
+    """An account. Identified solely by email (login is email + OTP)."""
+
+    email: str
+    id: int | None = None
+    created_at: datetime | None = None
 
 
 @dataclass
@@ -40,3 +49,4 @@ class Snapshot:
     holding_count: int
     source_filename: str | None = None
     id: int | None = None
+    user_id: int | None = None

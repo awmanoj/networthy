@@ -10,15 +10,21 @@
   <header class="topbar">
     <a class="brand" href="/">Networthy</a>
     <nav>
+      {% if user %}
       <a href="/">Dashboard</a>
       <a href="/upload" class="btn">Upload CAS</a>
+      <span class="user-email">{{ user.email }}</span>
+      <form method="post" action="/logout">
+        <button class="link-muted" type="submit">Log out</button>
+      </form>
+      {% endif %}
     </nav>
   </header>
   <main>
     {% block content %}{% endblock %}
   </main>
   <footer>
-    <span>Your statements never leave this machine.</span>
+    <span>Your data is private to your account. Statements are parsed on this server and never sent to third parties.</span>
   </footer>
 </body>
 </html>

@@ -44,9 +44,9 @@ USER appuser
 
 EXPOSE 8000
 
-# Basic liveness check against the app's root route (honors APP_PORT).
+# Basic liveness check against the health route (honors APP_PORT).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:%s/' % os.environ.get('APP_PORT','8000')).status==200 else 1)"
+    CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:%s/health' % os.environ.get('APP_PORT','8000')).status==200 else 1)"
 
 # Bind to APP_PORT (expanded at runtime); exec so uvicorn is PID 1 and receives
 # SIGTERM for graceful shutdown on `docker stop`.

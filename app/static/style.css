@@ -42,6 +42,16 @@ body {
 /* The upload link is a .btn — keep its label white over the accent fill
    (this selector must out-specify `.topbar nav a` above). */
 .topbar nav a.btn, .topbar nav a.btn:hover { color: #fff; }
+.topbar .user-email { color: var(--muted); font-size: 0.85rem; }
+.link-muted {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font: inherit; padding: 0;
+}
+.link-muted:hover { color: var(--text); text-decoration: underline; }
+
+.auth-title { margin: 0 0 6px; font-size: 1.5rem; }
+.auth-sub { margin: 0 0 18px; font-size: 0.9rem; }
+.card.narrow .auth-sub:last-child { margin: 16px 0 0; }
 
 main {
   max-width: 860px;

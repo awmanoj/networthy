@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Enter code · Networthy{% endblock %}
+{% block content %}
+
+<section class="card narrow">
+  <h1 class="auth-title">Enter your code</h1>
+  <p class="muted auth-sub">
+    We sent a 6-digit code to <strong>{{ email }}</strong>. It expires in 10 minutes.
+  </p>
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/verify">
+    <input type="hidden" name="email" value="{{ email }}" />
+    <label>
+      Code
+      <input type="text" name="code" inputmode="numeric" pattern="[0-9]*"
+             maxlength="6" placeholder="123456" required autofocus autocomplete="one-time-code" />
+    </label>
+    <button class="btn btn-lg" type="submit">Verify</button>
+  </form>
+  <p class="auth-sub"><a class="muted" href="/login">Use a different email</a></p>
+</section>
+
+{% endblock %}
