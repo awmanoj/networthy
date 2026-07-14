@@ -263,6 +263,26 @@ form { display: inline; }
 .alloc-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 .alloc-pct { font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
 
+.card.cta { text-align: center; padding: 32px 24px; }
+.card.cta h2 { color: var(--text); font-size: 1.15rem; margin-bottom: 10px; }
+.card.cta p { margin: 0 auto 8px; max-width: 520px; }
+.card.cta .btn { margin-top: 14px; }
+
+/* Button loading state (Refresh) */
+.btn.is-loading { opacity: 0.8; cursor: progress; }
+.btn.is-loading::before {
+  content: "";
+  display: inline-block;
+  width: 12px; height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
 .acct-head {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px; margin-bottom: 14px; flex-wrap: wrap;

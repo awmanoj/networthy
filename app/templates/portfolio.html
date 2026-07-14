@@ -15,12 +15,30 @@
   <div class="stat">
     <span class="stat-label">Portfolio · as of {{ latest.statement_date.strftime('%d %b %Y') }}</span>
     <span class="stat-value">₹{{ "{:,.0f}".format(latest.total_value) }}</span>
+    {% if accounts %}
     <span class="muted">{{ accounts|length }} account(s) · {{ latest.holding_count }} holding(s)</span>
+    {% endif %}
   </div>
-  <form method="get" action="/portfolio">
+  {% if accounts %}
+  <form method="get" action="/portfolio" class="refresh-form">
     <button class="btn" type="submit" title="Re-render from the latest statement">↻ Refresh</button>
   </form>
+  {% endif %}
 </section>
+
+{% if not accounts %}
+<section class="card cta">
+  <h2>No per-holding breakdown for this statement</h2>
+  <p>This snapshot has a total (₹{{ "{:,.0f}".format(latest.total_value) }}) but no stored
+     line items — it was uploaded before per-holding capture, or it was a
+     <em>summary</em> CAS.</p>
+  <p class="muted">Networthy never keeps your PDF, so there's nothing to re-parse on the
+     server. Re-upload the <strong>detailed</strong> CAS for
+     {{ latest.statement_date.strftime('%d %b %Y') }} to populate this view.</p>
+  <a href="/upload" class="btn btn-lg">Re-upload detailed CAS</a>
+</section>
+
+{% else %}
 
 {% if breakdown %}
 <section class="card">
@@ -85,5 +103,19 @@
 </section>
 {% endfor %}
 
+<script>
+  // Give the Refresh button immediate feedback: the re-render is fast, so without
+  // this the click looks like nothing happened.
+  document.querySelectorAll('.refresh-form').forEach(function (f) {
+    f.addEventListener('submit', function () {
+      var b = f.querySelector('button');
+      b.disabled = true;
+      b.classList.add('is-loading');
+      b.textContent = 'Refreshing…';
+    });
+  });
+</script>
+
+{% endif %}
 {% endif %}
 {% endblock %}
