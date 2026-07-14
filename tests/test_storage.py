@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 
 from app import storage
-from app.models import Snapshot
+from app.models import Account, Holding, Snapshot
 
 
 @pytest.fixture
@@ -74,6 +74,67 @@ def test_delete_is_scoped_to_owner(db):
 
     db.delete_snapshot(bob, bob_snap.id)
     assert db.list_snapshots(bob) == []
+
+
+def _accounts() -> list[Account]:
+    return [
+        Account(
+            kind="demat", name="ZERODHA", identifier="12081600 / 999", depository="NSDL",
+            holdings=[
+                Holding(name="INFOSYS", asset_class="direct_equity", isin="INE009A01021",
+                        units=100, price=1500.0, value=150000.0),
+                Holding(name="HDFC BANK", asset_class="direct_equity", isin="INE040A01034",
+                        units=50, price=1600.5, value=80025.0),
+            ],
+        ),
+        Account(
+            kind="mutual_fund", name="HDFC MF", identifier="1234567/89",
+            holdings=[
+                Holding(name="Balanced Adv", asset_class="mutual_fund",
+                        isin="INF179K01BE2", units=500.123, price=45.67, value=22842.11),
+            ],
+        ),
+    ]
+
+
+def test_holdings_round_trip_preserves_accounts_and_order(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    sid = db.upsert_snapshot(alice, _snap(1, 252867.11))
+    db.replace_holdings(sid, _accounts())
+
+    accounts = db.list_accounts(sid)
+    assert [a.name for a in accounts] == ["ZERODHA", "HDFC MF"]
+    demat = accounts[0]
+    assert demat.kind == "demat" and demat.depository == "NSDL"
+    assert [h.name for h in demat.holdings] == ["INFOSYS", "HDFC BANK"]  # order kept
+    assert demat.value == pytest.approx(230025.0)
+    assert accounts[1].holdings[0].asset_class == "mutual_fund"
+
+
+def test_replace_holdings_is_idempotent(db):
+    """Re-parsing a statement rebuilds its rows rather than accumulating them."""
+    alice = db.get_or_create_user("alice@example.com").id
+    sid = db.upsert_snapshot(alice, _snap(1, 100.0))
+    db.replace_holdings(sid, _accounts())
+    db.replace_holdings(sid, _accounts())  # upload the same file again
+    accounts = db.list_accounts(sid)
+    assert sum(len(a.holdings) for a in accounts) == 3
+
+
+def test_deleting_snapshot_cascades_to_holdings(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    sid = db.upsert_snapshot(alice, _snap(1, 100.0))
+    db.replace_holdings(sid, _accounts())
+    db.delete_snapshot(alice, sid)
+    assert db.list_accounts(sid) == []
+
+
+def test_latest_snapshot_returns_most_recent(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    db.upsert_snapshot(alice, _snap(1, 100.0))
+    db.upsert_snapshot(alice, _snap(5, 200.0))
+    assert db.latest_snapshot(alice).total_value == 200.0
+    assert db.latest_snapshot(db.get_or_create_user("bob@example.com").id) is None
 
 
 def test_get_or_create_user_is_idempotent_and_normalizes(db):

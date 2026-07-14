@@ -12,7 +12,16 @@ from fastapi.templating import Jinja2Templates
 
 from . import __version__, auth, storage
 from .auth import SESSION_COOKIE, SessionMiddleware
+from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cas
+
+
+def _class_label(asset_class: str) -> str:
+    """Human label for a stored asset-class value, tolerant of unknown values."""
+    try:
+        return LABELS[AssetClass(asset_class)]
+    except ValueError:
+        return asset_class or "Unclassified"
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -122,6 +131,47 @@ def dashboard(request: Request):
     )
 
 
+@app.get("/portfolio", response_class=HTMLResponse)
+def portfolio(request: Request):
+    """Detailed holdings view for the user's most recent statement.
+
+    Always renders live from the latest snapshot's stored holdings, so uploading
+    a newer detailed CAS updates it automatically; the Refresh button just
+    re-renders (a future performance-signal pass will recompute here).
+    """
+    user = request.state.user
+    latest = storage.latest_snapshot(user.id)
+    accounts = storage.list_accounts(latest.id) if latest else []
+
+    # Asset-class rollup across every account, for the coloured summary strip.
+    by_class: dict[str, float] = {}
+    for account in accounts:
+        for h in account.holdings:
+            by_class[h.asset_class] = by_class.get(h.asset_class, 0.0) + (h.value or 0.0)
+    total = sum(by_class.values())
+    breakdown = [
+        {
+            "asset_class": ac,
+            "label": _class_label(ac),
+            "value": val,
+            "pct": (val / total * 100) if total else 0.0,
+        }
+        for ac, val in sorted(by_class.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+    return templates.TemplateResponse(
+        "portfolio.html",
+        {
+            "request": request,
+            "user": user,
+            "latest": latest,
+            "accounts": accounts,
+            "breakdown": breakdown,
+            "class_label": _class_label,
+        },
+    )
+
+
 @app.get("/upload", response_class=HTMLResponse)
 def upload_form(request: Request):
     return templates.TemplateResponse(
@@ -151,7 +201,7 @@ async def upload(
             results.append({"filename": f.filename, "ok": False, "message": str(exc)})
             continue
 
-        storage.upsert_snapshot(
+        snapshot_id = storage.upsert_snapshot(
             user.id,
             storage.Snapshot(
                 statement_date=statement.statement_date,
@@ -160,6 +210,9 @@ async def upload(
                 source_filename=statement.source_filename,
             ),
         )
+        # Store the detailed per-holding breakdown alongside the snapshot so the
+        # portfolio view can explode it. Re-uploading a date rebuilds its rows.
+        storage.replace_holdings(snapshot_id, statement.accounts)
         saved += 1
         results.append(
             {

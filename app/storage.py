@@ -14,7 +14,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from .models import Snapshot, User
+from .models import Account, Holding, Snapshot, User
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DB_PATH = DATA_DIR / "networthy.db"
@@ -84,7 +84,32 @@ def init_db() -> None:
             )
             """
         )
+        # Created after the legacy migration below, which renames/recreates the
+        # snapshots table this FK points at — building holdings first would let
+        # SQLite rewrite the reference onto the dropped legacy table.
         _migrate_legacy_snapshots(conn)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS holdings (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                snapshot_id        INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+                account_kind       TEXT,
+                account_name       TEXT,
+                account_identifier TEXT,
+                depository         TEXT,
+                position           INTEGER NOT NULL DEFAULT 0,
+                isin               TEXT,
+                name               TEXT NOT NULL,
+                asset_class        TEXT,
+                units              REAL,
+                price              REAL,
+                value              REAL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_holdings_snapshot ON holdings(snapshot_id)"
+        )
 
 
 def _migrate_legacy_snapshots(conn: sqlite3.Connection) -> None:
@@ -231,11 +256,12 @@ def delete_session(token: str) -> None:
 
 # --- Snapshots (all user-scoped) --------------------------------------------
 
-def upsert_snapshot(user_id: int, snapshot: Snapshot) -> None:
+def upsert_snapshot(user_id: int, snapshot: Snapshot) -> int:
     """Insert a snapshot for a user, replacing any existing one for the same date.
 
     A given CAS date maps to exactly one net-worth figure per account, so
-    re-uploading the same statement overwrites rather than duplicates.
+    re-uploading the same statement overwrites rather than duplicates. Returns the
+    snapshot's row id (stable across an upsert) so holdings can be attached to it.
     """
     with _connect() as conn:
         conn.execute(
@@ -256,6 +282,103 @@ def upsert_snapshot(user_id: int, snapshot: Snapshot) -> None:
                 snapshot.source_filename,
             ),
         )
+        row = conn.execute(
+            "SELECT id FROM snapshots WHERE user_id = ? AND statement_date = ?",
+            (user_id, snapshot.statement_date.isoformat()),
+        ).fetchone()
+    return int(row["id"])
+
+
+def replace_holdings(snapshot_id: int, accounts: list[Account]) -> None:
+    """Replace all detailed holdings stored for a snapshot with a fresh set.
+
+    Re-parsing (or re-uploading) a statement rebuilds its holdings wholesale, so
+    we clear then re-insert rather than diff. Order within each account is
+    preserved via a `position` column so the UI renders rows as the CAS listed
+    them.
+    """
+    with _connect() as conn:
+        conn.execute("DELETE FROM holdings WHERE snapshot_id = ?", (snapshot_id,))
+        rows = []
+        for account in accounts:
+            for pos, h in enumerate(account.holdings):
+                rows.append(
+                    (
+                        snapshot_id,
+                        account.kind,
+                        account.name,
+                        account.identifier,
+                        account.depository,
+                        pos,
+                        h.isin,
+                        h.name,
+                        h.asset_class,
+                        h.units,
+                        h.price,
+                        h.value,
+                    )
+                )
+        if rows:
+            conn.executemany(
+                """
+                INSERT INTO holdings
+                    (snapshot_id, account_kind, account_name, account_identifier,
+                     depository, position, isin, name, asset_class, units, price, value)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
+
+def list_accounts(snapshot_id: int) -> list[Account]:
+    """Reconstruct the grouped Account/Holding tree stored for a snapshot."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM holdings WHERE snapshot_id = ?
+            ORDER BY id ASC, position ASC
+            """,
+            (snapshot_id,),
+        ).fetchall()
+
+    accounts: list[Account] = []
+    by_key: dict[tuple, Account] = {}
+    for r in rows:
+        key = (r["account_kind"], r["account_name"], r["account_identifier"])
+        account = by_key.get(key)
+        if account is None:
+            account = Account(
+                kind=r["account_kind"],
+                name=r["account_name"],
+                identifier=r["account_identifier"],
+                depository=r["depository"],
+            )
+            by_key[key] = account
+            accounts.append(account)
+        account.holdings.append(
+            Holding(
+                name=r["name"],
+                asset_class=r["asset_class"],
+                isin=r["isin"],
+                units=r["units"],
+                price=r["price"],
+                value=r["value"],
+            )
+        )
+    return accounts
+
+
+def latest_snapshot(user_id: int) -> Snapshot | None:
+    """The user's most recent snapshot by statement date, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM snapshots WHERE user_id = ?
+            ORDER BY statement_date DESC LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+    return _row_to_snapshot(row) if row else None
 
 
 def list_snapshots(user_id: int) -> list[Snapshot]:

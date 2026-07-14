@@ -35,28 +35,41 @@ There is no linter/formatter configured.
 The core data flow is one pipeline, worth understanding before touching any piece:
 
 ```
-upload PDF(s)  →  parse_cas()  →  Snapshot  →  SQLite (data/networthy.db)  →  dashboard chart
+upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite  →  dashboard chart + /portfolio
 ```
 
 - **`app/main.py`** — FastAPI routes. `POST /upload` takes N files + one shared password
   (the PAN — all of a person's CAS PDFs use the same one) and parses each independently:
-  one bad file doesn't sink the batch (200 if any saved, 400 only if all fail). Delete routes:
-  per-row `POST /snapshots/{id}/delete` and `POST /snapshots/delete-all`.
+  one bad file doesn't sink the batch (200 if any saved, 400 only if all fail). It stores both
+  the `Snapshot` and its detailed per-holding rows (`replace_holdings`). Delete routes:
+  per-row `POST /snapshots/{id}/delete` and `POST /snapshots/delete-all`. `GET /portfolio`
+  renders the latest snapshot's holdings grouped by account (colour-coded by asset class);
+  its Refresh button just re-renders — a future performance-signal pass will recompute there.
 
 - **`app/parser/nsdl_cas.py`** — the fragile core. `parse_cas()` = pikepdf decrypt →
-  pdfplumber text extraction → regex to pull `statement_date` and `total_value`. Raises
-  `CASParseError` on wrong password or unrecognizable layout. Holding-level extraction is a
-  stub; only the total + a holding count are stored today. CAS layouts vary by issuer/period,
-  so the extraction regexes are the thing most likely to need hardening against real statements.
+  pdfplumber text extraction → regex to pull `statement_date` and `total_value`, plus
+  `_find_accounts()` for the detailed breakdown. Raises `CASParseError` on wrong password or
+  unrecognizable layout. `_find_accounts` is section-aware and **ISIN-anchored**: it walks text
+  lines, tracks the current section/account, treats any ISIN-bearing line as a holding, takes
+  the text beside the ISIN as the name and the trailing numbers positionally as (units, price,
+  value). Column order varies by issuer/period, so this is the thing most likely to need
+  hardening against real statements — it was built to the known NSDL *detailed* layout and
+  covered by representative-text snippet tests, not yet validated on a real PDF. Note: holding
+  numeric tokens use `_HOLDING_NUM_RE` (3–4 decimals for NAV/units), not the 2-decimal
+  `_AMOUNT_RE` used for money totals. A *summary* CAS has no per-holding rows to explode.
 
 - **`app/storage.py`** — SQLite persistence. `upsert_snapshot()` keys on `statement_date`, so
   **re-uploading a statement for the same date replaces the existing snapshot** rather than
-  duplicating. `list_snapshots()` returns oldest-first (chart-ready); the dashboard reverses
-  for the newest-first table.
+  duplicating; it returns the row id so `replace_holdings()` can attach the detailed rows. The
+  `holdings` table cascades on snapshot delete and preserves CAS order via a `position` column;
+  `list_accounts()` reassembles the Account→Holding tree. `list_snapshots()` returns oldest-first
+  (chart-ready); the dashboard reverses for the newest-first table. Note: the `holdings` table is
+  created *after* the legacy migration in `init_db`, so its FK isn't rewritten onto the dropped
+  legacy snapshots table.
 
 - **`app/classify.py`** — a layered, config-driven asset-class rule engine (section context >
-  ISIN prefix > description keywords > manual override). **Not yet wired into the parse/storage
-  flow** — it's exercised by tests and staged for when holding-level breakdown lands. The
+  ISIN prefix > description keywords > manual override), **wired into `_find_accounts`** so each
+  stored holding carries an `asset_class`. The
   deliberate trap it guards: corporate bonds/NCDs share the `INE` prefix with equity, so ISIN
   alone can't separate them — description keywords must.
 

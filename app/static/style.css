@@ -209,6 +209,86 @@ form { display: inline; }
 .c-tip-date { color: #9aa1ad; font-size: 0.72rem; }
 .c-tip-val { color: #ffffff; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+/* Portfolio view */
+.pf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+/* Asset-class palette — one hue per class, reused by dots, bar segments and
+   badges via the ac-<class> modifier. */
+.ac-direct_equity { --ac: #2f6bff; }
+.ac-mutual_fund   { --ac: #12a150; }
+.ac-etf           { --ac: #0ea5b7; }
+.ac-debt          { --ac: #f59e0b; }
+.ac-govt_security { --ac: #8b6f47; }
+.ac-gold          { --ac: #d4a017; }
+.ac-nps           { --ac: #7c3aed; }
+.ac-ppf           { --ac: #6366f1; }
+.ac-epf           { --ac: #4f46e5; }
+.ac-private_equity{ --ac: #db2777; }
+.ac-real_estate   { --ac: #b45309; }
+.ac-cash          { --ac: #64748b; }
+.ac-other         { --ac: #9aa1ad; }
+[class*="ac-"]:not([style*="--ac"]) { --ac: #9aa1ad; }
+
+.dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--ac, #9aa1ad);
+  margin-right: 8px;
+  vertical-align: middle;
+  flex: none;
+}
+
+.alloc-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+  margin-bottom: 16px;
+}
+.alloc-seg { background: var(--ac, #9aa1ad); min-width: 2px; }
+.alloc-legend {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 20px;
+}
+.alloc-legend li { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.alloc-name { flex: 1; }
+.alloc-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+.alloc-pct { font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+
+.acct-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.acct-badge {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.03em; padding: 2px 8px; border-radius: 6px;
+  color: #fff; margin-right: 8px;
+}
+.kind-demat { background: #2f6bff; }
+.kind-mutual_fund { background: #12a150; }
+.kind-nps { background: #7c3aed; }
+.acct-name { font-weight: 600; }
+.acct-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+table.holdings { width: 100%; border-collapse: collapse; }
+table.holdings th, table.holdings td {
+  padding: 9px 8px; text-align: left;
+  border-bottom: 1px solid var(--border); font-size: 0.9rem;
+}
+table.holdings th { color: var(--muted); font-weight: 600; }
+table.holdings .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.holdings tbody tr:last-child td { border-bottom: none; }
+.h-name { font-weight: 500; }
+.h-isin { display: inline-block; margin-left: 8px; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+
 footer {
   text-align: center;
   padding: 24px;

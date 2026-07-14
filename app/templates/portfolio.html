@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Portfolio · Networthy{% endblock %}
+{% block content %}
+
+{% if not latest %}
+<section class="empty">
+  <h1>No holdings yet</h1>
+  <p>Upload a <strong>detailed</strong> NSDL CAS PDF to see your accounts and every
+     holding broken out here.</p>
+  <a href="/upload" class="btn btn-lg">Upload a CAS statement</a>
+</section>
+{% else %}
+
+<section class="pf-head">
+  <div class="stat">
+    <span class="stat-label">Portfolio · as of {{ latest.statement_date.strftime('%d %b %Y') }}</span>
+    <span class="stat-value">₹{{ "{:,.0f}".format(latest.total_value) }}</span>
+    <span class="muted">{{ accounts|length }} account(s) · {{ latest.holding_count }} holding(s)</span>
+  </div>
+  <form method="get" action="/portfolio">
+    <button class="btn" type="submit" title="Re-render from the latest statement">↻ Refresh</button>
+  </form>
+</section>
+
+{% if breakdown %}
+<section class="card">
+  <h2>Asset allocation</h2>
+  <div class="alloc-bar">
+    {% for b in breakdown %}
+    <span class="alloc-seg ac-{{ b.asset_class }}"
+          style="width: {{ '%.2f'|format(b.pct) }}%"
+          title="{{ b.label }} · ₹{{ '{:,.0f}'.format(b.value) }} ({{ '%.1f'|format(b.pct) }}%)"></span>
+    {% endfor %}
+  </div>
+  <ul class="alloc-legend">
+    {% for b in breakdown %}
+    <li>
+      <span class="dot ac-{{ b.asset_class }}"></span>
+      <span class="alloc-name">{{ b.label }}</span>
+      <span class="alloc-val">₹{{ "{:,.0f}".format(b.value) }}</span>
+      <span class="alloc-pct muted">{{ "%.1f"|format(b.pct) }}%</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% for account in accounts %}
+<section class="card acct">
+  <div class="acct-head">
+    <div>
+      <span class="acct-badge kind-{{ account.kind }}">
+        {{ {'demat': 'Demat', 'mutual_fund': 'Mutual Fund', 'nps': 'NPS'}.get(account.kind, account.kind) }}
+      </span>
+      <span class="acct-name">{{ account.name }}</span>
+      {% if account.depository %}<span class="muted">· {{ account.depository }}</span>{% endif %}
+      {% if account.identifier %}<span class="muted">· {{ account.identifier }}</span>{% endif %}
+    </div>
+    <span class="acct-total">₹{{ "{:,.0f}".format(account.value) }}</span>
+  </div>
+  <table class="holdings">
+    <thead>
+      <tr>
+        <th>Holding</th>
+        <th class="num">Units</th>
+        <th class="num">Price / NAV</th>
+        <th class="num">Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in account.holdings %}
+      <tr>
+        <td>
+          <span class="dot ac-{{ h.asset_class }}" title="{{ class_label(h.asset_class) }}"></span>
+          <span class="h-name">{{ h.name }}</span>
+          {% if h.isin %}<span class="h-isin muted">{{ h.isin }}</span>{% endif %}
+        </td>
+        <td class="num">{{ "{:,.3f}".format(h.units).rstrip('0').rstrip('.') if h.units is not none else '—' }}</td>
+        <td class="num">{{ "₹{:,.2f}".format(h.price) if h.price is not none else '—' }}</td>
+        <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+
+{% endif %}
+{% endblock %}
