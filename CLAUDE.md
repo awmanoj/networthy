@@ -76,6 +76,18 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 - **`app/models.py`** — dataclasses shared across layers: `Holding`, `ParsedStatement` (parser
   output), `Snapshot` (stored row).
 
+- **`app/wealth.py`** — the "Where do you stand?" feature (`GET /standing`). Static net-worth
+  distribution data (adults per band for India/Indonesia/Singapore/USA/World, from
+  `wealth_distribution.xlsx` — UBS/Knight Frank/Forbes) plus `rank_net_worth()`, which places a
+  net worth within each geography by **piecewise power-law (Pareto) interpolation** between the
+  known band edges (log-log linear between anchors; extrapolate the nearest segment's slope
+  beyond the ends; clamp head-count to [top-band size, adult population]). This is the canonical,
+  tested source. `client_dataset()` ships the raw constants to `static/standing.js`, which
+  **re-implements the same algorithm** for live client-side ranking (verified identical to the
+  Python) — so the interactive page never sends what a visitor types anywhere. Keep the two in
+  sync if either changes; `test_wealth.py` pins the contract (band sums, monotonicity, anchor
+  reproduction, the India-vs-USA contrast).
+
 ## Testing approach
 
 Tests target the fragile logic directly, without needing a real password-protected PDF:
