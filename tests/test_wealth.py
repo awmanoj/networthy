@@ -13,6 +13,7 @@ import pytest
 from app.wealth import (
     BAND_COUNTS,
     BAND_EDGES_CR,
+    BASE_FLOOR,
     CRORE,
     GEO_META,
     GEO_ORDER,
@@ -86,12 +87,30 @@ def test_zero_and_negative_place_at_the_bottom():
         assert p.band_index == 0
 
 
-def test_head_count_clamped_to_population():
-    # A tiny positive net worth extrapolates below the lowest anchor but can
-    # never imply more adults than exist.
-    p = place_one(1000, "singapore")  # Rs 1,000
-    assert p.rank <= p.adults
-    assert p.top_pct <= 100.0
+def test_at_or_below_floor_is_whole_population():
+    # At/below the base floor we treat essentially everyone as at-or-above.
+    for nw in (BASE_FLOOR, BASE_FLOOR / 2, 1000):
+        p = place_one(nw, "singapore")
+        assert p.rank == pytest.approx(p.adults)
+        assert p.top_pct == pytest.approx(100.0)
+
+
+def test_base_band_is_bounded_and_monotonic():
+    # Below Rs 1 cr the estimate stays within [Rs 1 cr-club size, population] and
+    # never saturates the whole population prematurely (the bug the fix addresses).
+    club = float(sum(BAND_COUNTS["india"][1:]))  # adults with >= Rs 1 cr
+    pop = GEO_META["india"]["adults"]
+    p5 = place_one(5_00_000, "india")   # Rs 5 lakh
+    assert club < p5.rank < pop         # strictly inside — not clamped to pop
+    assert 0 < p5.top_pct < 100
+    # More money within the base band -> fewer people above.
+    assert place_one(50_00_000, "india").rank < p5.rank
+
+
+def test_base_band_is_continuous_at_one_crore():
+    # The base interpolation meets the tail exactly at the Rs 1 cr anchor.
+    p = place_one(CRORE, "india")
+    assert p.rank == pytest.approx(sum(BAND_COUNTS["india"][1:]), rel=1e-9)
 
 
 def test_extreme_wealth_tops_the_geography():

@@ -31,6 +31,12 @@ FX_INR_PER_USD = 96.5  # RBI reference rate used for the USD band equivalents
 # Playful default when the visitor has no snapshot to pre-fill from (₹5 crore).
 DEFAULT_NET_WORTH = 5 * CRORE
 
+# Below ₹1 cr the workbook gives no sub-band structure (band 0 is just "everyone
+# else"), so placement there is a rough interpolation down to this floor, at which
+# we treat essentially the whole adult population as at-or-above. Kept in sync with
+# the slider minimum in standing.js.
+BASE_FLOOR = 100_000  # ₹1 lakh
+
 # Display order for the geographies (India first — the primary audience).
 GEO_ORDER = ["india", "indonesia", "singapore", "usa", "world"]
 
@@ -137,12 +143,19 @@ def _head_count(net_worth: float, anchors: list[tuple[float, float]], pop: int) 
     lo_w, _ = anchors[0]
     hi_w, hi_n = anchors[-1]
 
-    if net_worth <= lo_w:
-        # Below the lowest anchor: extend the first segment's slope downward,
-        # capping at the whole adult population.
-        (w1, n1), (w2, n2) = anchors[0], anchors[1]
-        n = n1 * (net_worth / w1) ** (-_alpha(w1, n1, w2, n2))
-        return min(float(pop), n)
+    if net_worth <= BASE_FLOOR:
+        return float(pop)  # at/below the floor, treat as the whole base
+
+    if net_worth < lo_w:
+        # Below the lowest data anchor (< Rs 1 cr) the source doesn't model the
+        # distribution, so instead of extrapolating the steep tail slope (which
+        # overshoots and saturates the whole population), interpolate log-log
+        # between two real endpoints: (BASE_FLOOR -> everyone) and the Rs 1 cr
+        # anchor. This stays bounded in [anchor, pop] and monotonic. It is only a
+        # rough base estimate — see BASE_FLOOR — and the UI flags it as such.
+        return float(pop) * (net_worth / BASE_FLOOR) ** (
+            -_alpha(BASE_FLOOR, float(pop), lo_w, anchors[0][1])
+        )
 
     if net_worth >= hi_w:
         # Above the top anchor: extend the last segment's slope upward.

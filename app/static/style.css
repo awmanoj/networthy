@@ -346,7 +346,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 
 .country-rows { display: flex; flex-direction: column; gap: 2px; }
 .crow {
-  display: grid; grid-template-columns: 150px 1fr 172px;
+  display: grid; grid-template-columns: 148px 1fr 190px;
   align-items: center; gap: 14px; width: 100%;
 }
 .crow-btn {
@@ -383,7 +383,8 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .crow-stat { text-align: right; display: flex; flex-direction: column; gap: 1px; }
 .top-pct { font-weight: 700; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
 .crow.is-top .top-pct { color: var(--accent); }
-.one-in { font-size: 0.78rem; }
+.above { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.one-in { font-size: 0.76rem; }
 
 /* Shared log-percentile scale header, aligned to the track column. */
 .scale-row { align-items: end; margin-bottom: 4px; padding: 0 8px; }
@@ -405,6 +406,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
   border-radius: 10px; font-size: 0.95rem;
 }
 .fun-fact strong { color: var(--accent); }
+.stand-note { margin: 12px 0 0; font-size: 0.8rem; }
 
 /* Wealth pyramid */
 .pyramid-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -442,7 +444,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 
 @media (max-width: 640px) {
   .crow { grid-template-columns: 1fr; gap: 6px; }
-  .crow-stat { text-align: left; flex-direction: row; gap: 10px; align-items: baseline; }
+  .crow-stat { text-align: left; flex-flow: row wrap; gap: 4px 12px; align-items: baseline; }
   .scale-row { display: none; }
   .pyr-row { grid-template-columns: 1fr; gap: 4px; }
   .pyr-bar { justify-self: start; }

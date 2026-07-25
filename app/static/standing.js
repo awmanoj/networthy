@@ -33,14 +33,19 @@
     return -Math.log(n2 / n1) / Math.log(w2 / w1);
   }
 
+  var BASE_FLOOR = 1e5; // ₹1 lakh — mirrors wealth.BASE_FLOOR (also the slider min)
+
   function headCount(inr, anc, pop) {
     if (inr <= 0) return pop;
     var loW = anc[0][0];
     var hiW = anc[anc.length - 1][0];
     var hiN = anc[anc.length - 1][1];
-    if (inr <= loW) {
-      var a0 = alpha(anc[0][0], anc[0][1], anc[1][0], anc[1][1]);
-      return Math.min(pop, anc[0][1] * Math.pow(inr / anc[0][0], -a0));
+    if (inr <= BASE_FLOOR) return pop;
+    if (inr < loW) {
+      // Below ₹1 cr the source has no sub-band detail: interpolate log-log
+      // between (BASE_FLOOR -> everyone) and the ₹1 cr anchor. Bounded, monotonic,
+      // and flagged as approximate in the UI. (Mirrors app/wealth.py.)
+      return pop * Math.pow(inr / BASE_FLOOR, -alpha(BASE_FLOOR, pop, loW, anc[0][1]));
     }
     if (inr >= hiW) {
       var n = anc.length;
@@ -167,6 +172,7 @@
         "</span>" +
         '<span class="crow-stat">' +
         '<span class="top-pct"></span>' +
+        '<span class="above"></span>' +
         '<span class="one-in muted"></span>' +
         "</span>";
       row.addEventListener("click", function () {
@@ -194,9 +200,20 @@
       row.querySelector(".track-marker").style.left = pos + "%";
       row.querySelector(".top-pct").textContent = "Top " + fmtPct(p.topPct) + "%";
 
+      // Absolute head-count above this net worth — "Only N people richer".
+      // "Only" is reserved for genuinely exclusive amounts (top < 5%), where the
+      // small number is the point; below that it would read oddly on a huge count.
+      var above = row.querySelector(".above");
+      if (p.rank < 1) {
+        above.textContent = "almost no one is richer";
+      } else {
+        var prefix = p.topPct < 5 ? "Only " : "";
+        above.textContent = prefix + humanIN(p.rank) + " people richer";
+      }
+
       var sub;
       if (p.rank < 1) {
-        sub = "richer than almost everyone";
+        sub = "you'd be at the very top";
       } else {
         sub = "1 in " + humanIN(p.oneIn) + " adults";
       }
@@ -341,6 +358,8 @@
     document.getElementById("lead-amount").textContent = fmtINR(inr);
     if (source !== "input") syncInputField(inr);
     if (source !== "slider") slider.value = inrToSlider(inr);
+    // Sub-₹1 cr placement is a rough base estimate — say so.
+    document.getElementById("base-note").hidden = inr >= CRORE;
     renderRows(inr);
     renderPyramid(inr);
   }
