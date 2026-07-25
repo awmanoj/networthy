@@ -9,15 +9,17 @@ top bands as order-of-magnitude.
 `rank_net_worth()` places a net worth within each geography. The band table is
 coarse (11 bands), so between the known band edges we interpolate with a piecewise
 power law (Pareto): the wealth tail follows N(>=w) = N0 * (w/w0)^(-alpha), so the
-head-count is log-log linear between adjacent anchors. Below the lowest / above the
-highest anchor we extrapolate with the nearest segment's slope, clamping the
-head-count to [top-band size, adult population]. This mirrors how the workbook itself
-built the bands, and keeps the placement smooth and monotonic instead of jumping at
+head-count is log-log linear between adjacent anchors. Above the highest anchor we
+extrapolate with the last segment's slope. Below the lowest anchor (< ₹1 cr) the
+workbook has no sub-band detail, so we interpolate log-log down to a floor at which
+essentially the whole adult population is at-or-above (see ``BASE_FLOOR``) — bounded
+and monotonic, and flagged as approximate in the UI. This mirrors how the workbook
+itself built the bands, and keeps the placement smooth instead of jumping at
 band boundaries.
 
 The web layer computes placements client-side too (see static/standing.js) for live
 interactivity via the same algorithm and constants; this module is the canonical,
-tested reference and backs the /api/standing endpoint.
+tested reference.
 """
 
 from __future__ import annotations
