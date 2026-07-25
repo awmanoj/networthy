@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, storage
+from . import __version__, auth, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cas
@@ -168,6 +168,29 @@ def portfolio(request: Request):
             "accounts": accounts,
             "breakdown": breakdown,
             "class_label": _class_label,
+        },
+    )
+
+
+@app.get("/standing", response_class=HTMLResponse)
+def standing(request: Request):
+    """The "Where do you stand?" explorer — rank a net worth across geographies.
+
+    Pre-fills with the user's own latest net worth if they have a snapshot, else a
+    playful default, and hands the first placement to the template so the page has
+    something on screen before the interactive JS takes over.
+    """
+    user = request.state.user
+    latest = storage.latest_snapshot(user.id)
+    default_nw = latest.total_value if latest else wealth.DEFAULT_NET_WORTH
+    return templates.TemplateResponse(
+        "standing.html",
+        {
+            "request": request,
+            "user": user,
+            "my_net_worth": latest.total_value if latest else None,
+            "default_net_worth": default_nw,
+            "dataset": wealth.client_dataset(),
         },
     )
 
