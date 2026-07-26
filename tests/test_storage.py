@@ -183,6 +183,22 @@ def test_latest_holdings_by_class_reads_from_latest_snapshot(db):
     assert db.latest_holdings_by_class(alice, {"gold"}) == []
 
 
+def test_latest_holdings_by_class_skips_value_less_rows(db):
+    # Blank ISIN rows a prior parse may have stored (value=None) are hidden.
+    alice = db.get_or_create_user("alice@example.com").id
+    sid = db.upsert_snapshot(alice, _snap(1, 100.0))
+    db.replace_holdings(sid, [
+        Account(kind="mutual_fund", name="HDFC MF", holdings=[
+            Holding(name="Real Fund", asset_class="mutual_fund", isin="INF1",
+                    units=10, price=10.0, value=100.0),
+            Holding(name="Blank Row", asset_class="mutual_fund", isin="INF2",
+                    units=None, price=None, value=None),
+        ]),
+    ])
+    mfs = db.latest_holdings_by_class(alice, {"mutual_fund"})
+    assert [h["name"] for h in mfs] == ["Real Fund"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

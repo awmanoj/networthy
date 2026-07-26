@@ -97,6 +97,15 @@ def test_parse_holding_line_no_isin_is_skipped():
     assert _parse_holding_line("Opening Balance carried forward", Section.DEMAT) is None
 
 
+def test_parse_holding_line_without_amounts_is_skipped():
+    # Interim hardening: an ISIN line carrying no amount (values wrapped to the
+    # next text line, or a bare "ISIN :" label) is dropped, not emitted blank.
+    assert _parse_holding_line(
+        "INF179K01BE2 HDFC Balanced Advantage Fund - Growth", Section.MUTUAL_FUND
+    ) is None
+    assert _parse_holding_line("ISIN : INE009A01021", Section.DEMAT) is None
+
+
 _SAMPLE_CAS = """\
 Consolidated Account Statement as on 30-Jun-2024
 Consolidated Portfolio Value 12,34,567.89

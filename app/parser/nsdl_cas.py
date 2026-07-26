@@ -290,6 +290,16 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
     elif len(numbers) == 1:
         value = numbers[0]
 
+    # Interim hardening (HACK): drop an ISIN line that carries no amount at all.
+    # In a real CAS these are usually a row whose values *wrapped* onto the next
+    # text line, or a bare "ISIN :" label line — surfacing them as blank holdings
+    # (no units/NAV/value) is just noise, and since they have no value they add
+    # nothing to any total, so dropping them is loss-free for sums. The proper fix
+    # is to merge wrapped rows (read the values off the adjacent line); until this
+    # parser is validated against real PDFs, we skip instead.
+    if value is None:
+        return None
+
     asset_class = classify(section=section, isin=isin, description=name)
     return Holding(
         name=_clean_name(name),

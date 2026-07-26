@@ -521,7 +521,10 @@ def latest_holdings_by_class(user_id: int, asset_classes: set[str]) -> list[dict
             "as_of_date": as_of,
         }
         for r in rows
-        if r["asset_class"] in asset_classes
+        # Skip value-less rows (blank ISIN lines a prior parse stored) so they
+        # don't clutter the Networth page for statements uploaded before the
+        # parser started dropping them. They contribute nothing to totals anyway.
+        if r["asset_class"] in asset_classes and r["value"] is not None
     ]
 
 
