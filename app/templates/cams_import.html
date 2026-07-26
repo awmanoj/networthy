@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Import from CAMS · Networth{% endblock %}
+{% block content %}
+
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/networth">Networth</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">Import from CAMS</span>
+</nav>
+
+<section class="nw-page-head">
+  <h1>Import mutual funds from CAMS</h1>
+  <p class="muted">
+    A CAMS statement lists every mutual-fund folio across all AMCs. Upload it to fill
+    in your <strong>Mutual Funds</strong> page — and any gold/silver funds are routed to
+    <strong>Gold &amp; Silver</strong> — with scheme, units, NAV and current value.
+  </p>
+</section>
+
+{% if result %}
+<section class="card">
+  <div class="results" style="margin-top:0;border-top:none;padding-top:0;">
+    <h2>Imported</h2>
+    <ul class="result-list">
+      <li class="ok">
+        <span class="r-icon" aria-hidden="true">✓</span>
+        <span class="r-body">
+          <span class="r-file">
+            {{ result.count }} holding{{ '' if result.count == 1 else 's' }}
+            · ₹{{ "{:,.0f}".format(result.total) }}
+            {% if result.as_of %}· as of {{ result.as_of }}{% endif %}
+          </span>
+          <span class="r-msg">
+            {{ result.mutual_funds }} mutual fund{{ '' if result.mutual_funds == 1 else 's' }}
+            {% if result.precious %}· {{ result.precious }} gold/silver fund{{ '' if result.precious == 1 else 's' }}{% endif %}
+          </span>
+        </span>
+      </li>
+    </ul>
+    <a href="/networth/assets/financial-assets/mutual-funds" class="btn">View Mutual Funds →</a>
+    {% if result.precious %}
+    <a href="/networth/assets/financial-assets/gold-silver" class="btn" style="margin-left:8px;">View Gold &amp; Silver →</a>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card narrow" style="margin-top:22px;">
+  <h2 style="color:var(--text);font-size:1.05rem;">Upload your CAMS statement</h2>
+
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/networth/import/cams" enctype="multipart/form-data">
+    <label>
+      CAMS CAS PDF
+      <input type="file" name="file" accept="application/pdf" required />
+    </label>
+    <label>
+      PDF password
+      <input type="password" name="password" placeholder="usually your PAN (CAPITALS)" />
+    </label>
+    <button class="btn btn-lg" type="submit">Import</button>
+  </form>
+  <p class="auth-sub muted" style="margin-top:14px;">
+    The password is used only to decrypt the PDF in memory — it is never stored.
+  </p>
+</section>
+
+<section class="card">
+  <h2>How to generate a CAMS statement</h2>
+  <ol class="steps">
+    <li>
+      Go to <strong>MF Central</strong> (mfcentral.com) or <strong>CAMS</strong>
+      (camsonline.com) → <em>Statements → Consolidated Account Statement (CAS) —
+      CAMS + KFintech</em>.
+    </li>
+    <li>
+      Enter your <strong>PAN</strong> and <strong>registered email</strong>, pick the
+      period (choose <em>Since Inception</em> for everything, or a date range) and the
+      <strong>Detailed</strong> statement, then submit.
+    </li>
+    <li>
+      Verify with the <strong>OTP</strong> sent to your registered email/mobile, and
+      set or note the <strong>password</strong> for the PDF (often your PAN in CAPITALS).
+    </li>
+    <li>
+      Within a few minutes a <strong>password-protected PDF</strong> arrives in your
+      email.
+    </li>
+    <li>Come back here and upload it above with that password.</li>
+  </ol>
+  <p class="muted" style="font-size:0.85rem;margin:12px 0 0;">
+    Note: a CAMS statement covers mutual funds only. Direct stocks, bonds and SGBs come
+    from your NSDL CAS (via <a href="/upload">Upload CAS</a>).
+  </p>
+</section>
+
+{% endblock %}

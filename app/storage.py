@@ -110,6 +110,33 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_holdings_snapshot ON holdings(snapshot_id)"
         )
+        # Imported holdings that populate the Networth breakdown pages (e.g. a CAMS
+        # mutual-fund CAS). Kept separate from `snapshots`/`holdings` on purpose: a
+        # snapshot is *total* net worth and drives the dashboard chart, whereas a
+        # CAMS import is mutual-fund-only and must never land on that timeline.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS networth_holdings (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                source      TEXT NOT NULL,        -- 'cams'
+                as_of_date  TEXT,
+                asset_class TEXT,
+                name        TEXT NOT NULL,
+                isin        TEXT,
+                folio       TEXT,
+                units       REAL,
+                price       REAL,
+                value       REAL,
+                position    INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_networth_user "
+            "ON networth_holdings(user_id, asset_class)"
+        )
 
 
 def _migrate_legacy_snapshots(conn: sqlite3.Connection) -> None:
@@ -405,6 +432,107 @@ def delete_all_snapshots(user_id: int) -> None:
         conn.execute("DELETE FROM snapshots WHERE user_id = ?", (user_id,))
 
 
+# --- Networth breakdown holdings (imports, e.g. CAMS) -----------------------
+
+def replace_networth_import(
+    user_id: int,
+    source: str,
+    as_of_date: date | None,
+    holdings: list[Holding],
+) -> None:
+    """Replace all imported holdings from a source with a fresh set.
+
+    Re-uploading a CAMS statement rebuilds that source's rows wholesale (clear then
+    re-insert), so the Networth pages always reflect the latest import.
+    """
+    as_of = as_of_date.isoformat() if as_of_date else None
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM networth_holdings WHERE user_id = ? AND source = ?",
+            (user_id, source),
+        )
+        rows = [
+            (
+                user_id, source, as_of, h.asset_class, h.name, h.isin,
+                None, h.units, h.price, h.value, pos,
+            )
+            for pos, h in enumerate(holdings)
+        ]
+        if rows:
+            conn.executemany(
+                """
+                INSERT INTO networth_holdings
+                    (user_id, source, as_of_date, asset_class, name, isin,
+                     folio, units, price, value, position)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+
+
+def list_networth_holdings(user_id: int, asset_classes: set[str]) -> list[dict]:
+    """Imported holdings for the given asset classes, oldest-position first.
+
+    Each row is a plain dict (name, isin, units, price, value, asset_class, source,
+    as_of_date) — the Networth leaf pages render these directly.
+    """
+    if not asset_classes:
+        return []
+    classes = sorted(asset_classes)
+    placeholders = ",".join("?" for _ in classes)
+    with _connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT * FROM networth_holdings
+            WHERE user_id = ? AND asset_class IN ({placeholders})
+            ORDER BY position ASC, id ASC
+            """,
+            (user_id, *classes),
+        ).fetchall()
+    return [_row_to_networth_holding(r) for r in rows]
+
+
+def latest_holdings_by_class(user_id: int, asset_classes: set[str]) -> list[dict]:
+    """Holdings of the given classes from the user's latest snapshot (NSDL CAS).
+
+    This is the "reuse what we already parse" path — the same dict shape as
+    ``list_networth_holdings``, tagged source='nsdl'.
+    """
+    if not asset_classes:
+        return []
+    snap = latest_snapshot(user_id)
+    if snap is None:
+        return []
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM holdings WHERE snapshot_id = ? ORDER BY id ASC, position ASC",
+            (snap.id,),
+        ).fetchall()
+    as_of = snap.statement_date.isoformat()
+    return [
+        {
+            "name": r["name"],
+            "isin": r["isin"],
+            "units": r["units"],
+            "price": r["price"],
+            "value": r["value"],
+            "asset_class": r["asset_class"],
+            "source": "nsdl",
+            "as_of_date": as_of,
+        }
+        for r in rows
+        if r["asset_class"] in asset_classes
+    ]
+
+
+def delete_networth_import(user_id: int, source: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM networth_holdings WHERE user_id = ? AND source = ?",
+            (user_id, source),
+        )
+
+
 # --- Row mappers ------------------------------------------------------------
 
 def _row_to_user(row: sqlite3.Row) -> User:
@@ -413,6 +541,19 @@ def _row_to_user(row: sqlite3.Row) -> User:
         email=row["email"],
         created_at=row["created_at"],
     )
+
+
+def _row_to_networth_holding(row: sqlite3.Row) -> dict:
+    return {
+        "name": row["name"],
+        "isin": row["isin"],
+        "units": row["units"],
+        "price": row["price"],
+        "value": row["value"],
+        "asset_class": row["asset_class"],
+        "source": row["source"],
+        "as_of_date": row["as_of_date"],
+    }
 
 
 def _row_to_snapshot(row: sqlite3.Row) -> Snapshot:

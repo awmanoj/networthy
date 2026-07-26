@@ -44,7 +44,8 @@ SECTIONS: list[Node] = [
                 Node("sukanya-samriddhi", "Sukanya Samriddhi (SSA)"),
                 Node("nsc", "NSC", note="National Savings Certificate"),
             ]),
-            Node("gold", "Gold", note="SGBs, Gold ETFs, digital gold"),
+            Node("gold-silver", "Gold & Silver",
+                 note="SGBs, Gold/Silver ETFs & funds, digital gold"),
             Node("bank-cash", "Bank Account & Cash"),
             Node("foreign-exchange", "Foreign Exchange"),
             Node("alternate-investments", "Alternate Investments",
@@ -90,6 +91,15 @@ SECTIONS: list[Node] = [
 ]
 
 ROOT = Node("", "Networth", children=SECTIONS)
+
+
+# Leaf slug -> the asset classes whose holdings that leaf page displays. Only leaves
+# listed here are "data-backed" (render a holdings table instead of a blank state);
+# the rest stay blank scaffolds for now. Keep slugs in sync with the tree above.
+LEAF_ASSET_CLASSES: dict[str, set[str]] = {
+    "mutual-funds": {"mutual_fund"},
+    "gold-silver": {"gold", "silver"},
+}
 
 
 def resolve(path: str) -> list[Node] | None:

@@ -137,6 +137,52 @@ def test_latest_snapshot_returns_most_recent(db):
     assert db.latest_snapshot(db.get_or_create_user("bob@example.com").id) is None
 
 
+def _mf(name, isin, value, asset_class="mutual_fund") -> Holding:
+    return Holding(name=name, asset_class=asset_class, isin=isin,
+                   units=100.0, price=value / 100.0, value=value)
+
+
+def test_networth_import_round_trip_and_replace(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    db.replace_networth_import(alice, "cams", date(2024, 6, 30), [
+        _mf("HDFC Flexi Cap", "INF179K01BE2", 100000.0),
+        _mf("Nippon Gold Fund", "INF204KA1UB1", 50000.0, "gold"),
+    ])
+    mfs = db.list_networth_holdings(alice, {"mutual_fund"})
+    assert [h["name"] for h in mfs] == ["HDFC Flexi Cap"]
+    assert mfs[0]["source"] == "cams" and mfs[0]["as_of_date"] == "2024-06-30"
+
+    gold = db.list_networth_holdings(alice, {"gold", "silver"})
+    assert [h["name"] for h in gold] == ["Nippon Gold Fund"]
+
+    # Re-import replaces wholesale (no accumulation).
+    db.replace_networth_import(alice, "cams", date(2024, 7, 31), [
+        _mf("HDFC Flexi Cap", "INF179K01BE2", 120000.0),
+    ])
+    mfs = db.list_networth_holdings(alice, {"mutual_fund"})
+    assert len(mfs) == 1 and mfs[0]["value"] == 120000.0
+    assert db.list_networth_holdings(alice, {"gold", "silver"}) == []
+
+
+def test_networth_import_is_user_scoped(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.replace_networth_import(alice, "cams", date(2024, 6, 30),
+                               [_mf("HDFC Flexi Cap", "INF179K01BE2", 100000.0)])
+    assert db.list_networth_holdings(bob, {"mutual_fund"}) == []
+
+
+def test_latest_holdings_by_class_reads_from_latest_snapshot(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    sid = db.upsert_snapshot(alice, _snap(1, 252867.11))
+    db.replace_holdings(sid, _accounts())  # has equities + one MF
+    mfs = db.latest_holdings_by_class(alice, {"mutual_fund"})
+    assert [h["name"] for h in mfs] == ["Balanced Adv"]
+    assert mfs[0]["source"] == "nsdl"
+    # Classes with no matching holdings return nothing.
+    assert db.latest_holdings_by_class(alice, {"gold"}) == []
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

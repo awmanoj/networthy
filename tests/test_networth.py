@@ -4,7 +4,7 @@ Pins the scaffold structure the page was specified with, so future edits to the
 tree can't silently drop a section or break path resolution.
 """
 
-from app.networth import SECTIONS, breadcrumbs, resolve
+from app.networth import LEAF_ASSET_CLASSES, SECTIONS, breadcrumbs, resolve
 
 
 def test_top_level_sections():
@@ -22,7 +22,7 @@ def test_financial_assets_children_in_order():
     fin = resolve("assets/financial-assets")[-1]
     assert [c.slug for c in fin.children] == [
         "mutual-funds", "equity", "foreign-equity", "fixed-income",
-        "gold", "bank-cash", "foreign-exchange", "alternate-investments",
+        "gold-silver", "bank-cash", "foreign-exchange", "alternate-investments",
     ]
 
 
@@ -82,6 +82,16 @@ def test_resolve_root_leaf_and_unknown():
     assert resolve("assets/non-financial-assets/real-estate/land")[-1].title == "Land / Plots"
     assert resolve("assets/nope") is None
     assert resolve("assets/financial-assets/fixed-income/bogus") is None
+
+
+def test_data_backed_leaves_map_to_asset_classes():
+    # The data-backed leaves must exist in the tree with these exact slugs.
+    assert LEAF_ASSET_CLASSES == {
+        "mutual-funds": {"mutual_fund"},
+        "gold-silver": {"gold", "silver"},
+    }
+    for slug in LEAF_ASSET_CLASSES:
+        assert resolve(f"assets/financial-assets/{slug}") is not None
 
 
 def test_breadcrumbs_build_cumulative_urls():

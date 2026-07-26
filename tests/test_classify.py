@@ -31,6 +31,15 @@ def test_sovereign_gold_bond_is_gold():
     assert classify(isin="IN0020190024", description="SGB 2.50% 2028 SR-II") == AssetClass.GOLD
 
 
+def test_gold_fund_is_gold():
+    assert classify(isin="INF204KA1UB1", description="Nippon India Gold Savings Fund") == AssetClass.GOLD
+
+
+def test_silver_fund_is_silver():
+    # Silver funds/ETFs must not fall through to the INF=mutual-fund default.
+    assert classify(isin="INF109KC1R14", description="ICICI Prudential Silver ETF FoF") == AssetClass.SILVER
+
+
 def test_govt_security_by_prefix_and_keyword():
     assert classify(isin="IN0020200070", description="7.26% GS 2033") == AssetClass.GOVT_SECURITY
     assert classify(isin="", description="91 DAY T-BILL") == AssetClass.GOVT_SECURITY

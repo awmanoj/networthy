@@ -58,6 +58,24 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   numeric tokens use `_HOLDING_NUM_RE` (3–4 decimals for NAV/units), not the 2-decimal
   `_AMOUNT_RE` used for money totals. A *summary* CAS has no per-holding rows to explode.
 
+- **`app/parser/cams_cas.py`** — sibling parser for a **CAMS / KFintech mutual-fund CAS**
+  (MF-only, all AMCs). `parse_cams()` anchors on the ISIN scheme line and reads "Closing Unit
+  Balance / NAV on <date> / Market Value on <date>". Classifies with `classify(section=UNKNOWN)`
+  **on purpose** — so its keyword rules run first and gold/silver *funds* route to `GOLD`/`SILVER`
+  instead of the MF default. Shares decrypt/text/float helpers with the NSDL parser via
+  `app/parser/_common.py` (`nsdl_cas` keeps `_decrypt`/`_to_float` aliases for its tests). Same
+  caveat as NSDL: built to the documented layout, snippet-tested, not yet validated on a real PDF.
+
+- **`app/networth.py` + the Networth pages** (`/networth`, `/networth/{path}`) — a declarative
+  Assets/Liabilities tree; leaves are blank scaffolds except the **data-backed** ones in
+  `LEAF_ASSET_CLASSES` (Mutual Funds, Gold & Silver), which render holdings from two sources: an
+  uploaded CAMS import and/or the latest NSDL snapshot's classified rows. `POST
+  /networth/import/cams` parses a CAMS PDF and stores it via `replace_networth_import`. **Invariant:
+  a CAMS import is NOT a `Snapshot`** — it lives in its own `networth_holdings` table so it can
+  never land on the dashboard net-worth timeline (a snapshot means *total* net worth; CAMS is
+  MF-only). MF precedence: CAMS supersedes NSDL (avoids double-count); Gold & Silver unions both,
+  deduped by ISIN.
+
 - **`app/storage.py`** — SQLite persistence. `upsert_snapshot()` keys on `statement_date`, so
   **re-uploading a statement for the same date replaces the existing snapshot** rather than
   duplicating; it returns the row id so `replace_holdings()` can attach the detailed rows. The

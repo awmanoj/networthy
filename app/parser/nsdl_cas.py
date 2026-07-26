@@ -18,19 +18,16 @@ hardening against real statement variations should happen (see TODOs).
 
 from __future__ import annotations
 
-import io
 import re
 from datetime import date
 
-import pdfplumber
-import pikepdf
-
 from ..classify import Section, classify
 from ..models import Account, Holding, ParsedStatement
+from ._common import CASParseError, extract_text, to_float
 
-
-class CASParseError(Exception):
-    """Raised when a CAS PDF cannot be decrypted or its key fields not found."""
+# Kept as private aliases so this module's existing test surface (which imports
+# `_to_float`) and callers importing `CASParseError` from here stay unchanged.
+_to_float = to_float
 
 
 # Indian-grouped rupee amounts, e.g. "12,34,567.89" or "1,000" or "45000.50".
@@ -79,7 +76,7 @@ def parse_cas(
     Raises:
         CASParseError: on wrong/missing password or unrecognisable layout.
     """
-    text = _extract_text(file_bytes, password)
+    text = extract_text(file_bytes, password)
 
     statement_date = _find_statement_date(text)
     total_value = _find_total_value(text)
@@ -91,39 +88,6 @@ def parse_cas(
         accounts=accounts,
         source_filename=source_filename,
     )
-
-
-def _extract_text(file_bytes: bytes, password: str | None) -> str:
-    """Decrypt (if needed) and return the full text of the PDF."""
-    decrypted = _decrypt(file_bytes, password)
-    try:
-        with pdfplumber.open(io.BytesIO(decrypted)) as pdf:
-            pages = [page.extract_text() or "" for page in pdf.pages]
-    except Exception as exc:  # noqa: BLE001 - surface as a parse error
-        raise CASParseError(f"Could not read PDF text: {exc}") from exc
-
-    text = "\n".join(pages)
-    if not text.strip():
-        raise CASParseError(
-            "PDF contained no extractable text (is it a scanned image?)."
-        )
-    return text
-
-
-def _decrypt(file_bytes: bytes, password: str | None) -> bytes:
-    """Return decrypted PDF bytes, or the original if it was not encrypted."""
-    try:
-        pdf = pikepdf.open(io.BytesIO(file_bytes), password=password or "")
-    except pikepdf.PasswordError as exc:
-        raise CASParseError(
-            "Wrong or missing password for this CAS PDF."
-        ) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise CASParseError(f"Could not open PDF: {exc}") from exc
-
-    out = io.BytesIO()
-    pdf.save(out)
-    return out.getvalue()
 
 
 def _find_statement_date(text: str) -> date:
@@ -351,13 +315,6 @@ def _clean_name(name: str) -> str:
     """Tidy a raw security/scheme name pulled off a table row."""
     name = re.sub(r"\s{2,}", " ", name).strip(" .:-\t")
     return name
-
-
-def _to_float(raw: str) -> float | None:
-    try:
-        return float(raw.replace(",", ""))
-    except ValueError:
-        return None
 
 
 # Convenience for quick manual testing:  python -m app.parser.nsdl_cas file.pdf PWD

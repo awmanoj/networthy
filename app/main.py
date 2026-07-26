@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from . import __version__, auth, networth, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
-from .parser import CASParseError, parse_cas
+from .parser import CASParseError, parse_cams, parse_cas
 
 
 def _class_label(asset_class: str) -> str:
@@ -185,9 +185,96 @@ def networth_home(request: Request):
     )
 
 
+CAMS_IMPORT_URL = "/networth/import/cams"
+
+
+@app.get(CAMS_IMPORT_URL, response_class=HTMLResponse)
+def cams_import_form(request: Request):
+    """How to generate a CAMS CAS + an upload form to import it."""
+    return templates.TemplateResponse(
+        "cams_import.html",
+        {"request": request, "user": request.state.user, "error": None, "result": None},
+    )
+
+
+@app.post(CAMS_IMPORT_URL, response_class=HTMLResponse)
+async def cams_import(
+    request: Request,
+    file: UploadFile = File(...),
+    password: str = Form(""),
+):
+    """Parse an uploaded CAMS CAS and store its holdings for the Networth pages.
+
+    The password (usually the PAN) is used only to decrypt the PDF in memory — it
+    is never stored. A prior CAMS import is replaced wholesale.
+    """
+    user = request.state.user
+    try:
+        contents = await file.read()
+        parsed = parse_cams(contents, password or None)
+    except CASParseError as exc:
+        return templates.TemplateResponse(
+            "cams_import.html",
+            {"request": request, "user": user, "error": str(exc), "result": None},
+            status_code=400,
+        )
+
+    storage.replace_networth_import(user.id, "cams", parsed.as_of_date, parsed.holdings)
+    precious = sum(
+        1 for h in parsed.holdings if h.asset_class in ("gold", "silver")
+    )
+    result = {
+        "count": len(parsed.holdings),
+        "mutual_funds": sum(1 for h in parsed.holdings if h.asset_class == "mutual_fund"),
+        "precious": precious,
+        "total": parsed.total_value,
+        "as_of": parsed.as_of_date.strftime("%d %b %Y") if parsed.as_of_date else None,
+    }
+    return templates.TemplateResponse(
+        "cams_import.html",
+        {"request": request, "user": user, "error": None, "result": result},
+    )
+
+
+def _leaf_holdings(user, slug: str) -> dict | None:
+    """Holdings to show on a data-backed Networth leaf, or None if it isn't one.
+
+    Precedence: for Mutual Funds, a CAMS import supersedes NSDL-classified MFs (same
+    RTA feed — avoids double counting). For Gold & Silver the two sources are largely
+    disjoint (funds vs demat SGB/ETF), so union them, deduped by ISIN with CAMS winning.
+    """
+    classes = networth.LEAF_ASSET_CLASSES.get(slug)
+    if not classes:
+        return None
+
+    cams = storage.list_networth_holdings(user.id, classes)
+    nsdl = storage.latest_holdings_by_class(user.id, classes)
+    if slug == "mutual-funds":
+        holdings = cams or nsdl
+    else:
+        seen = {h["isin"] for h in cams if h["isin"]}
+        holdings = cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
+
+    sources = {h["source"] for h in holdings}
+    source_label = {"cams": "CAMS statement", "nsdl": "NSDL CAS"}.get(
+        next(iter(sources)) if len(sources) == 1 else "", "CAMS + NSDL CAS"
+    ) if sources else None
+    as_of = next((h["as_of_date"] for h in holdings if h["as_of_date"]), None)
+    return {
+        "holdings": holdings,
+        "total": sum(h["value"] or 0.0 for h in holdings),
+        "source": source_label,
+        "as_of": as_of,
+    }
+
+
 @app.get("/networth/{path:path}", response_class=HTMLResponse)
 def networth_node(request: Request, path: str):
-    """A single category page. Categories list their children; leaves are blank."""
+    """A single category page.
+
+    Categories list their children; data-backed leaves (Mutual Funds, Gold & Silver)
+    render a holdings table; other leaves stay blank scaffolds.
+    """
     if not path.strip("/"):
         return RedirectResponse(url="/networth", status_code=303)
 
@@ -215,6 +302,7 @@ def networth_node(request: Request, path: str):
         }
         for c in node.children
     ]
+    leaf_data = _leaf_holdings(request.state.user, node.slug) if node.is_leaf else None
     return templates.TemplateResponse(
         "networth_node.html",
         {
@@ -224,6 +312,8 @@ def networth_node(request: Request, path: str):
             "node": node,
             "children": children,
             "breadcrumbs": networth.breadcrumbs(chain),
+            "leaf_data": leaf_data,
+            "import_url": CAMS_IMPORT_URL,
         },
     )
 

@@ -42,6 +42,55 @@
     {% endfor %}
   </ul>
 </section>
+
+{% elif leaf_data is not none %}
+  {% if leaf_data.holdings %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">
+          Total{% if leaf_data.source %} · {{ leaf_data.source }}{% endif %}{% if leaf_data.as_of %} · as of {{ leaf_data.as_of }}{% endif %}
+        </span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.total) }}</span>
+      </div>
+      <a href="{{ import_url }}" class="btn">Update from CAMS</a>
+    </div>
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Scheme</th>
+          <th class="num">Units</th>
+          <th class="num">NAV</th>
+          <th class="num">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">
+            {{ h.name }}
+            {% if h.isin %}<span class="h-isin muted">{{ h.isin }}</span>{% endif %}
+          </td>
+          <td class="num">{{ "{:,.3f}".format(h.units) if h.units is not none else "—" }}</td>
+          <td class="num">{{ "{:,.4f}".format(h.price) if h.price is not none else "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% else %}
+  <section class="card nw-blank">
+    <div class="nw-blank-icon">📥</div>
+    <h2>No holdings yet</h2>
+    <p class="muted">
+      Import a CAMS statement to fill in <strong>{{ node.title }}</strong> with your
+      funds — scheme, units, NAV and current value.
+    </p>
+    <a href="{{ import_url }}" class="btn">Import from CAMS</a>
+  </section>
+  {% endif %}
+
 {% else %}
 <section class="card nw-blank">
   <div class="nw-blank-icon">🚧</div>

@@ -29,6 +29,7 @@ class AssetClass(str, Enum):
     DEBT = "debt"  # bonds, NCDs, debentures
     GOVT_SECURITY = "govt_security"  # G-Sec, T-Bill
     GOLD = "gold"  # SGB, gold ETF/fund
+    SILVER = "silver"  # silver ETF/fund
     ETF = "etf"
     NPS = "nps"
     # --- Manual entry (not in an NSDL CAS) ---
@@ -54,6 +55,7 @@ class Section(str, Enum):
 _KEYWORD_RULES: list[tuple[re.Pattern[str], AssetClass]] = [
     (re.compile(r"\b(sgb|sovereign\s+gold|gold\s+bond)\b", re.I), AssetClass.GOLD),
     (re.compile(r"\bgold\b.*\b(etf|fund)\b", re.I), AssetClass.GOLD),
+    (re.compile(r"\bsilver\b.*\b(etf|fund)\b", re.I), AssetClass.SILVER),
     (re.compile(r"\b(ncd|debenture|bond)\b", re.I), AssetClass.DEBT),
     (re.compile(r"\b(g-?sec|govt?\.?\s+stock|treasury|t-?bill|gilt)\b", re.I), AssetClass.GOVT_SECURITY),
     (re.compile(r"\betf\b", re.I), AssetClass.ETF),
@@ -105,6 +107,7 @@ LABELS: dict[AssetClass, str] = {
     AssetClass.DEBT: "Debt / Bonds",
     AssetClass.GOVT_SECURITY: "Govt Securities",
     AssetClass.GOLD: "Gold (SGB/ETF)",
+    AssetClass.SILVER: "Silver (ETF/Fund)",
     AssetClass.ETF: "ETFs",
     AssetClass.NPS: "NPS",
     AssetClass.PPF: "PPF",
