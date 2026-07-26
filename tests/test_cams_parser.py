@@ -71,5 +71,49 @@ def test_no_schemes_returns_empty():
     assert _parse_schemes("Just a cover page with no holdings.") == []
 
 
+# The Consolidated Account *Summary* layout (the common emailed CAS): one tabular
+# row per scheme, folio glued onto the ISIN, name wrapping to the next line(s).
+_SUMMARY = """\
+Consolidated Account Summary
+As on 24-Jul-2026
+Folio No. ISIN Scheme Name Cost Value Unit Balance NAV Date NAV Market Value Registrar
+(INR) (INR) (INR)
+488487132216/0INF204K01562 RMFEARGG - NIPPON INDIA LARGE CAP 90,000.000 1,041.194 24-Jul-2026 88.3163 91,954.40 KFINTECH
+FUND - GROWTH PLAN GROWTH OPTION
+(Demat)
+1001505748 INF03VN01563 ABC - SBI Nifty 50 Index Fund Regular 50,000.000 2,500.000 24-Jul-2026 20.0000 50,000.00 CAMS
+Growth (Demat)
+2002003001 INF204KA1UB1 Nippon India Gold Savings Fund - Growth 40,000.000 2,000.000 24-Jul-2026 25.0000 50,000.00 KFINTECH
+Total 180,000.00 241,954.40
+"""
+
+
+def test_summary_row_with_folio_glued_to_isin():
+    hold = _by_isin(_SUMMARY, "INF204K01562")  # folio "488487132216/0" glued on
+    assert hold.units == pytest.approx(1041.194)
+    assert hold.price == pytest.approx(88.3163)   # NAV, not the cost or NAV-date
+    assert hold.value == pytest.approx(91954.40)  # market value
+    # Wrapped name lines are appended.
+    assert hold.name == "RMFEARGG - NIPPON INDIA LARGE CAP FUND - GROWTH PLAN GROWTH OPTION (Demat)"
+
+
+def test_summary_keeps_numbers_inside_scheme_names():
+    # "Nifty 50" must survive — name is everything before cost+units, not the first number.
+    hold = _by_isin(_SUMMARY, "INF03VN01563")
+    assert hold.name == "ABC - SBI Nifty 50 Index Fund Regular Growth (Demat)"
+    assert hold.units == pytest.approx(2500.0)
+    assert hold.value == pytest.approx(50000.0)
+
+
+def test_summary_reclassifies_gold_and_ignores_total_line():
+    holdings = _parse_schemes(_SUMMARY)
+    assert len(holdings) == 3  # the "Total" line is not a holding
+    assert _by_isin(_SUMMARY, "INF204KA1UB1").asset_class == "gold"
+
+
+def test_summary_statement_date():
+    assert _find_statement_date(_SUMMARY) == date(2026, 7, 24)
+
+
 def _by_isin(text, isin):
     return next(h for h in _parse_schemes(text) if h.isin == isin)
