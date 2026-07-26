@@ -259,8 +259,14 @@ def _catch_all_account(section: Section) -> Account:
 def _parse_holding_line(line: str, section: Section) -> Holding | None:
     """Turn a single ISIN-bearing line into a Holding, or None if it isn't one.
 
-    Anchors on the ISIN: text before it is the security/scheme name, and the
-    trailing numeric tokens are read positionally as (units, price, value).
+    Anchors on the ISIN. The value columns are the **trailing run of numbers** at the
+    end of the line, read positionally as (units, price, value); the name is the words
+    before that run (or, in the "<name> <ISIN> <cols>" shape, the text before the ISIN).
+
+    Reading the *trailing* run — not "everything up to the first number" — keeps names
+    that contain digits intact (the "2" in "E2E NETWORKS", the "50" in "Nifty 50") and
+    drops lines that merely mention an ISIN in prose (e.g. "ISIN : INE255… - E2E …"),
+    which have no trailing numeric block.
     """
     m = _ISIN_RE.search(line)
     if not m:
@@ -270,16 +276,15 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
     before = line[: m.start()].strip(" .:-\t")
     after = line[m.end():]
 
-    # Two row shapes occur: "<name> <ISIN> <nums>" and "<ISIN> <name> <nums>".
-    # In both, the numbers are the trailing tokens. Take the name from whichever
-    # side carries the words, and never let the numeric tail bleed into it.
+    num_start = _trailing_numbers_start(after)
+    numbers = _amounts(after[num_start:]) if num_start is not None else []
+
     if before:
-        name = before
-        numbers = _amounts(after) or _amounts(before)
+        name = before                                    # "<name> <ISIN> <cols>"
+    elif num_start is not None:
+        name = after[:num_start].strip(" .:-\t")          # "<ISIN> <name> <cols>"
     else:
-        first_num = _HOLDING_NUM_RE.search(after)
-        name = (after[: first_num.start()] if first_num else after).strip(" .:-\t")
-        numbers = _amounts(after)
+        name = after.strip(" .:-\t")
     name = name or isin
 
     units = price = value = None
@@ -290,14 +295,10 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
     elif len(numbers) == 1:
         value = numbers[0]
 
-    # Interim hardening (HACK): drop an ISIN line that carries no amount at all.
-    # In a real CAS these are usually a row whose values *wrapped* onto the next
-    # text line, or a bare "ISIN :" label line — surfacing them as blank holdings
-    # (no units/NAV/value) is just noise, and since they have no value they add
-    # nothing to any total, so dropping them is loss-free for sums. The proper fix
-    # is to merge wrapped rows (read the values off the adjacent line); until this
-    # parser is validated against real PDFs, we skip instead.
-    if value is None:
+    # Interim hardening (HACK): drop rows with no positive value — a row whose amounts
+    # wrapped to the next line, a bare "ISIN :" label/prose line (no trailing numbers),
+    # or a nil/deleted holding shown as 0. They add nothing to any total.
+    if not value:
         return None
 
     asset_class = classify(section=section, isin=isin, description=name)
@@ -309,6 +310,25 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
         price=price,
         value=value,
     )
+
+
+def _trailing_numbers_start(text: str) -> int | None:
+    """Index where the line's trailing run of numeric value columns begins.
+
+    Returns None when the line does not end in a numeric block (so a digit embedded
+    in a name, or an ISIN mentioned in prose, is not mistaken for a value). Numbers
+    count as value columns only if they sit at the end of the line, separated from
+    one another by non-letters.
+    """
+    matches = list(_HOLDING_NUM_RE.finditer(text))
+    if not matches or re.search(r"[A-Za-z]", text[matches[-1].end():]):
+        return None
+    idx = len(matches) - 1
+    while idx > 0 and not re.search(
+        r"[A-Za-z]", text[matches[idx - 1].end(): matches[idx].start()]
+    ):
+        idx -= 1
+    return matches[idx].start()
 
 
 def _amounts(fragment: str) -> list[float]:

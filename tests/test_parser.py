@@ -106,6 +106,35 @@ def test_parse_holding_line_without_amounts_is_skipped():
     assert _parse_holding_line("ISIN : INE009A01021", Section.DEMAT) is None
 
 
+def test_parse_holding_line_keeps_digits_in_name():
+    # "E2E" must survive — the value columns are the trailing numbers, so a digit
+    # inside the name isn't mistaken for the start of the numbers (regression: the
+    # name used to collapse to "E").
+    h = _parse_holding_line(
+        "INE255Z01027 E2E NETWORKS LIMITED 1.00 8,000 396.30 31,70,400.00", Section.DEMAT
+    )
+    assert h.name == "E2E NETWORKS LIMITED"
+    assert h.asset_class == "direct_equity"
+    assert h.units == pytest.approx(8000.0)   # face value 1.00 is ignored
+    assert h.price == pytest.approx(396.30)
+    assert h.value == pytest.approx(3170400.0)
+
+
+def test_parse_holding_line_prose_isin_mention_is_skipped():
+    # A line that merely names an ISIN (no trailing numeric columns) is not a holding,
+    # even though the name carries a digit ("E2E").
+    assert _parse_holding_line(
+        "ISIN : INE255Z01027 - E2E NETWORKS LIMITED", Section.DEMAT
+    ) is None
+
+
+def test_parse_holding_line_nil_zero_value_row_is_skipped():
+    # A deleted/nil holding (0 units, "See Note", value 0.00) adds nothing.
+    assert _parse_holding_line(
+        "INE255Z01019 E2E NETWORKS LIMITED 10.00 0 See Note 0.00", Section.DEMAT
+    ) is None
+
+
 _SAMPLE_CAS = """\
 Consolidated Account Statement as on 30-Jun-2024
 Consolidated Portfolio Value 12,34,567.89
