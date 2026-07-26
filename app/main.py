@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, storage, wealth
+from . import __version__, auth, networth, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cas
@@ -168,6 +168,62 @@ def portfolio(request: Request):
             "accounts": accounts,
             "breakdown": breakdown,
             "class_label": _class_label,
+        },
+    )
+
+
+@app.get("/networth", response_class=HTMLResponse)
+def networth_home(request: Request):
+    """Overview of the Assets / Liabilities breakdown — the whole tree at a glance."""
+    return templates.TemplateResponse(
+        "networth.html",
+        {
+            "request": request,
+            "user": request.state.user,
+            "sections": networth.SECTIONS,
+        },
+    )
+
+
+@app.get("/networth/{path:path}", response_class=HTMLResponse)
+def networth_node(request: Request, path: str):
+    """A single category page. Categories list their children; leaves are blank."""
+    if not path.strip("/"):
+        return RedirectResponse(url="/networth", status_code=303)
+
+    chain = networth.resolve(path)
+    if chain is None:
+        return templates.TemplateResponse(
+            "networth_node.html",
+            {
+                "request": request,
+                "user": request.state.user,
+                "not_found": True,
+                "breadcrumbs": networth.breadcrumbs([]),
+            },
+            status_code=404,
+        )
+
+    node = chain[-1]
+    prefix = "/".join(n.slug for n in chain)
+    children = [
+        {
+            "title": c.title,
+            "note": c.note,
+            "is_leaf": c.is_leaf,
+            "url": f"/networth/{prefix}/{c.slug}",
+        }
+        for c in node.children
+    ]
+    return templates.TemplateResponse(
+        "networth_node.html",
+        {
+            "request": request,
+            "user": request.state.user,
+            "not_found": False,
+            "node": node,
+            "children": children,
+            "breadcrumbs": networth.breadcrumbs(chain),
         },
     )
 

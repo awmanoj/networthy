@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Net worth · Networthy{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <h1>Net worth</h1>
+  <p class="muted">
+    A complete breakdown of everything you own and owe. The categories are
+    scaffolded — we'll fill in the detail next.
+  </p>
+</section>
+
+{% for section in sections %}
+<section class="card nw-section">
+  <div class="card-head"><h2>{{ section.title }}</h2></div>
+
+  {% if section.children %}
+    {% for sub in section.children %}
+    <div class="nw-subsection">
+      <h3 class="nw-subhead">
+        <a href="/networth/{{ section.slug }}/{{ sub.slug }}">{{ sub.title }}</a>
+      </h3>
+      {% if sub.children %}
+      <ul class="nw-leaf-list">
+        {% for leaf in sub.children %}
+        <li>
+          <a class="nw-leaf" href="/networth/{{ section.slug }}/{{ sub.slug }}/{{ leaf.slug }}">
+            <span class="nw-leaf-body">
+              <span class="nw-leaf-title">{{ leaf.title }}</span>
+              {% if leaf.note %}<span class="nw-leaf-note">{{ leaf.note }}</span>{% endif %}
+            </span>
+            <span class="nw-leaf-arrow">→</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted nw-empty">No categories yet.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted nw-empty">No categories yet.</p>
+  {% endif %}
+</section>
+{% endfor %}
+
+{% endblock %}

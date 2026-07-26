@@ -451,6 +451,46 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
   .pyr-meta { flex-direction: row; gap: 12px; padding-left: 2px; }
 }
 
+/* --- Net worth breakdown --------------------------------------------------- */
+.nw-page-head { margin-bottom: 22px; }
+.nw-page-head h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+.nw-page-head > .muted { margin: 0; max-width: 640px; font-size: 0.92rem; }
+
+.nw-section .card-head { margin-bottom: 6px; }
+.nw-subsection { margin-top: 18px; }
+.nw-subsection:first-of-type { margin-top: 10px; }
+.nw-subhead { margin: 0 0 10px; font-size: 0.95rem; font-weight: 600; }
+.nw-subhead a { color: var(--text); text-decoration: none; }
+.nw-subhead a:hover { color: var(--accent); }
+
+.nw-leaf-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.nw-leaf {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); text-decoration: none; color: var(--text);
+}
+.nw-leaf:hover { border-color: var(--accent); }
+.nw-leaf-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nw-leaf-title { font-weight: 600; }
+.nw-leaf-note { color: var(--muted); font-size: 0.82rem; }
+.nw-leaf-arrow { margin-left: auto; color: var(--muted); flex: none; }
+.nw-leaf:hover .nw-leaf-arrow { color: var(--accent); }
+.nw-empty { margin: 6px 0 0; font-size: 0.88rem; }
+
+.crumbs { font-size: 0.85rem; margin-bottom: 16px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--accent); text-decoration: underline; }
+.crumb-sep { margin: 0 8px; color: var(--border); }
+.crumb-current { color: var(--text); font-weight: 600; }
+
+.nw-blank { text-align: center; padding: 48px 24px; }
+.nw-blank-icon { font-size: 2rem; margin-bottom: 8px; }
+.nw-blank h2 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text); }
+.nw-blank p { margin: 0 auto 16px; max-width: 420px; }
+
 footer {
   text-align: center;
   padding: 24px;

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ (node.title if not not_found else "Not found") }} · Net worth{% endblock %}
+{% block content %}
+
+<nav class="crumbs" aria-label="Breadcrumb">
+  {% for title, url in breadcrumbs %}
+    {% if not loop.last %}
+      <a href="{{ url }}">{{ title }}</a><span class="crumb-sep">/</span>
+    {% else %}
+      <span class="crumb-current">{{ title }}</span>
+    {% endif %}
+  {% endfor %}
+</nav>
+
+{% if not_found %}
+<section class="card nw-blank">
+  <div class="nw-blank-icon">🔍</div>
+  <h2>Category not found</h2>
+  <p class="muted">That net-worth category doesn't exist.</p>
+  <a href="/networth" class="btn">Back to Net worth</a>
+</section>
+
+{% else %}
+<section class="nw-page-head">
+  <h1>{{ node.title }}</h1>
+  {% if node.note %}<p class="muted">{{ node.note }}</p>{% endif %}
+</section>
+
+{% if children %}
+<section class="card nw-section">
+  <ul class="nw-leaf-list">
+    {% for c in children %}
+    <li>
+      <a class="nw-leaf" href="{{ c.url }}">
+        <span class="nw-leaf-body">
+          <span class="nw-leaf-title">{{ c.title }}</span>
+          {% if c.note %}<span class="nw-leaf-note">{{ c.note }}</span>{% endif %}
+        </span>
+        <span class="nw-leaf-arrow">→</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<section class="card nw-blank">
+  <div class="nw-blank-icon">🚧</div>
+  <h2>Nothing here yet</h2>
+  <p class="muted">We'll build out <strong>{{ node.title }}</strong> soon.</p>
+  <a href="/networth" class="btn">Back to Net worth</a>
+</section>
+{% endif %}
+{% endif %}
+
+{% endblock %}
