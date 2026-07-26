@@ -99,6 +99,16 @@ ROOT = Node("", "Networth", children=SECTIONS)
 LEAF_ASSET_CLASSES: dict[str, set[str]] = {
     "mutual-funds": {"mutual_fund"},
     "gold-silver": {"gold", "silver"},
+    "equity": {"direct_equity"},
+}
+
+# Where each data-backed leaf's holdings come from — drives the page's call-to-action.
+# "cams" -> import a CAMS statement; "nsdl" -> upload an NSDL CAS. (Direct equity only
+# exists in the depository CAS, never in a CAMS mutual-fund statement.)
+LEAF_IMPORT: dict[str, str] = {
+    "mutual-funds": "cams",
+    "gold-silver": "cams",
+    "equity": "nsdl",
 }
 
 

@@ -236,12 +236,19 @@ async def cams_import(
     )
 
 
+_IMPORT_CTA = {
+    "cams": ("Import from CAMS", CAMS_IMPORT_URL),
+    "nsdl": ("Upload NSDL CAS", "/upload"),
+}
+
+
 def _leaf_holdings(user, slug: str) -> dict | None:
     """Holdings to show on a data-backed Networth leaf, or None if it isn't one.
 
     Precedence: for Mutual Funds, a CAMS import supersedes NSDL-classified MFs (same
     RTA feed — avoids double counting). For Gold & Silver the two sources are largely
     disjoint (funds vs demat SGB/ETF), so union them, deduped by ISIN with CAMS winning.
+    Direct equity comes only from the NSDL CAS.
     """
     classes = networth.LEAF_ASSET_CLASSES.get(slug)
     if not classes:
@@ -259,12 +266,15 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     source_label = {"cams": "CAMS statement", "nsdl": "NSDL CAS"}.get(
         next(iter(sources)) if len(sources) == 1 else "", "CAMS + NSDL CAS"
     ) if sources else None
+    import_label, import_url = _IMPORT_CTA[networth.LEAF_IMPORT.get(slug, "cams")]
     as_of = next((h["as_of_date"] for h in holdings if h["as_of_date"]), None)
     return {
         "holdings": holdings,
         "total": sum(h["value"] or 0.0 for h in holdings),
         "source": source_label,
         "as_of": as_of,
+        "import_label": import_label,
+        "import_url": import_url,
     }
 
 

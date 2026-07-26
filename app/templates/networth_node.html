@@ -53,7 +53,7 @@
         </span>
         <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.total) }}</span>
       </div>
-      <a href="{{ import_url }}" class="btn">Update from CAMS</a>
+      <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
     </div>
     <table class="holdings">
       <thead>
@@ -84,10 +84,10 @@
     <div class="nw-blank-icon">📥</div>
     <h2>No holdings yet</h2>
     <p class="muted">
-      Import a CAMS statement to fill in <strong>{{ node.title }}</strong> with your
-      funds — scheme, units, NAV and current value.
+      Add your holdings to fill in <strong>{{ node.title }}</strong> — name, units,
+      price and current value.
     </p>
-    <a href="{{ import_url }}" class="btn">Import from CAMS</a>
+    <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
   </section>
   {% endif %}
 
