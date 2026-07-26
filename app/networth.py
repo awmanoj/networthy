@@ -25,7 +25,7 @@ class Node:
         return not self.children
 
 
-# Top-level sections (the root, "Net worth", is implicit at /networth).
+# Top-level sections (the root, "Networth", is implicit at /networth).
 SECTIONS: list[Node] = [
     Node("assets", "Assets", children=[
         Node("financial-assets", "Financial Assets", children=[
@@ -43,7 +43,7 @@ SECTIONS: list[Node] = [
     Node("liabilities", "Liabilities", children=[]),
 ]
 
-ROOT = Node("", "Net worth", children=SECTIONS)
+ROOT = Node("", "Networth", children=SECTIONS)
 
 
 def resolve(path: str) -> list[Node] | None:
@@ -66,7 +66,7 @@ def resolve(path: str) -> list[Node] | None:
 
 def breadcrumbs(chain: list[Node]) -> list[tuple[str, str]]:
     """(title, url) pairs from the root down to and including the current node."""
-    crumbs = [("Net worth", "/networth")]
+    crumbs = [("Networth", "/networth")]
     parts: list[str] = []
     for node in chain:
         parts.append(node.slug)

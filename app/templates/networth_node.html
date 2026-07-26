@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ (node.title if not not_found else "Not found") }} · Net worth{% endblock %}
+{% block title %}{{ (node.title if not not_found else "Not found") }} · Networth{% endblock %}
 {% block content %}
 
 <nav class="crumbs" aria-label="Breadcrumb">
@@ -17,7 +17,7 @@
   <div class="nw-blank-icon">🔍</div>
   <h2>Category not found</h2>
   <p class="muted">That net-worth category doesn't exist.</p>
-  <a href="/networth" class="btn">Back to Net worth</a>
+  <a href="/networth" class="btn">Back to Networth</a>
 </section>
 
 {% else %}
@@ -47,7 +47,7 @@
   <div class="nw-blank-icon">🚧</div>
   <h2>Nothing here yet</h2>
   <p class="muted">We'll build out <strong>{{ node.title }}</strong> soon.</p>
-  <a href="/networth" class="btn">Back to Net worth</a>
+  <a href="/networth" class="btn">Back to Networth</a>
 </section>
 {% endif %}
 {% endif %}

@@ -41,6 +41,6 @@ def test_resolve_root_leaf_and_unknown():
 
 def test_breadcrumbs_build_cumulative_urls():
     crumbs = breadcrumbs(resolve("assets/financial-assets/equity"))
-    assert [t for t, _ in crumbs] == ["Net worth", "Assets", "Financial Assets", "Equity"]
-    assert crumbs[0] == ("Net worth", "/networth")
+    assert [t for t, _ in crumbs] == ["Networth", "Assets", "Financial Assets", "Equity"]
+    assert crumbs[0] == ("Networth", "/networth")
     assert crumbs[-1] == ("Equity", "/networth/assets/financial-assets/equity")
