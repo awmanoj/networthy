@@ -173,6 +173,9 @@ def _find_accounts(text: str) -> list[Account]:
     accounts: list[Account] = []
     section = Section.UNKNOWN
     current: Account | None = None
+    # The most recently emitted holding, so a wrapped scheme/security name spilling
+    # onto the following line(s) can be stitched back on.
+    last_holding: Holding | None = None
     # Pending demat-account descriptors, assembled across the header lines that
     # precede the first holding row of a block.
     pending: dict[str, str] = {}
@@ -200,6 +203,7 @@ def _find_accounts(text: str) -> list[Account]:
         new_section = _match_section(line)
         if new_section is not None:
             section = new_section
+            last_holding = None  # a section boundary ends any name continuation
             # A depository name on this line seeds the next demat account.
             dep = _DEPOSITORY_RE.search(line)
             if new_section is Section.DEMAT and dep:
@@ -227,17 +231,48 @@ def _find_accounts(text: str) -> list[Account]:
                 current.identifier = m.group(1).strip()
 
         holding = _parse_holding_line(line, section)
-        if holding is None:
+        if holding is not None:
+            if section is Section.DEMAT and (current is None or pending):
+                flush_pending_demat()
+            if current is None:
+                current = _catch_all_account(section)
+                accounts.append(current)
+            current.holdings.append(holding)
+            last_holding = holding
             continue
 
-        if section is Section.DEMAT and (current is None or pending):
-            flush_pending_demat()
-        if current is None:
-            current = _catch_all_account(section)
-            accounts.append(current)
-        current.holdings.append(holding)
+        # Not a holding row. If it's a bare word-fragment right after a holding, it's
+        # that holding's wrapped name tail (e.g. MF "… FUND GROWTH" / "PLAN GROWTH
+        # OPTION"). Anything else — a ticker line ("E2E.NSE"), a header, a totals or
+        # ISIN-bearing line — ends the continuation.
+        if last_holding is not None and _is_name_tail(line):
+            last_holding.name = _clean_name(f"{last_holding.name} {line}")
+        else:
+            last_holding = None
 
     return [a for a in accounts if a.holdings]
+
+
+# A stock ticker printed under an equity row, e.g. "E2E.NSE" / "RELIANCE.BSE" — not
+# part of the security name.
+_TICKER_RE = re.compile(r"^[A-Z0-9&]+\.[A-Z]{2,6}$")
+# Lines that are never a wrapped name tail (headers, totals, label rows).
+_NAME_STOP_RE = re.compile(
+    r"^(total|grand\s+total|sub[-\s]?total|page\b|closing|opening|portfolio|"
+    r"statement|disclaimer|summary|balance|isin\b|note\b)",
+    re.I,
+)
+
+
+def _is_name_tail(line: str) -> bool:
+    """True if `line` looks like a scheme/security name spilled onto its own line."""
+    return bool(
+        re.search(r"[A-Za-z]", line)          # has words
+        and not _ISIN_RE.search(line)         # not another holding / ISIN prose line
+        and ":" not in line                   # not a "DP Name : …" / "Folio : …" header
+        and not _TICKER_RE.match(line)        # not a ticker
+        and not _NAME_STOP_RE.search(line)    # not a totals/label row
+    )
 
 
 def _match_section(line: str) -> Section | None:

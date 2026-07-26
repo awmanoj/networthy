@@ -50,13 +50,17 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   pdfplumber text extraction → regex to pull `statement_date` and `total_value`, plus
   `_find_accounts()` for the detailed breakdown. Raises `CASParseError` on wrong password or
   unrecognizable layout. `_find_accounts` is section-aware and **ISIN-anchored**: it walks text
-  lines, tracks the current section/account, treats any ISIN-bearing line as a holding, takes
-  the text beside the ISIN as the name and the trailing numbers positionally as (units, price,
-  value). Column order varies by issuer/period, so this is the thing most likely to need
-  hardening against real statements — it was built to the known NSDL *detailed* layout and
-  covered by representative-text snippet tests, not yet validated on a real PDF. Note: holding
-  numeric tokens use `_HOLDING_NUM_RE` (3–4 decimals for NAV/units), not the 2-decimal
-  `_AMOUNT_RE` used for money totals. A *summary* CAS has no per-holding rows to explode.
+  lines, tracks the current section/account, treats any ISIN-bearing line as a holding. The
+  name is the words before the **trailing run of numbers** (so digits inside names — the "2"
+  in "E2E", the "50" in "Nifty 50" — survive), and those trailing numbers are read positionally
+  as (units, price, value). Wrapped name lines are stitched back on (`_is_name_tail`, skipping
+  ticker lines like "E2E.NSE"); prose ISIN mentions and nil/0-value rows are dropped.
+  Validated against a real NSDL e-CAS. Remaining hardening (other issuers/depositories, and
+  values that wrap to the next line) is cleaner via pdfplumber **word/table coordinates** than
+  text regex — a known future path. Note: holding numeric tokens use `_HOLDING_NUM_RE` (3–4
+  decimals for NAV/units), not the 2-decimal `_AMOUNT_RE` used for money totals. A *summary*
+  CAS has no per-holding rows to explode. Shares decrypt/text/float helpers with the CAMS
+  parser via `app/parser/_common.py`.
 
 - **`app/parser/cams_cas.py`** — sibling parser for a **CAMS / KFintech mutual-fund CAS**
   (MF-only, all AMCs). `parse_cams()` anchors on the ISIN scheme line and reads "Closing Unit

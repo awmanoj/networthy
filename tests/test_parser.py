@@ -174,3 +174,21 @@ def test_find_accounts_groups_by_account():
 
 def test_find_accounts_empty_text_yields_nothing():
     assert _find_accounts("no holdings here, just prose") == []
+
+
+_WRAP_CAS = """\
+National Securities Depository Limited (NSDL)
+DP Name : SOME BROKER
+INE255Z01027 E2E NETWORKS LIMITED 1.00 8,000 396.30 31,70,400.00
+E2E.NSE
+INF204K01562 NIPPON INDIA LARGE CAP FUND GROWTH 1,041.194 89.39 93,070.45
+PLAN GROWTH OPTION
+"""
+
+
+def test_find_accounts_stitches_wrapped_names_but_skips_tickers():
+    names = [h.name for a in _find_accounts(_WRAP_CAS) for h in a.holdings]
+    # The ticker line ("E2E.NSE") is NOT appended to the stock name…
+    assert names[0] == "E2E NETWORKS LIMITED"
+    # …but a wrapped scheme name spilling onto the next line is stitched back on.
+    assert names[1] == "NIPPON INDIA LARGE CAP FUND GROWTH PLAN GROWTH OPTION"
