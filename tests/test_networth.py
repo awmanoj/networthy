@@ -4,7 +4,14 @@ Pins the scaffold structure the page was specified with, so future edits to the
 tree can't silently drop a section or break path resolution.
 """
 
-from app.networth import LEAF_ASSET_CLASSES, LEAF_IMPORT, SECTIONS, breadcrumbs, resolve
+from app.networth import (
+    LEAF_ASSET_CLASSES,
+    LEAF_IMPORT,
+    SECTIONS,
+    breadcrumbs,
+    resolve,
+    rollup,
+)
 
 
 def test_top_level_sections():
@@ -96,6 +103,30 @@ def test_data_backed_leaves_map_to_asset_classes():
     # Every data-backed leaf declares where its holdings come from.
     assert set(LEAF_IMPORT) == set(LEAF_ASSET_CLASSES)
     assert LEAF_IMPORT["equity"] == "nsdl"
+
+
+def test_rollup_sums_leaves_into_parents():
+    leaf_values = {"mutual-funds": 100.0, "equity": 200.0, "gold-silver": 50.0}
+    out = rollup(lambda slug: leaf_values.get(slug))
+
+    assert out["assets/financial-assets/mutual-funds"] == 100.0
+    assert out["assets/financial-assets/equity"] == 200.0
+    assert out["assets/financial-assets/gold-silver"] == 50.0
+    assert out["assets/financial-assets"] == 350.0   # parent sums its descendants
+    assert out["assets"] == 350.0
+
+
+def test_rollup_omits_nodes_without_data():
+    out = rollup(lambda slug: {"equity": 200.0}.get(slug))
+    assert out["assets/financial-assets/equity"] == 200.0
+    assert out["assets"] == 200.0
+    assert "liabilities" not in out                         # no data under liabilities
+    assert "assets/financial-assets/mutual-funds" not in out  # empty leaf not keyed
+    assert "assets/non-financial-assets" not in out
+
+
+def test_rollup_empty_when_no_leaf_has_value():
+    assert rollup(lambda slug: None) == {}
 
 
 def test_breadcrumbs_build_cumulative_urls():

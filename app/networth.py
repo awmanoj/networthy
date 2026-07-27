@@ -8,6 +8,7 @@ add a `Node`; the routes and templates pick it up automatically.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 
@@ -110,6 +111,33 @@ LEAF_IMPORT: dict[str, str] = {
     "gold-silver": "cams",
     "equity": "nsdl",
 }
+
+
+def rollup(leaf_value: Callable[[str], float | None]) -> dict[str, float]:
+    """Total value per node, keyed by its '/'-joined slug path.
+
+    `leaf_value(slug)` returns a leaf's value, or None if that leaf isn't
+    data-backed. A parent's value is the sum of its descendants'. Only nodes that
+    end up with a non-zero value appear in the result, so the templates can show a
+    number where there's data and stay quiet elsewhere.
+    """
+    values: dict[str, float] = {}
+
+    def visit(node: Node, parts: list[str]) -> float:
+        path = "/".join(parts)
+        if node.is_leaf:
+            v = leaf_value(node.slug) or 0.0
+            if v:
+                values[path] = v
+            return v
+        total = sum(visit(c, parts + [c.slug]) for c in node.children)
+        if total:
+            values[path] = total
+        return total
+
+    for section in SECTIONS:
+        visit(section, [section.slug])
+    return values
 
 
 def resolve(path: str) -> list[Node] | None:

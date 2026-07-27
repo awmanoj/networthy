@@ -10,15 +10,23 @@
   </p>
 </section>
 
+{% macro amount(v) -%}
+  {%- if v is not none %}<span class="nw-val">₹{{ "{:,.0f}".format(v) }}</span>{% endif -%}
+{%- endmacro %}
+
 {% for section in sections %}
 <section class="card nw-section">
-  <div class="card-head"><h2>{{ section.title }}</h2></div>
+  <div class="card-head">
+    <h2>{{ section.title }}</h2>
+    {{ amount(values.get(section.slug)) }}
+  </div>
 
   {% if section.children %}
     {% for sub in section.children %}
     <div class="nw-subsection">
       <h3 class="nw-subhead">
         <a href="/networth/{{ section.slug }}/{{ sub.slug }}">{{ sub.title }}</a>
+        {{ amount(values.get(section.slug ~ '/' ~ sub.slug)) }}
       </h3>
       {% if sub.children %}
       <ul class="nw-leaf-list">
@@ -29,6 +37,7 @@
               <span class="nw-leaf-title">{{ leaf.title }}</span>
               {% if leaf.note %}<span class="nw-leaf-note">{{ leaf.note }}</span>{% endif %}
             </span>
+            {{ amount(values.get(section.slug ~ '/' ~ sub.slug ~ '/' ~ leaf.slug)) }}
             <span class="nw-leaf-arrow">→</span>
           </a>
         </li>

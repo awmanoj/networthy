@@ -181,6 +181,7 @@ def networth_home(request: Request):
             "request": request,
             "user": request.state.user,
             "sections": networth.SECTIONS,
+            "values": _networth_values(request.state.user),
         },
     )
 
@@ -242,13 +243,13 @@ _IMPORT_CTA = {
 }
 
 
-def _leaf_holdings(user, slug: str) -> dict | None:
-    """Holdings to show on a data-backed Networth leaf, or None if it isn't one.
+def _leaf_rows(user, slug: str) -> list[dict] | None:
+    """Merged holding rows for a data-backed Networth leaf, or None if it isn't one.
 
     Precedence: for Mutual Funds, a CAMS import supersedes NSDL-classified MFs (same
     RTA feed — avoids double counting). For Gold & Silver the two sources are largely
     disjoint (funds vs demat SGB/ETF), so union them, deduped by ISIN with CAMS winning.
-    Direct equity comes only from the NSDL CAS.
+    Direct equity comes only from the NSDL CAS. No live enrichment here — callers add it.
     """
     classes = networth.LEAF_ASSET_CLASSES.get(slug)
     if not classes:
@@ -257,10 +258,39 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     cams = storage.list_networth_holdings(user.id, classes)
     nsdl = storage.latest_holdings_by_class(user.id, classes)
     if slug == "mutual-funds":
-        holdings = cams or nsdl
-    else:
-        seen = {h["isin"] for h in cams if h["isin"]}
-        holdings = cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
+        return cams or nsdl
+    seen = {h["isin"] for h in cams if h["isin"]}
+    return cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
+
+
+def _live_total(rows: list[dict]) -> float:
+    """Sum of live values, falling back to the statement value for unpriced rows."""
+    return sum(
+        (r.get("live_value") if r.get("live_value") is not None else r["value"]) or 0.0
+        for r in rows
+    )
+
+
+def _leaf_value(user, slug: str) -> float | None:
+    """A data-backed leaf's live-consistent total (same number its page shows), or
+    None if the leaf isn't data-backed. Used to roll values up the Networth tree."""
+    rows = _leaf_rows(user, slug)
+    if rows is None:
+        return None
+    _annotate_live_prices(rows)
+    return _live_total(rows)
+
+
+def _networth_values(user) -> dict[str, float]:
+    """Rolled-up value keyed by node slug-path, for every node that has data."""
+    return networth.rollup(lambda slug: _leaf_value(user, slug))
+
+
+def _leaf_holdings(user, slug: str) -> dict | None:
+    """Holdings to show on a data-backed Networth leaf, or None if it isn't one."""
+    holdings = _leaf_rows(user, slug)
+    if holdings is None:
+        return None
 
     live_sources = _annotate_live_prices(holdings)
 
@@ -273,11 +303,7 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     return {
         "holdings": holdings,
         "total": sum(h["value"] or 0.0 for h in holdings),
-        # Live total falls back to the statement value for any row we couldn't price.
-        "live_total": sum(
-            (h.get("live_value") if h.get("live_value") is not None else h["value"]) or 0.0
-            for h in holdings
-        ),
+        "live_total": _live_total(holdings),
         "has_live": bool(live_sources),
         "live_note": _LIVE_NOTES.get(
             frozenset(live_sources),
@@ -369,12 +395,14 @@ def networth_node(request: Request, path: str):
 
     node = chain[-1]
     prefix = "/".join(n.slug for n in chain)
+    values = _networth_values(request.state.user)
     children = [
         {
             "title": c.title,
             "note": c.note,
             "is_leaf": c.is_leaf,
             "url": f"/networth/{prefix}/{c.slug}",
+            "value": values.get(f"{prefix}/{c.slug}"),
         }
         for c in node.children
     ]
@@ -387,6 +415,7 @@ def networth_node(request: Request, path: str):
             "not_found": False,
             "node": node,
             "children": children,
+            "node_value": values.get(prefix),
             "breadcrumbs": networth.breadcrumbs(chain),
             "leaf_data": leaf_data,
             "import_url": CAMS_IMPORT_URL,

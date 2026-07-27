@@ -147,4 +147,8 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   render — the view falls back to statement values. Enrichment (live price, live value,
   gain-vs-statement, up/down/flat signal) is computed in `main._annotate_live_prices` — equity
   ticker → Yahoo, any other ISIN holding → AMFI — and shown on the Networth leaf tables with a
-  source-accurate provenance note. Keep this the only module that egresses.
+  source-accurate provenance note. Keep this the only module that egresses. Note: the Networth
+  **overview and node pages** also trigger this (via `networth.rollup` + `_leaf_value`) to show a
+  **live-consistent value against each head** — so the head number matches the leaf's live total
+  rather than the statement value. That means `/networth` makes the same (cached) calls; the
+  rollup only sums data-backed leaves (mutual-funds / equity / gold-silver) up their parents.

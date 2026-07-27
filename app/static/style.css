@@ -264,13 +264,7 @@ form { display: inline; }
 .alloc-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 .alloc-pct { font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
 
-/* Live-price indicators (Networth equity leaf) */
-.live-badge {
-  font-size: 0.6em; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--accent);
-  border: 1px solid var(--accent); border-radius: 5px;
-  padding: 1px 5px; vertical-align: middle; margin-left: 6px;
-}
+/* Live-price indicators (Networth leaves) */
 .stat-sub { font-size: 0.9rem; font-weight: 600; }
 .stat-sub.up { color: var(--up); }
 .stat-sub.down { color: var(--down); }
@@ -490,10 +484,16 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
   background: var(--surface-2); text-decoration: none; color: var(--text);
 }
 .nw-leaf:hover { border-color: var(--accent); }
-.nw-leaf-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nw-leaf-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .nw-leaf-title { font-weight: 600; }
 .nw-leaf-note { color: var(--muted); font-size: 0.82rem; }
-.nw-leaf-arrow { margin-left: auto; color: var(--muted); flex: none; }
+.nw-leaf-arrow { color: var(--muted); flex: none; }
+
+/* Rolled-up value shown against a Networth head/leaf. */
+.nw-val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.nw-subhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.nw-subhead .nw-val { font-size: 0.95rem; }
+.nw-page-total { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0 6px; }
 .nw-leaf:hover .nw-leaf-arrow { color: var(--accent); }
 .nw-empty { margin: 6px 0 0; font-size: 0.88rem; }
 
