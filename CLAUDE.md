@@ -134,11 +134,17 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   like `12,34,567.89`).
 - The privacy invariant is load-bearing: never add code paths that write statement contents or
   parsed financial data anywhere outside `data/`, and keep `data/` / `*.pdf` / `*.db` gitignored.
-  **The one sanctioned exception** is `app/prices.py`: it fetches live equity quotes from Yahoo
-  Finance and the *only* thing sent out is an exchange **ticker symbol** (e.g. "E2E") — never
-  units, values, holding sizes, PAN, or identity. Keep it that way. Quotes are cached in-process
-  ~15 min and every failure is swallowed (returns None) so a slow/blocked API never breaks a
-  render. The ticker itself comes from the CAS (the `E2E.NSE` line under an equity row), captured
-  onto `Holding.ticker` by the parser and stored in the `holdings.ticker` column; live price +
-  gain-vs-statement is computed in `main._annotate_live_prices` and shown on the Networth Equity
-  leaf. Only equities carry a ticker, so other leaves make no network call.
+  **The one sanctioned exception** is `app/prices.py`, and it is kept deliberately narrow:
+  - *Equities* — live quotes from Yahoo Finance; the *only* thing sent out is an exchange
+    **ticker symbol** (e.g. "E2E") — never units, values, holding sizes, PAN, or identity. The
+    ticker comes from the CAS (`E2E.NSE` line under an equity row), captured onto `Holding.ticker`
+    by the parser and stored in `holdings.ticker`. Quotes cached ~15 min.
+  - *Mutual funds (and gold funds)* — live NAV from AMFI's public **bulk** feed
+    (`portal.amfiindia.com/spages/NAVAll.txt`). We download the whole file and look ISINs up
+    **locally**, so nothing about the user's holdings is sent at all. The parsed ISIN→NAV map is
+    cached ~6 h (NAV publishes once daily).
+  Every failure is swallowed (returns None/empty) so a slow/blocked/changed endpoint never breaks a
+  render — the view falls back to statement values. Enrichment (live price, live value,
+  gain-vs-statement, up/down/flat signal) is computed in `main._annotate_live_prices` — equity
+  ticker → Yahoo, any other ISIN holding → AMFI — and shown on the Networth leaf tables with a
+  source-accurate provenance note. Keep this the only module that egresses.

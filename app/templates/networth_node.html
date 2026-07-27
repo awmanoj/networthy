@@ -106,8 +106,8 @@
         {% endfor %}
       </tbody>
     </table>
-    {% if leaf_data.has_live %}
-    <p class="muted live-note">Live prices from Yahoo Finance, cached ~15 min · only the ticker symbol is sent externally.</p>
+    {% if leaf_data.has_live and leaf_data.live_note %}
+    <p class="muted live-note">{{ leaf_data.live_note }}</p>
     {% endif %}
   </section>
   {% else %}

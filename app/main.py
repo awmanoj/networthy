@@ -262,7 +262,7 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         seen = {h["isin"] for h in cams if h["isin"]}
         holdings = cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
 
-    has_live = _annotate_live_prices(holdings)
+    live_sources = _annotate_live_prices(holdings)
 
     sources = {h["source"] for h in holdings}
     source_label = {"cams": "CAMS statement", "nsdl": "NSDL CAS"}.get(
@@ -278,7 +278,11 @@ def _leaf_holdings(user, slug: str) -> dict | None:
             (h.get("live_value") if h.get("live_value") is not None else h["value"]) or 0.0
             for h in holdings
         ),
-        "has_live": has_live,
+        "has_live": bool(live_sources),
+        "live_note": _LIVE_NOTES.get(
+            frozenset(live_sources),
+            "Live prices cached; only ticker symbols are sent externally.",
+        ) if live_sources else None,
         "source": source_label,
         "as_of": as_of,
         "import_label": import_label,
@@ -286,25 +290,50 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     }
 
 
-def _annotate_live_prices(holdings: list[dict]) -> bool:
-    """Attach live_price / live_value / gain_pct / signal to any holding with a
-    ticker. Returns True if at least one row got a live price.
+# Per-leaf provenance note, keyed by which live sources actually returned a price.
+_LIVE_NOTES: dict[frozenset, str] = {
+    frozenset({"yahoo"}):
+        "Live prices from Yahoo Finance, cached ~15 min · only the ticker symbol "
+        "is sent externally.",
+    frozenset({"amfi"}):
+        "Live NAVs from AMFI (public bulk feed), cached ~6 h · looked up locally, "
+        "so nothing about your holdings is sent externally.",
+    frozenset({"yahoo", "amfi"}):
+        "Live equity prices from Yahoo Finance and fund NAVs from AMFI's public "
+        "bulk feed, cached · only ticker symbols leave the machine.",
+}
 
-    Only equities carry a ticker (mutual funds/gold don't), so this no-ops for
-    those leaves without a network call. Rows we can't price keep None fields and
-    the view falls back to their statement values.
+
+def _annotate_live_prices(holdings: list[dict]) -> set[str]:
+    """Attach live_price / live_value / gain_pct / signal to each holding we can
+    price. Returns the set of live sources used ("yahoo", "amfi").
+
+    Resolution: an equity's exchange ticker -> Yahoo quote; any other ISIN-bearing
+    holding (mutual funds, gold funds) -> AMFI NAV by ISIN. Rows we can't price keep
+    None fields and the view falls back to their statement values.
     """
     quotes = prices.quotes_for_tickers([h.get("ticker") for h in holdings])
-    any_live = False
+    # AMFI is only worth hitting for holdings without a ticker (i.e. funds).
+    fund_isins = [h.get("isin") for h in holdings if not h.get("ticker")]
+    navs = prices.navs_for_isins(fund_isins)
+
+    used: set[str] = set()
     for h in holdings:
-        live = quotes.get(h.get("ticker")) if h.get("ticker") else None
-        h["live_price"] = live
+        h["live_price"] = None
         h["live_value"] = None
         h["gain_pct"] = None
         h["signal"] = None
-        if live is None:
+
+        ticker = h.get("ticker")
+        if ticker and ticker in quotes:
+            live, src = quotes[ticker], "yahoo"
+        elif h.get("isin") in navs:
+            live, src = navs[h["isin"]], "amfi"
+        else:
             continue
-        any_live = True
+
+        used.add(src)
+        h["live_price"] = live
         if h.get("units") is not None:
             h["live_value"] = h["units"] * live
         stmt_price = h.get("price")
@@ -312,7 +341,7 @@ def _annotate_live_prices(holdings: list[dict]) -> bool:
             pct = (live / stmt_price - 1.0) * 100.0
             h["gain_pct"] = pct
             h["signal"] = "up" if pct > 0.05 else "down" if pct < -0.05 else "flat"
-    return any_live
+    return used
 
 
 @app.get("/networth/{path:path}", response_class=HTMLResponse)

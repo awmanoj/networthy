@@ -10,8 +10,10 @@ from app import prices
 @pytest.fixture(autouse=True)
 def clear_cache():
     prices._cache.clear()
+    prices._amfi_cache = None
     yield
     prices._cache.clear()
+    prices._amfi_cache = None
 
 
 @pytest.mark.parametrize(
@@ -70,3 +72,49 @@ def test_quotes_for_tickers_maps_by_cas_ticker(monkeypatch):
     monkeypatch.setattr(prices, "get_quote", lambda sym: {"E2E.NS": 542.5}.get(sym))
     out = prices.quotes_for_tickers(["E2E.NSE", "UNKNOWN.XYZ", None])
     assert out == {"E2E.NSE": 542.5}
+
+
+# --- AMFI NAV feed ----------------------------------------------------------
+
+_AMFI_SAMPLE = """\
+Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Net Asset Value;Date
+
+Nippon India Mutual Fund
+
+100377;INF204K01562;INF204K01570;Nippon India Large Cap Fund - Growth;88.3163;24-Jul-2026
+100378;INF03VN01563;-;White Oak Midcap - Growth;21.360;24-Jul-2026
+109999;INF000000000;-;Some Scheme With No NAV;N.A.;24-Jul-2026
+"""
+
+
+def test_parse_amfi_maps_both_isin_columns_and_skips_na():
+    table = prices._parse_amfi(_AMFI_SAMPLE)
+    assert table["INF204K01562"] == pytest.approx(88.3163)
+    assert table["INF204K01570"] == pytest.approx(88.3163)  # reinvest ISIN -> same NAV
+    assert table["INF03VN01563"] == pytest.approx(21.360)
+    assert "INF000000000" not in table                      # "N.A." row skipped
+    assert "Nippon India Mutual Fund" not in table          # header line ignored
+
+
+def test_navs_for_isins_looks_up_locally(monkeypatch):
+    monkeypatch.setattr(prices, "_fetch_amfi", lambda: prices._parse_amfi(_AMFI_SAMPLE))
+    out = prices.navs_for_isins(["INF03VN01563", "INEUNKNOWN01", None])
+    assert out == {"INF03VN01563": pytest.approx(21.360)}
+
+
+def test_amfi_map_is_cached(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_fetch():
+        calls["n"] += 1
+        return {"INF204K01562": 88.32}
+
+    monkeypatch.setattr(prices, "_fetch_amfi", fake_fetch)
+    prices.navs_for_isins(["INF204K01562"])
+    prices.navs_for_isins(["INF204K01562"])
+    assert calls["n"] == 1  # fetched once, served from the cached map thereafter
+
+
+def test_amfi_fetch_failure_returns_empty(monkeypatch):
+    monkeypatch.setattr(prices, "_fetch_amfi", lambda: {})
+    assert prices.navs_for_isins(["INF204K01562"]) == {}
