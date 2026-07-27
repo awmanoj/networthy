@@ -241,11 +241,16 @@ def _find_accounts(text: str) -> list[Account]:
             last_holding = holding
             continue
 
-        # Not a holding row. If it's a bare word-fragment right after a holding, it's
-        # that holding's wrapped name tail (e.g. MF "… FUND GROWTH" / "PLAN GROWTH
-        # OPTION"). Anything else — a ticker line ("E2E.NSE"), a header, a totals or
+        # Not a holding row. A ticker line ("E2E.NSE") printed right under an equity
+        # row is that holding's exchange symbol — capture it (the key we use to fetch
+        # a live price) and keep the continuation open for a trailing name tail.
+        if last_holding is not None and _TICKER_RE.match(line):
+            if last_holding.ticker is None:
+                last_holding.ticker = line
+        # A bare word-fragment right after a holding is its wrapped name tail (e.g. MF
+        # "… FUND GROWTH" / "PLAN GROWTH OPTION"). Anything else — a header, a totals or
         # ISIN-bearing line — ends the continuation.
-        if last_holding is not None and _is_name_tail(line):
+        elif last_holding is not None and _is_name_tail(line):
             last_holding.name = _clean_name(f"{last_holding.name} {line}")
         else:
             last_holding = None

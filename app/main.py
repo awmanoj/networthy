@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, networth, storage, wealth
+from . import __version__, auth, networth, prices, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -262,6 +262,8 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         seen = {h["isin"] for h in cams if h["isin"]}
         holdings = cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
 
+    has_live = _annotate_live_prices(holdings)
+
     sources = {h["source"] for h in holdings}
     source_label = {"cams": "CAMS statement", "nsdl": "NSDL CAS"}.get(
         next(iter(sources)) if len(sources) == 1 else "", "CAMS + NSDL CAS"
@@ -271,11 +273,46 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     return {
         "holdings": holdings,
         "total": sum(h["value"] or 0.0 for h in holdings),
+        # Live total falls back to the statement value for any row we couldn't price.
+        "live_total": sum(
+            (h.get("live_value") if h.get("live_value") is not None else h["value"]) or 0.0
+            for h in holdings
+        ),
+        "has_live": has_live,
         "source": source_label,
         "as_of": as_of,
         "import_label": import_label,
         "import_url": import_url,
     }
+
+
+def _annotate_live_prices(holdings: list[dict]) -> bool:
+    """Attach live_price / live_value / gain_pct / signal to any holding with a
+    ticker. Returns True if at least one row got a live price.
+
+    Only equities carry a ticker (mutual funds/gold don't), so this no-ops for
+    those leaves without a network call. Rows we can't price keep None fields and
+    the view falls back to their statement values.
+    """
+    quotes = prices.quotes_for_tickers([h.get("ticker") for h in holdings])
+    any_live = False
+    for h in holdings:
+        live = quotes.get(h.get("ticker")) if h.get("ticker") else None
+        h["live_price"] = live
+        h["live_value"] = None
+        h["gain_pct"] = None
+        h["signal"] = None
+        if live is None:
+            continue
+        any_live = True
+        if h.get("units") is not None:
+            h["live_value"] = h["units"] * live
+        stmt_price = h.get("price")
+        if stmt_price:
+            pct = (live / stmt_price - 1.0) * 100.0
+            h["gain_pct"] = pct
+            h["signal"] = "up" if pct > 0.05 else "down" if pct < -0.05 else "flat"
+    return any_live
 
 
 @app.get("/networth/{path:path}", response_class=HTMLResponse)

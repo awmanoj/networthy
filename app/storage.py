@@ -103,13 +103,15 @@ def init_db() -> None:
                 asset_class        TEXT,
                 units              REAL,
                 price              REAL,
-                value              REAL
+                value              REAL,
+                ticker             TEXT
             )
             """
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_holdings_snapshot ON holdings(snapshot_id)"
         )
+        _add_column_if_missing(conn, "holdings", "ticker", "TEXT")
         # Imported holdings that populate the Networth breakdown pages (e.g. a CAMS
         # mutual-fund CAS). Kept separate from `snapshots`/`holdings` on purpose: a
         # snapshot is *total* net worth and drives the dashboard chart, whereas a
@@ -137,6 +139,15 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_networth_user "
             "ON networth_holdings(user_id, asset_class)"
         )
+
+
+def _add_column_if_missing(
+    conn: sqlite3.Connection, table: str, column: str, decl: str
+) -> None:
+    """Add `column` to `table` if an older DB predates it. Idempotent."""
+    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
 def _migrate_legacy_snapshots(conn: sqlite3.Connection) -> None:
@@ -343,6 +354,7 @@ def replace_holdings(snapshot_id: int, accounts: list[Account]) -> None:
                         h.units,
                         h.price,
                         h.value,
+                        h.ticker,
                     )
                 )
         if rows:
@@ -350,8 +362,9 @@ def replace_holdings(snapshot_id: int, accounts: list[Account]) -> None:
                 """
                 INSERT INTO holdings
                     (snapshot_id, account_kind, account_name, account_identifier,
-                     depository, position, isin, name, asset_class, units, price, value)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     depository, position, isin, name, asset_class, units, price, value,
+                     ticker)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 rows,
             )
@@ -390,6 +403,7 @@ def list_accounts(snapshot_id: int) -> list[Account]:
                 units=r["units"],
                 price=r["price"],
                 value=r["value"],
+                ticker=r["ticker"],
             )
         )
     return accounts
@@ -517,6 +531,7 @@ def latest_holdings_by_class(user_id: int, asset_classes: set[str]) -> list[dict
             "price": r["price"],
             "value": r["value"],
             "asset_class": r["asset_class"],
+            "ticker": r["ticker"],
             "source": "nsdl",
             "as_of_date": as_of,
         }

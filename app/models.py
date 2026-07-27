@@ -25,6 +25,7 @@ class Holding:
     units: float | None = None
     price: float | None = None  # market price / NAV as of the statement date
     value: float | None = None  # market value in INR
+    ticker: str | None = None  # exchange ticker from the CAS, e.g. "E2E.NSE" (equities)
 
 
 @dataclass

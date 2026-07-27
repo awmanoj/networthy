@@ -135,6 +135,22 @@ def test_parse_holding_line_nil_zero_value_row_is_skipped():
     ) is None
 
 
+def test_find_accounts_captures_ticker_under_equity_row():
+    # The exchange ticker printed on its own line under an equity row (the key we
+    # use to fetch a live price) is stitched onto that holding, not treated as a
+    # separate holding or a name tail.
+    text = (
+        "National Securities Depository Limited (NSDL)\n"
+        "INE255Z01027 E2E NETWORKS LIMITED 1.00 8,000 396.30 31,70,400.00\n"
+        "E2E.NSE\n"
+    )
+    accounts = _find_accounts(text)
+    holdings = [h for a in accounts for h in a.holdings]
+    assert len(holdings) == 1
+    assert holdings[0].name == "E2E NETWORKS LIMITED"   # ticker not appended to name
+    assert holdings[0].ticker == "E2E.NSE"
+
+
 _SAMPLE_CAS = """\
 Consolidated Account Statement as on 30-Jun-2024
 Consolidated Portfolio Value 12,34,567.89

@@ -264,6 +264,22 @@ form { display: inline; }
 .alloc-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 .alloc-pct { font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
 
+/* Live-price indicators (Networth equity leaf) */
+.live-badge {
+  font-size: 0.6em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 5px;
+  padding: 1px 5px; vertical-align: middle; margin-left: 6px;
+}
+.stat-sub { font-size: 0.9rem; font-weight: 600; }
+.stat-sub.up { color: var(--up); }
+.stat-sub.down { color: var(--down); }
+.chg { font-weight: 600; font-variant-numeric: tabular-nums; }
+.chg.up { color: var(--up); }
+.chg.down { color: var(--down); }
+.chg.flat { color: var(--muted); }
+.live-note { font-size: 0.78rem; margin: 12px 0 0; }
+
 .card.cta { text-align: center; padding: 32px 24px; }
 .card.cta h2 { color: var(--text); font-size: 1.15rem; margin-bottom: 10px; }
 .card.cta p { margin: 0 auto 8px; max-width: 520px; }

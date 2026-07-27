@@ -134,3 +134,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   like `12,34,567.89`).
 - The privacy invariant is load-bearing: never add code paths that write statement contents or
   parsed financial data anywhere outside `data/`, and keep `data/` / `*.pdf` / `*.db` gitignored.
+  **The one sanctioned exception** is `app/prices.py`: it fetches live equity quotes from Yahoo
+  Finance and the *only* thing sent out is an exchange **ticker symbol** (e.g. "E2E") — never
+  units, values, holding sizes, PAN, or identity. Keep it that way. Quotes are cached in-process
+  ~15 min and every failure is swallowed (returns None) so a slow/blocked API never breaks a
+  render. The ticker itself comes from the CAS (the `E2E.NSE` line under an equity row), captured
+  onto `Holding.ticker` by the parser and stored in the `holdings.ticker` column; live price +
+  gain-vs-statement is computed in `main._annotate_live_prices` and shown on the Networth Equity
+  leaf. Only equities carry a ticker, so other leaves make no network call.
