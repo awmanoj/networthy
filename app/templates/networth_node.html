@@ -46,25 +46,37 @@
 </section>
 
 {% elif leaf_data is not none %}
-  {% if leaf_data.holdings %}
+  {% if not leaf_data.has_cas and not leaf_data.manual_enabled %}
+  <section class="card nw-blank">
+    <div class="nw-blank-icon">📥</div>
+    <h2>No holdings yet</h2>
+    <p class="muted">
+      Add your holdings to fill in <strong>{{ node.title }}</strong> — name, units,
+      price and current value.
+    </p>
+    <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
+  </section>
+  {% else %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
         <span class="stat-label">
           Total{% if leaf_data.source %} · {{ leaf_data.source }}{% endif %}{% if leaf_data.as_of %} · as of {{ leaf_data.as_of }}{% endif %}
         </span>
-        {% if leaf_data.has_live %}
         <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+        {% if leaf_data.has_live %}
         {% set delta = leaf_data.live_total - leaf_data.total %}
         <span class="stat-sub {{ 'up' if delta >= 0 else 'down' }}">
           {{ '▲' if delta >= 0 else '▼' }} ₹{{ "{:,.0f}".format(delta|abs) }} vs statement (₹{{ "{:,.0f}".format(leaf_data.total) }})
         </span>
-        {% else %}
-        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.total) }}</span>
         {% endif %}
       </div>
+      {% if leaf_data.data_backed %}
       <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
+      {% endif %}
     </div>
+
+    {% if leaf_data.has_cas %}
     <table class="holdings">
       <thead>
         <tr>
@@ -109,16 +121,58 @@
     {% if leaf_data.has_live and leaf_data.live_note %}
     <p class="muted live-note">{{ leaf_data.live_note }}</p>
     {% endif %}
-  </section>
-  {% else %}
-  <section class="card nw-blank">
-    <div class="nw-blank-icon">📥</div>
-    <h2>No holdings yet</h2>
-    <p class="muted">
-      Add your holdings to fill in <strong>{{ node.title }}</strong> — name, units,
-      price and current value.
-    </p>
-    <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
+    {% endif %}
+
+    {% if leaf_data.manual_enabled %}
+    <div class="manual-section{% if leaf_data.has_cas %} manual-sep{% endif %}">
+      <h3 class="manual-head">
+        Manual entries{% if leaf_data.manual %} <span class="muted">· ₹{{ "{:,.0f}".format(leaf_data.manual_total) }}</span>{% endif %}
+      </h3>
+      {% if leaf_data.manual %}
+      <table class="holdings manual-table">
+        <thead>
+          <tr>
+            <th>Scheme</th>
+            <th class="num">Investment</th>
+            <th class="num">Maturity</th>
+            <th class="num">Years</th>
+            <th class="num">Rate</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in leaf_data.manual %}
+          <tr>
+            <td class="h-name">{{ m.scheme }}</td>
+            <td class="num">₹{{ "{:,.0f}".format(m.investment_amount) }}</td>
+            <td class="num">{{ "₹{:,.0f}".format(m.maturity_amount) if m.maturity_amount is not none else "—" }}</td>
+            <td class="num">{{ "{:g}".format(m.years) if m.years is not none else "—" }}</td>
+            <td class="num">{{ "{:g}%".format(m.rate) if m.rate is not none else "—" }}</td>
+            <td class="num">
+              <form method="post" action="/networth/manual/{{ m.id }}/delete"
+                    onsubmit="return confirm('Delete this entry?');">
+                <input type="hidden" name="redirect" value="{{ node_path }}">
+                <button class="link-danger" type="submit">delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      <form class="manual-add" method="post" action="/networth/manual/add">
+        <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <input class="m-scheme" name="scheme" placeholder="Scheme / name" required>
+        <input name="investment_amount" type="number" step="any" min="0" placeholder="Investment ₹" required>
+        <input name="maturity_amount" type="number" step="any" min="0" placeholder="Maturity ₹ (opt)">
+        <input name="years" type="number" step="any" min="0" placeholder="Years (opt)">
+        <input name="rate" type="number" step="any" min="0" placeholder="Rate % (opt)">
+        <button class="btn" type="submit">Add</button>
+      </form>
+      <p class="muted live-note">Investment Amount counts toward your net worth; maturity, years and rate are optional.</p>
+    </div>
+    {% endif %}
   </section>
   {% endif %}
 

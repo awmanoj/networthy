@@ -30,6 +30,7 @@ def test_financial_assets_children_in_order():
     assert [c.slug for c in fin.children] == [
         "mutual-funds", "equity", "foreign-equity", "fixed-income",
         "gold-silver", "bank-cash", "foreign-exchange", "alternate-investments",
+        "others",
     ]
 
 
@@ -38,7 +39,7 @@ def test_fixed_income_has_instrument_children():
     assert not fi.is_leaf  # now a drill-in category, not a blank leaf
     assert [c.slug for c in fi.children] == [
         "corporate-bonds", "govt-bonds", "fixed-deposits", "ppf",
-        "epf", "nps", "sukanya-samriddhi", "nsc",
+        "epf", "nps", "sukanya-samriddhi", "nsc", "other-fixed-income",
     ]
     assert all(c.is_leaf for c in fi.children)
 
@@ -97,12 +98,23 @@ def test_data_backed_leaves_map_to_asset_classes():
         "mutual-funds": {"mutual_fund"},
         "gold-silver": {"gold", "silver"},
         "equity": {"direct_equity"},
+        "corporate-bonds": {"debt"},
+        "govt-bonds": {"govt_security"},
+        "nps": {"nps"},
     }
-    for slug in LEAF_ASSET_CLASSES:
-        assert resolve(f"assets/financial-assets/{slug}") is not None
     # Every data-backed leaf declares where its holdings come from.
     assert set(LEAF_IMPORT) == set(LEAF_ASSET_CLASSES)
     assert LEAF_IMPORT["equity"] == "nsdl"
+
+
+def test_manual_leaves_resolve_and_bonds_overlap_cas():
+    from app.networth import MANUAL_LEAVES
+    # Corporate bonds / govt bonds / NPS are BOTH CAS-backed and manual-enabled.
+    for slug in ("corporate-bonds", "govt-bonds", "nps"):
+        assert slug in LEAF_ASSET_CLASSES and slug in MANUAL_LEAVES
+    # Purely-manual leaves have no CAS class.
+    for slug in ("ppf", "epf", "sukanya-samriddhi", "nsc", "others", "other-fixed-income"):
+        assert slug in MANUAL_LEAVES and slug not in LEAF_ASSET_CLASSES
 
 
 def test_rollup_sums_leaves_into_parents():

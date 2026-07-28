@@ -199,6 +199,47 @@ def test_latest_holdings_by_class_skips_value_less_rows(db):
     assert [h["name"] for h in mfs] == ["Real Fund"]
 
 
+def test_manual_holdings_crud_round_trip(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    db.add_manual_holding(alice, "ppf", "SBI PPF", 500000.0, 1200000.0, 15.0, 7.1)
+    db.add_manual_holding(alice, "ppf", "HDFC PPF", 100000.0)  # optional fields None
+    db.add_manual_holding(alice, "nsc", "NSC VIII", 50000.0)   # different leaf
+
+    ppf = db.list_manual_holdings(alice, "ppf")
+    assert [m["scheme"] for m in ppf] == ["SBI PPF", "HDFC PPF"]  # entry order
+    assert ppf[0]["investment_amount"] == 500000.0
+    assert ppf[0]["maturity_amount"] == 1200000.0
+    assert ppf[0]["rate"] == 7.1
+    assert ppf[1]["maturity_amount"] is None and ppf[1]["years"] is None
+
+    # Leaf scoping: nsc entry doesn't leak into ppf.
+    assert [m["scheme"] for m in db.list_manual_holdings(alice, "nsc")] == ["NSC VIII"]
+
+
+def test_manual_holdings_delete_is_owner_scoped(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_manual_holding(bob, "ppf", "Bob PPF", 10000.0)
+    (row,) = db.list_manual_holdings(bob, "ppf")
+
+    db.delete_manual_holding(alice, row["id"])           # not Bob's — no-op
+    assert len(db.list_manual_holdings(bob, "ppf")) == 1
+    db.delete_manual_holding(bob, row["id"])
+    assert db.list_manual_holdings(bob, "ppf") == []
+
+
+def test_manual_holdings_cascade_on_user_delete(db):
+    import sqlite3
+    alice = db.get_or_create_user("alice@example.com").id
+    db.add_manual_holding(alice, "ppf", "SBI PPF", 500000.0)
+    with db._connect() as conn:
+        conn.execute("DELETE FROM users WHERE id = ?", (alice,))
+        (n,) = conn.execute(
+            "SELECT COUNT(*) FROM manual_holdings WHERE user_id = ?", (alice,)
+        ).fetchone()
+    assert n == 0  # ON DELETE CASCADE
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

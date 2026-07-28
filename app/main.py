@@ -272,13 +272,22 @@ def _live_total(rows: list[dict]) -> float:
 
 
 def _leaf_value(user, slug: str) -> float | None:
-    """A data-backed leaf's live-consistent total (same number its page shows), or
-    None if the leaf isn't data-backed. Used to roll values up the Networth tree."""
-    rows = _leaf_rows(user, slug)
-    if rows is None:
+    """A leaf's live-consistent total — CAS holdings (live) + manual entries — or
+    None if the leaf is neither data-backed nor manual-enabled. Rolls up the tree."""
+    data_backed = slug in networth.LEAF_ASSET_CLASSES
+    manual_enabled = slug in networth.MANUAL_LEAVES
+    if not (data_backed or manual_enabled):
         return None
-    _annotate_live_prices(rows)
-    return _live_total(rows)
+    total = 0.0
+    if data_backed:
+        rows = _leaf_rows(user, slug) or []
+        _annotate_live_prices(rows)
+        total += _live_total(rows)
+    if manual_enabled:
+        total += sum(
+            m["investment_amount"] for m in storage.list_manual_holdings(user.id, slug)
+        )
+    return total
 
 
 def _networth_values(user) -> dict[str, float]:
@@ -287,12 +296,17 @@ def _networth_values(user) -> dict[str, float]:
 
 
 def _leaf_holdings(user, slug: str) -> dict | None:
-    """Holdings to show on a data-backed Networth leaf, or None if it isn't one."""
-    holdings = _leaf_rows(user, slug)
-    if holdings is None:
+    """Everything a Networth leaf page needs: CAS holdings (live-priced) and/or
+    hand-entered rows, or None if the leaf is neither data-backed nor manual."""
+    data_backed = slug in networth.LEAF_ASSET_CLASSES
+    manual_enabled = slug in networth.MANUAL_LEAVES
+    if not (data_backed or manual_enabled):
         return None
 
-    live_sources = _annotate_live_prices(holdings)
+    holdings = (_leaf_rows(user, slug) or []) if data_backed else []
+    live_sources = _annotate_live_prices(holdings) if holdings else set()
+    manual = storage.list_manual_holdings(user.id, slug) if manual_enabled else []
+    manual_total = sum(m["investment_amount"] for m in manual)
 
     sources = {h["source"] for h in holdings}
     source_label = {"cams": "CAMS statement", "nsdl": "NSDL CAS"}.get(
@@ -302,8 +316,11 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     as_of = next((h["as_of_date"] for h in holdings if h["as_of_date"]), None)
     return {
         "holdings": holdings,
-        "total": sum(h["value"] or 0.0 for h in holdings),
-        "live_total": _live_total(holdings),
+        "has_cas": bool(holdings),
+        "data_backed": data_backed,
+        # Combined totals: CAS statement/live value + manual investment amounts.
+        "total": sum(h["value"] or 0.0 for h in holdings) + manual_total,
+        "live_total": _live_total(holdings) + manual_total,
         "has_live": bool(live_sources),
         "live_note": _LIVE_NOTES.get(
             frozenset(live_sources),
@@ -313,6 +330,11 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         "as_of": as_of,
         "import_label": import_label,
         "import_url": import_url,
+        # Manual entries.
+        "manual_enabled": manual_enabled,
+        "manual": manual,
+        "manual_total": manual_total,
+        "leaf_slug": slug,
     }
 
 
@@ -370,6 +392,52 @@ def _annotate_live_prices(holdings: list[dict]) -> set[str]:
     return used
 
 
+def _opt_float(raw: str) -> float | None:
+    """Parse an optional numeric form field; blank or unparseable -> None."""
+    try:
+        return float(raw) if raw.strip() else None
+    except (ValueError, AttributeError):
+        return None
+
+
+def _networth_redirect(path: str) -> RedirectResponse:
+    """Redirect back to a Networth leaf, guarding against a bogus/injected path."""
+    clean = path.strip("/")
+    target = f"/networth/{clean}" if networth.resolve(clean) else "/networth"
+    return RedirectResponse(url=target, status_code=303)
+
+
+@app.post("/networth/manual/add")
+def manual_add(
+    request: Request,
+    leaf_slug: str = Form(...),
+    redirect: str = Form(...),
+    scheme: str = Form(...),
+    investment_amount: float = Form(...),
+    maturity_amount: str = Form(""),
+    years: str = Form(""),
+    rate: str = Form(""),
+):
+    """Add a hand-entered holding to a manual-enabled Networth leaf."""
+    if leaf_slug in networth.MANUAL_LEAVES and scheme.strip():
+        storage.add_manual_holding(
+            request.state.user.id,
+            leaf_slug,
+            scheme.strip(),
+            investment_amount,
+            _opt_float(maturity_amount),
+            _opt_float(years),
+            _opt_float(rate),
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/manual/{holding_id}/delete")
+def manual_delete(request: Request, holding_id: int, redirect: str = Form(...)):
+    storage.delete_manual_holding(request.state.user.id, holding_id)
+    return _networth_redirect(redirect)
+
+
 @app.get("/networth/{path:path}", response_class=HTMLResponse)
 def networth_node(request: Request, path: str):
     """A single category page.
@@ -416,6 +484,7 @@ def networth_node(request: Request, path: str):
             "node": node,
             "children": children,
             "node_value": values.get(prefix),
+            "node_path": prefix,
             "breadcrumbs": networth.breadcrumbs(chain),
             "leaf_data": leaf_data,
             "import_url": CAMS_IMPORT_URL,

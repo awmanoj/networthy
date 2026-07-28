@@ -44,6 +44,8 @@ SECTIONS: list[Node] = [
                 Node("nps", "NPS", note="National Pension System"),
                 Node("sukanya-samriddhi", "Sukanya Samriddhi (SSA)"),
                 Node("nsc", "NSC", note="National Savings Certificate"),
+                Node("other-fixed-income", "Other Fixed Income",
+                     note="Anything else fixed-income"),
             ]),
             Node("gold-silver", "Gold & Silver",
                  note="SGBs, Gold/Silver ETFs & funds, digital gold"),
@@ -51,6 +53,7 @@ SECTIONS: list[Node] = [
             Node("foreign-exchange", "Foreign Exchange"),
             Node("alternate-investments", "Alternate Investments",
                  note="Startups / angel investments, ESOPs in companies"),
+            Node("others", "Others", note="Anything that doesn't fit above"),
         ]),
         Node("non-financial-assets", "Non-Financial Assets", children=[
             Node("real-estate", "Real Estate",
@@ -101,6 +104,11 @@ LEAF_ASSET_CLASSES: dict[str, set[str]] = {
     "mutual-funds": {"mutual_fund"},
     "gold-silver": {"gold", "silver"},
     "equity": {"direct_equity"},
+    # Bonds & NPS held in demat are already classified in the NSDL CAS, so these
+    # leaves auto-fill from it (and also accept manual entries — see MANUAL_LEAVES).
+    "corporate-bonds": {"debt"},
+    "govt-bonds": {"govt_security"},
+    "nps": {"nps"},
 }
 
 # Where each data-backed leaf's holdings come from — drives the page's call-to-action.
@@ -110,6 +118,18 @@ LEAF_IMPORT: dict[str, str] = {
     "mutual-funds": "cams",
     "gold-silver": "cams",
     "equity": "nsdl",
+    "corporate-bonds": "nsdl",
+    "govt-bonds": "nsdl",
+    "nps": "nsdl",
+}
+
+# Leaves that accept hand-entered holdings (Scheme / Investment / Maturity / Years /
+# Rate). Some (bonds, NPS) also auto-fill from the CAS — manual supplements those;
+# the rest (PPF, EPF, SSA, NSC, Others) exist only as manual entries.
+MANUAL_LEAVES: set[str] = {
+    "corporate-bonds", "govt-bonds", "nps",
+    "ppf", "epf", "sukanya-samriddhi", "nsc",
+    "fixed-deposits", "other-fixed-income", "others",
 }
 
 

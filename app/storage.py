@@ -139,6 +139,30 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_networth_user "
             "ON networth_holdings(user_id, asset_class)"
         )
+        # Hand-entered holdings for Networth leaves that no statement covers (PPF,
+        # EPF, NSC, SSA, Others) or that supplement a CAS (bonds held off-demat).
+        # investment_amount is the current value that rolls into net worth; the
+        # rest are optional context/projection.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS manual_holdings (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                leaf_slug         TEXT NOT NULL,
+                scheme            TEXT NOT NULL,
+                investment_amount REAL NOT NULL,
+                maturity_amount   REAL,
+                years             REAL,
+                rate              REAL,
+                position          INTEGER NOT NULL DEFAULT 0,
+                created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_manual_user_leaf "
+            "ON manual_holdings(user_id, leaf_slug)"
+        )
 
 
 def _add_column_if_missing(
@@ -551,6 +575,62 @@ def delete_networth_import(user_id: int, source: str) -> None:
         )
 
 
+# --- Manual holdings (hand-entered Networth leaf rows) -----------------------
+
+def add_manual_holding(
+    user_id: int,
+    leaf_slug: str,
+    scheme: str,
+    investment_amount: float,
+    maturity_amount: float | None = None,
+    years: float | None = None,
+    rate: float | None = None,
+) -> None:
+    """Append one hand-entered holding to a Networth leaf.
+
+    New rows sort after existing ones (position = current count) so the list keeps
+    entry order.
+    """
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM manual_holdings WHERE user_id = ? AND leaf_slug = ?",
+            (user_id, leaf_slug),
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO manual_holdings
+                (user_id, leaf_slug, scheme, investment_amount, maturity_amount,
+                 years, rate, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, leaf_slug, scheme, investment_amount, maturity_amount,
+             years, rate, count),
+        )
+
+
+def list_manual_holdings(user_id: int, leaf_slug: str) -> list[dict]:
+    """A user's hand-entered holdings for one leaf, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM manual_holdings
+            WHERE user_id = ? AND leaf_slug = ?
+            ORDER BY position ASC, id ASC
+            """,
+            (user_id, leaf_slug),
+        ).fetchall()
+    return [_row_to_manual(r) for r in rows]
+
+
+def delete_manual_holding(user_id: int, holding_id: int) -> None:
+    """Delete one manual holding, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM manual_holdings WHERE id = ? AND user_id = ?",
+            (holding_id, user_id),
+        )
+
+
 # --- Row mappers ------------------------------------------------------------
 
 def _row_to_user(row: sqlite3.Row) -> User:
@@ -571,6 +651,18 @@ def _row_to_networth_holding(row: sqlite3.Row) -> dict:
         "asset_class": row["asset_class"],
         "source": row["source"],
         "as_of_date": row["as_of_date"],
+    }
+
+
+def _row_to_manual(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "leaf_slug": row["leaf_slug"],
+        "scheme": row["scheme"],
+        "investment_amount": row["investment_amount"],
+        "maturity_amount": row["maturity_amount"],
+        "years": row["years"],
+        "rate": row["rate"],
     }
 
 

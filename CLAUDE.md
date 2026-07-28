@@ -151,4 +151,12 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   **overview and node pages** also trigger this (via `networth.rollup` + `_leaf_value`) to show a
   **live-consistent value against each head** — so the head number matches the leaf's live total
   rather than the statement value. That means `/networth` makes the same (cached) calls; the
-  rollup only sums data-backed leaves (mutual-funds / equity / gold-silver) up their parents.
+  rollup sums each leaf's value up its parents.
+- **Manual Networth entries**: leaves in `networth.MANUAL_LEAVES` (PPF, EPF, SSA, NSC, FDs,
+  Other Fixed Income, Others — plus Corporate Bonds / Govt Bonds / NPS, which *also* auto-fill
+  from the NSDL CAS) accept hand-entered rows via `manual_holdings` (per-leaf: scheme,
+  investment_amount, and optional maturity_amount / years / rate). `investment_amount` is the
+  current value that rolls into net worth; the rest are informational. `_leaf_value` /
+  `_leaf_holdings` combine CAS-live holdings **and** manual rows, so a leaf like Corporate Bonds
+  shows both. Add via `POST /networth/manual/add`, remove via `POST /networth/manual/{id}/delete`
+  (both carry a `redirect` = the leaf's slug-path, validated through `networth.resolve`).
