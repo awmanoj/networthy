@@ -152,6 +152,8 @@ def init_db() -> None:
                 scheme            TEXT NOT NULL,
                 investment_amount REAL NOT NULL,
                 maturity_amount   REAL,
+                investment_date   TEXT,
+                maturity_date     TEXT,
                 years             REAL,
                 rate              REAL,
                 position          INTEGER NOT NULL DEFAULT 0,
@@ -163,6 +165,10 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_manual_user_leaf "
             "ON manual_holdings(user_id, leaf_slug)"
         )
+        # Dates were added after the initial manual_holdings shape; `years` is kept
+        # only as a display fallback for any rows entered before dates existed.
+        _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
+        _add_column_if_missing(conn, "manual_holdings", "maturity_date", "TEXT")
 
 
 def _add_column_if_missing(
@@ -583,13 +589,15 @@ def add_manual_holding(
     scheme: str,
     investment_amount: float,
     maturity_amount: float | None = None,
-    years: float | None = None,
     rate: float | None = None,
+    investment_date: str | None = None,
+    maturity_date: str | None = None,
 ) -> None:
     """Append one hand-entered holding to a Networth leaf.
 
-    New rows sort after existing ones (position = current count) so the list keeps
-    entry order.
+    Dates are ISO strings (YYYY-MM-DD) or None. Tenure is derived from them at
+    display time, so no separate years field is stored. New rows sort after
+    existing ones (position = current count) so the list keeps entry order.
     """
     with _connect() as conn:
         (count,) = conn.execute(
@@ -600,11 +608,11 @@ def add_manual_holding(
             """
             INSERT INTO manual_holdings
                 (user_id, leaf_slug, scheme, investment_amount, maturity_amount,
-                 years, rate, position)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 investment_date, maturity_date, rate, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (user_id, leaf_slug, scheme, investment_amount, maturity_amount,
-             years, rate, count),
+             investment_date, maturity_date, rate, count),
         )
 
 
@@ -661,7 +669,9 @@ def _row_to_manual(row: sqlite3.Row) -> dict:
         "scheme": row["scheme"],
         "investment_amount": row["investment_amount"],
         "maturity_amount": row["maturity_amount"],
-        "years": row["years"],
+        "investment_date": row["investment_date"],
+        "maturity_date": row["maturity_date"],
+        "years": row["years"],  # legacy fallback for rows entered before dates
         "rate": row["rate"],
     }
 

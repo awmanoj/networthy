@@ -155,8 +155,10 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
 - **Manual Networth entries**: leaves in `networth.MANUAL_LEAVES` (PPF, EPF, SSA, NSC, FDs,
   Other Fixed Income, Others — plus Corporate Bonds / Govt Bonds / NPS, which *also* auto-fill
   from the NSDL CAS) accept hand-entered rows via `manual_holdings` (per-leaf: scheme,
-  investment_amount, and optional maturity_amount / years / rate). `investment_amount` is the
-  current value that rolls into net worth; the rest are informational. `_leaf_value` /
+  investment_amount, and optional maturity_amount / investment_date / maturity_date / rate).
+  `investment_amount` is the current value that rolls into net worth; the rest are informational.
+  Tenure is *derived* from the two dates at display time (`main._enrich_manual`), not stored — the
+  legacy `years` column is kept only as a fallback for rows entered before dates existed. `_leaf_value` /
   `_leaf_holdings` combine CAS-live holdings **and** manual rows, so a leaf like Corporate Bonds
   shows both. Add via `POST /networth/manual/add`, remove via `POST /networth/manual/{id}/delete`
   (both carry a `redirect` = the leaf's slug-path, validated through `networth.resolve`).

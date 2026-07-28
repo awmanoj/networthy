@@ -134,8 +134,10 @@
           <tr>
             <th>Scheme</th>
             <th class="num">Investment</th>
+            <th class="num">Invested</th>
+            <th class="num">Matures</th>
+            <th class="num">Tenure</th>
             <th class="num">Maturity</th>
-            <th class="num">Years</th>
             <th class="num">Rate</th>
             <th></th>
           </tr>
@@ -145,8 +147,13 @@
           <tr>
             <td class="h-name">{{ m.scheme }}</td>
             <td class="num">₹{{ "{:,.0f}".format(m.investment_amount) }}</td>
+            <td class="num">{{ m.invested_fmt or "—" }}</td>
+            <td class="num">
+              {{ m.matures_fmt or "—" }}
+              {% if m.matures_in %}<span class="matures-in muted">{{ m.matures_in }}</span>{% endif %}
+            </td>
+            <td class="num">{{ m.tenure or "—" }}</td>
             <td class="num">{{ "₹{:,.0f}".format(m.maturity_amount) if m.maturity_amount is not none else "—" }}</td>
-            <td class="num">{{ "{:g}".format(m.years) if m.years is not none else "—" }}</td>
             <td class="num">{{ "{:g}%".format(m.rate) if m.rate is not none else "—" }}</td>
             <td class="num">
               <form method="post" action="/networth/manual/{{ m.id }}/delete"
@@ -165,12 +172,13 @@
         <input type="hidden" name="redirect" value="{{ node_path }}">
         <input class="m-scheme" name="scheme" placeholder="Scheme / name" required>
         <input name="investment_amount" type="number" step="any" min="0" placeholder="Investment ₹" required>
+        <label class="m-date">Invested<input name="investment_date" type="date"></label>
+        <label class="m-date">Matures<input name="maturity_date" type="date"></label>
         <input name="maturity_amount" type="number" step="any" min="0" placeholder="Maturity ₹ (opt)">
-        <input name="years" type="number" step="any" min="0" placeholder="Years (opt)">
         <input name="rate" type="number" step="any" min="0" placeholder="Rate % (opt)">
         <button class="btn" type="submit">Add</button>
       </form>
-      <p class="muted live-note">Investment Amount counts toward your net worth; maturity, years and rate are optional.</p>
+      <p class="muted live-note">Investment Amount counts toward your net worth; dates, maturity amount and rate are optional. Tenure is worked out from the dates.</p>
     </div>
     {% endif %}
   </section>

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -306,6 +307,7 @@ def _leaf_holdings(user, slug: str) -> dict | None:
     holdings = (_leaf_rows(user, slug) or []) if data_backed else []
     live_sources = _annotate_live_prices(holdings) if holdings else set()
     manual = storage.list_manual_holdings(user.id, slug) if manual_enabled else []
+    _enrich_manual(manual)
     manual_total = sum(m["investment_amount"] for m in manual)
 
     sources = {h["source"] for h in holdings}
@@ -400,6 +402,62 @@ def _opt_float(raw: str) -> float | None:
         return None
 
 
+def _opt_date(raw: str) -> str | None:
+    """Validate an optional ISO date form field; keep it as an ISO string or None."""
+    raw = (raw or "").strip()
+    try:
+        return date.fromisoformat(raw).isoformat() if raw else None
+    except ValueError:
+        return None
+
+
+def _parse_date(iso: str | None) -> date | None:
+    try:
+        return date.fromisoformat(iso) if iso else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _years_label(years: float) -> str:
+    """'15 yrs' when near-integer, else '1.5 yrs'."""
+    if abs(years - round(years)) < 0.08:
+        n = round(years)
+        return f"{n} yr" if n == 1 else f"{n} yrs"
+    return f"{years:.1f} yrs"
+
+
+def _enrich_manual(rows: list[dict]) -> None:
+    """Add display fields to manual rows: formatted dates, computed tenure, and a
+    'matures in / matured' hint. Tenure comes from the two dates, falling back to a
+    legacy `years` value for rows entered before dates existed."""
+    today = date.today()
+    for m in rows:
+        inv = _parse_date(m.get("investment_date"))
+        mat = _parse_date(m.get("maturity_date"))
+        m["invested_fmt"] = inv.strftime("%d %b %Y") if inv else None
+        m["matures_fmt"] = mat.strftime("%d %b %Y") if mat else None
+
+        if inv and mat and mat > inv:
+            m["tenure"] = _years_label((mat - inv).days / 365.25)
+        elif m.get("years"):
+            m["tenure"] = _years_label(m["years"])
+        else:
+            m["tenure"] = None
+
+        m["matures_in"] = None
+        if mat:
+            if mat <= today:
+                m["matures_in"] = "matured"
+            else:
+                days = (mat - today).days
+                if days < 31:
+                    m["matures_in"] = f"in {days} d"
+                elif days < 365:
+                    m["matures_in"] = f"in {round(days / 30.44)} mo"
+                else:
+                    m["matures_in"] = f"in {days / 365.25:.1f} yrs"
+
+
 def _networth_redirect(path: str) -> RedirectResponse:
     """Redirect back to a Networth leaf, guarding against a bogus/injected path."""
     clean = path.strip("/")
@@ -415,7 +473,8 @@ def manual_add(
     scheme: str = Form(...),
     investment_amount: float = Form(...),
     maturity_amount: str = Form(""),
-    years: str = Form(""),
+    investment_date: str = Form(""),
+    maturity_date: str = Form(""),
     rate: str = Form(""),
 ):
     """Add a hand-entered holding to a manual-enabled Networth leaf."""
@@ -425,9 +484,10 @@ def manual_add(
             leaf_slug,
             scheme.strip(),
             investment_amount,
-            _opt_float(maturity_amount),
-            _opt_float(years),
-            _opt_float(rate),
+            maturity_amount=_opt_float(maturity_amount),
+            rate=_opt_float(rate),
+            investment_date=_opt_date(investment_date),
+            maturity_date=_opt_date(maturity_date),
         )
     return _networth_redirect(redirect)
 

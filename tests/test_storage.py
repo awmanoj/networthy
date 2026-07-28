@@ -201,7 +201,11 @@ def test_latest_holdings_by_class_skips_value_less_rows(db):
 
 def test_manual_holdings_crud_round_trip(db):
     alice = db.get_or_create_user("alice@example.com").id
-    db.add_manual_holding(alice, "ppf", "SBI PPF", 500000.0, 1200000.0, 15.0, 7.1)
+    db.add_manual_holding(
+        alice, "ppf", "SBI PPF", 500000.0,
+        maturity_amount=1200000.0, rate=7.1,
+        investment_date="2023-04-01", maturity_date="2038-04-01",
+    )
     db.add_manual_holding(alice, "ppf", "HDFC PPF", 100000.0)  # optional fields None
     db.add_manual_holding(alice, "nsc", "NSC VIII", 50000.0)   # different leaf
 
@@ -210,7 +214,9 @@ def test_manual_holdings_crud_round_trip(db):
     assert ppf[0]["investment_amount"] == 500000.0
     assert ppf[0]["maturity_amount"] == 1200000.0
     assert ppf[0]["rate"] == 7.1
-    assert ppf[1]["maturity_amount"] is None and ppf[1]["years"] is None
+    assert ppf[0]["investment_date"] == "2023-04-01"
+    assert ppf[0]["maturity_date"] == "2038-04-01"
+    assert ppf[1]["maturity_amount"] is None and ppf[1]["investment_date"] is None
 
     # Leaf scoping: nsc entry doesn't leak into ppf.
     assert [m["scheme"] for m in db.list_manual_holdings(alice, "nsc")] == ["NSC VIII"]
