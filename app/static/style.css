@@ -281,23 +281,42 @@ form { display: inline; }
 .manual-head .muted { font-weight: 400; }
 .manual-table { margin-bottom: 16px; }
 .manual-add {
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
 }
-.manual-add input {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px; padding: 8px 10px; color: var(--text); font: inherit;
-  width: 130px;
+@media (min-width: 620px) {
+  .manual-add { grid-template-columns: repeat(4, 1fr); }
 }
-.manual-add input.m-scheme { flex: 1; min-width: 180px; }
-.manual-add input::placeholder { color: var(--muted); }
-.manual-add .btn { margin-left: auto; }
-.manual-add .m-date {
-  display: inline-flex; flex-direction: column; gap: 3px;
-  font-size: 0.72rem; color: var(--muted);
+.manual-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.manual-field.col-2 { grid-column: span 2; }
+.manual-field label {
+  font-size: 0.75rem; font-weight: 600; color: var(--muted);
 }
-.manual-add .m-date input { width: 150px; }
+.manual-field label .opt { font-weight: 400; opacity: 0.65; }
+.manual-field input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  font: inherit;
+}
+.manual-field input:focus { outline: none; border-color: var(--accent); }
+.manual-field input::placeholder { color: var(--muted); }
+.manual-actions {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  border-top: 1px solid var(--border); padding-top: 14px;
+}
+.manual-hint { font-size: 0.8rem; }
+.manual-actions .btn { margin-left: auto; }
 .matures-in { display: block; font-size: 0.74rem; margin-top: 1px; }
 
 .card.cta { text-align: center; padding: 32px 24px; }

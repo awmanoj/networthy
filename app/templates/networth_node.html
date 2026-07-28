@@ -170,15 +170,35 @@
       <form class="manual-add" method="post" action="/networth/manual/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
-        <input class="m-scheme" name="scheme" placeholder="Scheme / name" required>
-        <input name="investment_amount" type="number" step="any" min="0" placeholder="Investment ₹" required>
-        <label class="m-date">Invested<input name="investment_date" type="date"></label>
-        <label class="m-date">Matures<input name="maturity_date" type="date"></label>
-        <input name="maturity_amount" type="number" step="any" min="0" placeholder="Maturity ₹ (opt)">
-        <input name="rate" type="number" step="any" min="0" placeholder="Rate % (opt)">
-        <button class="btn" type="submit">Add</button>
+        <div class="manual-field col-2">
+          <label for="mf-scheme">Scheme</label>
+          <input id="mf-scheme" name="scheme" placeholder="e.g. SBI PPF" required>
+        </div>
+        <div class="manual-field">
+          <label for="mf-inv">Investment ₹</label>
+          <input id="mf-inv" name="investment_amount" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="mf-mat">Maturity ₹ <span class="opt">optional</span></label>
+          <input id="mf-mat" name="maturity_amount" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="mf-invd">Invested <span class="opt">optional</span></label>
+          <input id="mf-invd" name="investment_date" type="date">
+        </div>
+        <div class="manual-field">
+          <label for="mf-matd">Matures <span class="opt">optional</span></label>
+          <input id="mf-matd" name="maturity_date" type="date">
+        </div>
+        <div class="manual-field">
+          <label for="mf-rate">Rate % <span class="opt">optional</span></label>
+          <input id="mf-rate" name="rate" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Investment Amount counts toward net worth · tenure is worked out from the dates.</span>
+          <button class="btn" type="submit">Add entry</button>
+        </div>
       </form>
-      <p class="muted live-note">Investment Amount counts toward your net worth; dates, maturity amount and rate are optional. Tenure is worked out from the dates.</p>
     </div>
     {% endif %}
   </section>
