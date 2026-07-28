@@ -534,6 +534,15 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .nw-leaf-note { color: var(--muted); font-size: 0.82rem; }
 .nw-leaf-arrow { color: var(--muted); flex: none; }
 
+/* Category rows (nodes with children) read as "drill in", not a data leaf. */
+.nw-leaf.nw-cat { border-left: 3px solid var(--accent); }
+.nw-cat-count {
+  flex: none; font-size: 0.72rem; font-weight: 600; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+}
+.nw-cat .nw-leaf-arrow { color: var(--accent); font-size: 1.1rem; line-height: 1; }
+
 /* Rolled-up value shown against a Networth head/leaf. */
 .nw-val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
 .nw-subhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }

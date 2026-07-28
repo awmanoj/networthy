@@ -529,6 +529,7 @@ def networth_node(request: Request, path: str):
             "title": c.title,
             "note": c.note,
             "is_leaf": c.is_leaf,
+            "child_count": len(c.children),
             "url": f"/networth/{prefix}/{c.slug}",
             "value": values.get(f"{prefix}/{c.slug}"),
         }

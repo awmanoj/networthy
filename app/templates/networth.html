@@ -32,13 +32,18 @@
       <ul class="nw-leaf-list">
         {% for leaf in sub.children %}
         <li>
-          <a class="nw-leaf" href="/networth/{{ section.slug }}/{{ sub.slug }}/{{ leaf.slug }}">
+          <a class="nw-leaf{% if not leaf.is_leaf %} nw-cat{% endif %}" href="/networth/{{ section.slug }}/{{ sub.slug }}/{{ leaf.slug }}">
             <span class="nw-leaf-body">
               <span class="nw-leaf-title">{{ leaf.title }}</span>
               {% if leaf.note %}<span class="nw-leaf-note">{{ leaf.note }}</span>{% endif %}
             </span>
             {{ amount(values.get(section.slug ~ '/' ~ sub.slug ~ '/' ~ leaf.slug)) }}
-            <span class="nw-leaf-arrow">→</span>
+            {% if leaf.is_leaf %}
+              <span class="nw-leaf-arrow">→</span>
+            {% else %}
+              <span class="nw-cat-count">{{ leaf.children|length }} inside</span>
+              <span class="nw-leaf-arrow">›</span>
+            {% endif %}
           </a>
         </li>
         {% endfor %}

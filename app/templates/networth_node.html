@@ -32,13 +32,18 @@
   <ul class="nw-leaf-list">
     {% for c in children %}
     <li>
-      <a class="nw-leaf" href="{{ c.url }}">
+      <a class="nw-leaf{% if not c.is_leaf %} nw-cat{% endif %}" href="{{ c.url }}">
         <span class="nw-leaf-body">
           <span class="nw-leaf-title">{{ c.title }}</span>
           {% if c.note %}<span class="nw-leaf-note">{{ c.note }}</span>{% endif %}
         </span>
         {% if c.value is not none %}<span class="nw-val">₹{{ "{:,.0f}".format(c.value) }}</span>{% endif %}
-        <span class="nw-leaf-arrow">→</span>
+        {% if c.is_leaf %}
+          <span class="nw-leaf-arrow">→</span>
+        {% else %}
+          <span class="nw-cat-count">{{ c.child_count }} inside</span>
+          <span class="nw-leaf-arrow">›</span>
+        {% endif %}
       </a>
     </li>
     {% endfor %}
