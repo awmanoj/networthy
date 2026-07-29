@@ -35,14 +35,17 @@ There is no linter/formatter configured.
 The core data flow is one pipeline, worth understanding before touching any piece:
 
 ```
-upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite  →  dashboard chart + /portfolio
+upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite  →  NSDL CAS chart + /portfolio
 ```
 
-- **`app/main.py`** — FastAPI routes. `POST /upload` takes N files + one shared password
-  (the PAN — all of a person's CAS PDFs use the same one) and parses each independently:
-  one bad file doesn't sink the batch (200 if any saved, 400 only if all fail). It stores both
-  the `Snapshot` and its detailed per-holding rows (`replace_holdings`). Delete routes:
-  per-row `POST /snapshots/{id}/delete` and `POST /snapshots/delete-all`. `GET /portfolio`
+- **`app/main.py`** — FastAPI routes. **Home `/` is the Dashboard** (the Networth tree +
+  "Where do you stand?"; `main.home`). The net-worth-over-time **chart + snapshots table** moved
+  to **`GET /nsdl-cas`** (`main.nsdl_cas`, template `index.html`). `POST /upload` takes N files +
+  one shared password (the PAN — all of a person's CAS PDFs use the same one) and parses each
+  independently: one bad file doesn't sink the batch (200 if any saved, 400 only if all fail). It
+  stores both the `Snapshot` and its detailed per-holding rows (`replace_holdings`). Delete routes:
+  per-row `POST /snapshots/{id}/delete` and `POST /snapshots/delete-all` (both redirect to
+  `/nsdl-cas`). `GET /portfolio`
   renders the latest snapshot's holdings grouped by account (colour-coded by asset class);
   its Refresh button just re-renders — a future performance-signal pass will recompute there.
 
@@ -70,8 +73,10 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `app/parser/_common.py` (`nsdl_cas` keeps `_decrypt`/`_to_float` aliases for its tests). Same
   caveat as NSDL: built to the documented layout, snippet-tested, not yet validated on a real PDF.
 
-- **`app/networth.py` + the Networth pages** (`/networth`, `/networth/{path}`) — a declarative
-  Assets/Liabilities tree; leaves are blank scaffolds except the **data-backed** ones in
+- **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. The tree
+  **overview is the home page** (`GET /` → `main.home`, template `networth.html`, titled
+  "Dashboard"); detail pages stay at `/networth/{path}`, and `/networth` 307-redirects to `/`.
+  Leaves are blank scaffolds except the **data-backed** ones in
   `LEAF_ASSET_CLASSES` (Mutual Funds, Gold & Silver), which render holdings from two sources: an
   uploaded CAMS import and/or the latest NSDL snapshot's classified rows. `POST
   /networth/import/cams` parses a CAMS PDF and stores it via `replace_networth_import`. **Invariant:
@@ -98,7 +103,8 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 - **`app/models.py`** — dataclasses shared across layers: `Holding`, `ParsedStatement` (parser
   output), `Snapshot` (stored row).
 
-- **`app/wealth.py`** — the "Where do you stand?" feature (`GET /standing`). Static net-worth
+- **`app/wealth.py`** — the "Where do you stand?" feature, a widget **embedded on the Dashboard**
+  (`/`); `/standing` 307-redirects there. Static net-worth
   distribution data (adults per band for India/Indonesia/Singapore/USA/World, from
   `wealth_distribution.xlsx` — UBS/Knight Frank/Forbes) plus `rank_net_worth()`, which places a
   net worth within each geography by **piecewise power-law (Pareto) interpolation** between the

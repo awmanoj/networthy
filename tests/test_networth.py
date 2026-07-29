@@ -152,6 +152,7 @@ def test_rollup_empty_when_no_leaf_has_value():
 
 def test_breadcrumbs_build_cumulative_urls():
     crumbs = breadcrumbs(resolve("assets/financial-assets/equity"))
-    assert [t for t, _ in crumbs] == ["Networth", "Assets", "Financial Assets", "Equity"]
-    assert crumbs[0] == ("Networth", "/networth")
+    # Root is the Dashboard (the tree overview lives on the home page now).
+    assert [t for t, _ in crumbs] == ["Dashboard", "Assets", "Financial Assets", "Equity"]
+    assert crumbs[0] == ("Dashboard", "/")
     assert crumbs[-1] == ("Equity", "/networth/assets/financial-assets/equity")

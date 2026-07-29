@@ -1,12 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Networth · Networthy{% endblock %}
+{% block title %}Dashboard · Networthy{% endblock %}
 {% block content %}
 
 <section class="nw-page-head">
-  <h1>Networth</h1>
+  <h1>Dashboard</h1>
   <p class="muted">
-    A complete breakdown of everything you own and owe. The categories are
-    scaffolded — we'll fill in the detail next.
+    A complete breakdown of everything you own and owe, valued live where we can.
   </p>
 </section>
 
@@ -58,5 +57,75 @@
   {% endif %}
 </section>
 {% endfor %}
+
+{# --- "Where do you stand?" — moved here from its own tab -------------------- #}
+<section class="card stand-intro">
+  <h2>Where do you stand?</h2>
+  <p class="muted">
+    Type a net worth and see where it ranks among adults in India, Indonesia,
+    Singapore, the USA and the world. Modelled from UBS, Knight Frank and Forbes
+    wealth data — a fun estimate, not a census.
+  </p>
+
+  <div class="nw-control">
+    <div class="nw-amount">
+      <span class="nw-currency">₹</span>
+      <input id="nw-input" type="text" inputmode="decimal" autocomplete="off"
+             aria-label="Net worth amount" />
+      <select id="nw-unit" aria-label="Unit">
+        <option value="7" selected>Crore</option>
+        <option value="5">Lakh</option>
+      </select>
+    </div>
+
+    <input id="nw-slider" type="range" min="0" max="1000" value="0"
+           aria-label="Net worth slider" />
+
+    <div class="nw-presets" id="nw-presets">
+      <button type="button" data-inr="5000000">₹50 L</button>
+      <button type="button" data-inr="10000000">₹1 Cr</button>
+      <button type="button" data-inr="50000000">₹5 Cr</button>
+      <button type="button" data-inr="100000000">₹10 Cr</button>
+      <button type="button" data-inr="1000000000">₹100 Cr</button>
+      <button type="button" data-inr="10000000000">₹1,000 Cr</button>
+      {% if my_net_worth %}
+      <button type="button" class="preset-mine" data-inr="{{ my_net_worth|round|int }}">
+        ★ My net worth
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section id="stand-results" class="card stand-results">
+  <p class="stand-lead"><strong id="lead-amount"></strong> would place you…</p>
+  <div id="country-rows" class="country-rows"></div>
+  <p id="fun-fact" class="fun-fact" hidden></p>
+  <p id="base-note" class="muted stand-note" hidden>
+    Below ₹1 cr, placement is a rough estimate — the source data models the
+    ₹1 cr+ tail in detail, not the broad base.
+  </p>
+</section>
+
+<section class="card pyramid-card">
+  <div class="card-head">
+    <h2>The wealth pyramid — <span id="pyramid-geo-name">India</span></h2>
+    <div class="pyramid-tabs" id="pyramid-tabs" role="tablist"></div>
+  </div>
+  <div id="pyramid" class="pyramid"></div>
+  <p class="pyramid-note muted">
+    Band widths are on a log scale so the tiny top bands stay visible. Bands defined
+    in INR crore; USD at ₹96.5/$1.
+  </p>
+</section>
+
+<script id="stand-data" type="application/json">{{ dataset | tojson }}</script>
+<script src="/static/standing.js?v={{ version }}"></script>
+<script>
+  initStanding({
+    defaultNetWorth: {{ default_net_worth|round|int }},
+    myNetWorth: {{ (my_net_worth|round|int) if my_net_worth else 'null' }}
+  });
+</script>
 
 {% endblock %}

@@ -107,8 +107,9 @@ def logout(request: Request):
 
 # --- App --------------------------------------------------------------------
 
-@app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request):
+@app.get("/nsdl-cas", response_class=HTMLResponse)
+def nsdl_cas(request: Request):
+    """NSDL CAS view — net-worth-over-time chart + the uploaded snapshots table."""
     user = request.state.user
     snapshots = storage.list_snapshots(user.id)
     chart = [
@@ -173,18 +174,32 @@ def portfolio(request: Request):
     )
 
 
-@app.get("/networth", response_class=HTMLResponse)
-def networth_home(request: Request):
-    """Overview of the Assets / Liabilities breakdown — the whole tree at a glance."""
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    """Dashboard (home) — the Assets/Liabilities net-worth breakdown, with the
+    'Where do you stand?' explorer below it."""
+    user = request.state.user
+    latest = storage.latest_snapshot(user.id)
+    default_nw = latest.total_value if latest else wealth.DEFAULT_NET_WORTH
     return templates.TemplateResponse(
         "networth.html",
         {
             "request": request,
-            "user": request.state.user,
+            "user": user,
             "sections": networth.SECTIONS,
-            "values": _networth_values(request.state.user),
+            "values": _networth_values(user),
+            # "Where do you stand?" widget, embedded on the dashboard.
+            "my_net_worth": latest.total_value if latest else None,
+            "default_net_worth": default_nw,
+            "dataset": wealth.client_dataset(),
         },
     )
+
+
+@app.get("/networth")
+def networth_home_redirect():
+    """The tree overview lives on the dashboard now; keep the old URL working."""
+    return RedirectResponse(url="/", status_code=307)
 
 
 CAMS_IMPORT_URL = "/networth/import/cams"
@@ -610,7 +625,7 @@ def networth_node(request: Request, path: str):
     render a holdings table; other leaves stay blank scaffolds.
     """
     if not path.strip("/"):
-        return RedirectResponse(url="/networth", status_code=303)
+        return RedirectResponse(url="/", status_code=303)
 
     chain = networth.resolve(path)
     if chain is None:
@@ -657,27 +672,10 @@ def networth_node(request: Request, path: str):
     )
 
 
-@app.get("/standing", response_class=HTMLResponse)
-def standing(request: Request):
-    """The "Where do you stand?" explorer — rank a net worth across geographies.
-
-    Pre-fills with the user's own latest net worth if they have a snapshot, else a
-    playful default, and hands the first placement to the template so the page has
-    something on screen before the interactive JS takes over.
-    """
-    user = request.state.user
-    latest = storage.latest_snapshot(user.id)
-    default_nw = latest.total_value if latest else wealth.DEFAULT_NET_WORTH
-    return templates.TemplateResponse(
-        "standing.html",
-        {
-            "request": request,
-            "user": user,
-            "my_net_worth": latest.total_value if latest else None,
-            "default_net_worth": default_nw,
-            "dataset": wealth.client_dataset(),
-        },
-    )
+@app.get("/standing")
+def standing_redirect():
+    """The 'Where do you stand?' explorer now lives on the dashboard; keep the URL."""
+    return RedirectResponse(url="/", status_code=307)
 
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -751,10 +749,10 @@ async def upload(
 @app.post("/snapshots/{snapshot_id}/delete")
 def delete(request: Request, snapshot_id: int):
     storage.delete_snapshot(request.state.user.id, snapshot_id)
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/nsdl-cas", status_code=303)
 
 
 @app.post("/snapshots/delete-all")
 def delete_all(request: Request):
     storage.delete_all_snapshots(request.state.user.id)
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/nsdl-cas", status_code=303)

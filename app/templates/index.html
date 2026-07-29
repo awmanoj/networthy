@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · Networthy{% endblock %}
+{% block title %}NSDL CAS · Networthy{% endblock %}
 {% block content %}
 
 {% if latest %}
 <section class="summary">
   <div class="stat">
-    <span class="stat-label">Net worth · {{ latest.statement_date.strftime('%d %b %Y') }}</span>
+    <span class="stat-label">NSDL CAS net worth · {{ latest.statement_date.strftime('%d %b %Y') }}</span>
     <span class="stat-value">₹{{ "{:,.0f}".format(latest.total_value) }}</span>
     {% if change is not none %}
       <span class="stat-change {{ 'up' if change >= 0 else 'down' }}">
@@ -13,12 +13,6 @@
       </span>
     {% endif %}
   </div>
-</section>
-
-<section class="card cta stand-teaser">
-  <h2>Where do you stand?</h2>
-  <p class="muted">See where ₹{{ "{:,.0f}".format(latest.total_value) }} ranks you among adults in India, the USA, Singapore and the world.</p>
-  <a href="/standing" class="btn">Find out where you stand →</a>
 </section>
 
 <section class="card">
