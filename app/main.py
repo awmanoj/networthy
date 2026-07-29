@@ -272,9 +272,38 @@ def _live_total(rows: list[dict]) -> float:
     )
 
 
+# The Foreign / US Equity leaf is its own thing: hand-entered tickers + shares,
+# priced live in USD via Yahoo and converted to INR (no CAS, no fixed amount).
+FOREIGN_LEAF = "foreign-equity"
+
+
+def _price_foreign(rows: list[dict]) -> float | None:
+    """Price foreign holdings: live USD price × USD→INR into an INR value, plus
+    gain% vs the optional cost. Returns the FX rate used (None if unavailable)."""
+    fx = prices.usd_inr()
+    for h in rows:
+        usd = prices.get_quote(h["ticker"])
+        h["price_usd"] = usd
+        h["value"] = (h["units"] * usd * fx) if (usd is not None and fx) else None
+        cost = h.get("cost_usd")
+        if usd is not None and cost:
+            pct = (usd / cost - 1.0) * 100.0
+            h["gain_pct"] = pct
+            h["signal"] = "up" if pct > 0.05 else "down" if pct < -0.05 else "flat"
+        else:
+            h["gain_pct"] = None
+            h["signal"] = None
+    return fx
+
+
 def _leaf_value(user, slug: str) -> float | None:
     """A leaf's live-consistent total — CAS holdings (live) + manual entries — or
     None if the leaf is neither data-backed nor manual-enabled. Rolls up the tree."""
+    if slug == FOREIGN_LEAF:
+        rows = storage.list_foreign_holdings(user.id)
+        _price_foreign(rows)
+        return sum(r["value"] or 0.0 for r in rows)
+
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
     if not (data_backed or manual_enabled):
@@ -299,6 +328,18 @@ def _networth_values(user) -> dict[str, float]:
 def _leaf_holdings(user, slug: str) -> dict | None:
     """Everything a Networth leaf page needs: CAS holdings (live-priced) and/or
     hand-entered rows, or None if the leaf is neither data-backed nor manual."""
+    if slug == FOREIGN_LEAF:
+        rows = storage.list_foreign_holdings(user.id)
+        fx = _price_foreign(rows)
+        return {
+            "is_foreign": True,
+            "holdings": rows,
+            "live_total": sum(r["value"] or 0.0 for r in rows),
+            "fx": fx,
+            "has_priced": any(r["value"] is not None for r in rows),
+            "leaf_slug": slug,
+        }
+
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
     if not (data_backed or manual_enabled):
@@ -495,6 +536,27 @@ def manual_add(
 @app.post("/networth/manual/{holding_id}/delete")
 def manual_delete(request: Request, holding_id: int, redirect: str = Form(...)):
     storage.delete_manual_holding(request.state.user.id, holding_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/foreign/add")
+def foreign_add(
+    request: Request,
+    redirect: str = Form(...),
+    ticker: str = Form(...),
+    units: float = Form(...),
+    cost: str = Form(""),
+):
+    """Add a hand-entered foreign (US) equity holding: ticker + shares (+ cost)."""
+    symbol = ticker.strip().upper()
+    if symbol:
+        storage.add_foreign_holding(request.state.user.id, symbol, units, _opt_float(cost))
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/foreign/{holding_id}/delete")
+def foreign_delete(request: Request, holding_id: int, redirect: str = Form(...)):
+    storage.delete_foreign_holding(request.state.user.id, holding_id)
     return _networth_redirect(redirect)
 
 

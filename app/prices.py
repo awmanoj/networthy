@@ -67,6 +67,12 @@ def get_quote(symbol: str | None) -> float | None:
     return price
 
 
+def usd_inr() -> float | None:
+    """Live USD→INR rate (rupees per dollar) from Yahoo, cached ~15 min. None on
+    failure. Used to value foreign (US) equity, quoted in USD, into rupees."""
+    return get_quote("INR=X")
+
+
 def _fetch(symbol: str) -> float | None:
     try:
         r = httpx.get(

@@ -165,6 +165,25 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_manual_user_leaf "
             "ON manual_holdings(user_id, leaf_slug)"
         )
+        # Hand-entered foreign (US) equity: ticker + shares, priced live in USD via
+        # Yahoo and converted to INR. Separate from manual_holdings because it's
+        # ticker/shares-shaped, not a fixed rupee amount.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS foreign_holdings (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                ticker     TEXT NOT NULL,
+                units      REAL NOT NULL,
+                cost_usd   REAL,
+                position   INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_foreign_user ON foreign_holdings(user_id)"
+        )
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -635,6 +654,52 @@ def delete_manual_holding(user_id: int, holding_id: int) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM manual_holdings WHERE id = ? AND user_id = ?",
+            (holding_id, user_id),
+        )
+
+
+# --- Foreign (US) equity holdings -------------------------------------------
+
+def add_foreign_holding(
+    user_id: int, ticker: str, units: float, cost_usd: float | None = None
+) -> None:
+    """Append one hand-entered foreign equity holding (ticker + shares)."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM foreign_holdings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO foreign_holdings (user_id, ticker, units, cost_usd, position)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (user_id, ticker, units, cost_usd, count),
+        )
+
+
+def list_foreign_holdings(user_id: int) -> list[dict]:
+    """A user's foreign equity holdings, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM foreign_holdings WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "ticker": r["ticker"],
+            "units": r["units"],
+            "cost_usd": r["cost_usd"],
+        }
+        for r in rows
+    ]
+
+
+def delete_foreign_holding(user_id: int, holding_id: int) -> None:
+    """Delete one foreign equity holding, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM foreign_holdings WHERE id = ? AND user_id = ?",
             (holding_id, user_id),
         )
 

@@ -143,6 +143,10 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
     (`portal.amfiindia.com/spages/NAVAll.txt`). We download the whole file and look ISINs up
     **locally**, so nothing about the user's holdings is sent at all. The parsed ISIN→NAV map is
     cached ~6 h (NAV publishes once daily).
+  - *Foreign (US) equity* — hand-entered ticker + shares, priced live in USD from Yahoo (same
+    helper) and converted to INR at the live `INR=X` rate (`prices.usd_inr()`). Only the ticker
+    symbol egresses, same as Indian equity. Stored in its own `foreign_holdings` table; priced in
+    `main._price_foreign`.
   Every failure is swallowed (returns None/empty) so a slow/blocked/changed endpoint never breaks a
   render — the view falls back to statement values. Enrichment (live price, live value,
   gain-vs-statement, up/down/flat signal) is computed in `main._annotate_live_prices` — equity

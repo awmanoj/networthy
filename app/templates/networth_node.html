@@ -51,7 +51,76 @@
 </section>
 
 {% elif leaf_data is not none %}
-  {% if not leaf_data.has_cas and not leaf_data.manual_enabled %}
+  {% if leaf_data.is_foreign %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Total{% if leaf_data.fx %} · USD→INR ₹{{ "{:,.2f}".format(leaf_data.fx) }}{% endif %}</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th class="num">Shares</th>
+          <th class="num">Price ($)</th>
+          <th class="num">Cost ($)</th>
+          <th class="num">Change</th>
+          <th class="num">Value</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.ticker }}</td>
+          <td class="num">{{ "{:,.3f}".format(h.units).rstrip('0').rstrip('.') }}</td>
+          <td class="num">{{ "${:,.2f}".format(h.price_usd) if h.price_usd is not none else "—" }}</td>
+          <td class="num">{{ "${:,.2f}".format(h.cost_usd) if h.cost_usd is not none else "—" }}</td>
+          <td class="num">
+            {% if h.gain_pct is not none %}
+              <span class="chg {{ h.signal }}">{{ '+' if h.gain_pct >= 0 else '' }}{{ "%.1f"|format(h.gain_pct) }}%</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
+          <td class="num">
+            <form method="post" action="/networth/foreign/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this entry?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add US holding</h3>
+      <form class="manual-add" method="post" action="/networth/foreign/add">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field col-2">
+          <label for="fe-tkr">Ticker</label>
+          <input id="fe-tkr" name="ticker" placeholder="e.g. AAPL" required>
+        </div>
+        <div class="manual-field">
+          <label for="fe-sh">Shares</label>
+          <input id="fe-sh" name="units" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="fe-cost">Avg cost $/sh <span class="opt">optional</span></label>
+          <input id="fe-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Live USD prices from Yahoo, converted to INR{% if leaf_data.fx %} at ₹{{ "{:,.2f}".format(leaf_data.fx) }}/${% endif %} · only the ticker symbol is sent externally.</span>
+          <button class="btn" type="submit">Add holding</button>
+        </div>
+      </form>
+    </div>
+  </section>
+  {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>
     <h2>No holdings yet</h2>

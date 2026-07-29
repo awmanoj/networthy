@@ -246,6 +246,25 @@ def test_manual_holdings_cascade_on_user_delete(db):
     assert n == 0  # ON DELETE CASCADE
 
 
+def test_foreign_holdings_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_foreign_holding(alice, "AAPL", 10, 300.0)
+    db.add_foreign_holding(alice, "MSFT", 5)          # no cost
+    db.add_foreign_holding(bob, "NVDA", 3, 100.0)     # different owner
+
+    rows = db.list_foreign_holdings(alice)
+    assert [r["ticker"] for r in rows] == ["AAPL", "MSFT"]  # entry order
+    assert rows[0]["units"] == 10 and rows[0]["cost_usd"] == 300.0
+    assert rows[1]["cost_usd"] is None
+
+    # Owner scoping on delete.
+    db.delete_foreign_holding(bob, rows[0]["id"])          # not Bob's -> no-op
+    assert len(db.list_foreign_holdings(alice)) == 2
+    db.delete_foreign_holding(alice, rows[0]["id"])
+    assert [r["ticker"] for r in db.list_foreign_holdings(alice)] == ["MSFT"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")
