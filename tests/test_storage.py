@@ -265,6 +265,31 @@ def test_foreign_holdings_crud(db):
     assert [r["ticker"] for r in db.list_foreign_holdings(alice)] == ["MSFT"]
 
 
+def test_bank_cash_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_bank_cash(alice, "bank-accounts", 250000.0,
+                     bank_name="HDFC Bank", account_type="Savings", label="Salary")
+    db.add_bank_cash(alice, "bank-accounts", 40000.0, bank_name="SBI", account_type="Current")
+    db.add_bank_cash(alice, "cash", 5000.0, label="Cash at home")   # different leaf
+    db.add_bank_cash(bob, "bank-accounts", 999.0, bank_name="ICICI")
+
+    banks = db.list_bank_cash(alice, "bank-accounts")
+    assert [b["bank_name"] for b in banks] == ["HDFC Bank", "SBI"]  # entry order
+    assert banks[0]["account_type"] == "Savings" and banks[0]["label"] == "Salary"
+    assert banks[0]["balance"] == 250000.0
+
+    # Leaf scoping: cash entry doesn't show under bank-accounts.
+    cash = db.list_bank_cash(alice, "cash")
+    assert [c["label"] for c in cash] == ["Cash at home"] and cash[0]["balance"] == 5000.0
+
+    # Owner-scoped delete.
+    db.delete_bank_cash(bob, banks[0]["id"])         # not Bob's -> no-op
+    assert len(db.list_bank_cash(alice, "bank-accounts")) == 2
+    db.delete_bank_cash(alice, banks[0]["id"])
+    assert [b["bank_name"] for b in db.list_bank_cash(alice, "bank-accounts")] == ["SBI"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

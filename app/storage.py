@@ -184,6 +184,29 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_foreign_user ON foreign_holdings(user_id)"
         )
+        # Hand-entered bank accounts and cash. One table for both leaves, keyed by
+        # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
+        # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
+        # (No account number is stored, by design.)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bank_cash (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                leaf_slug    TEXT NOT NULL,
+                bank_name    TEXT,
+                account_type TEXT,
+                label        TEXT,
+                balance      REAL NOT NULL,
+                position     INTEGER NOT NULL DEFAULT 0,
+                created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bank_cash_user_leaf "
+            "ON bank_cash(user_id, leaf_slug)"
+        )
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -701,6 +724,64 @@ def delete_foreign_holding(user_id: int, holding_id: int) -> None:
         conn.execute(
             "DELETE FROM foreign_holdings WHERE id = ? AND user_id = ?",
             (holding_id, user_id),
+        )
+
+
+# --- Bank accounts & cash ---------------------------------------------------
+
+def add_bank_cash(
+    user_id: int,
+    leaf_slug: str,
+    balance: float,
+    bank_name: str | None = None,
+    account_type: str | None = None,
+    label: str | None = None,
+) -> None:
+    """Append one bank-account or cash entry to its leaf ('bank-accounts'|'cash')."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM bank_cash WHERE user_id = ? AND leaf_slug = ?",
+            (user_id, leaf_slug),
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO bank_cash
+                (user_id, leaf_slug, bank_name, account_type, label, balance, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, leaf_slug, bank_name, account_type, label, balance, count),
+        )
+
+
+def list_bank_cash(user_id: int, leaf_slug: str) -> list[dict]:
+    """A user's bank/cash entries for one leaf, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM bank_cash
+            WHERE user_id = ? AND leaf_slug = ?
+            ORDER BY position ASC, id ASC
+            """,
+            (user_id, leaf_slug),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "bank_name": r["bank_name"],
+            "account_type": r["account_type"],
+            "label": r["label"],
+            "balance": r["balance"],
+        }
+        for r in rows
+    ]
+
+
+def delete_bank_cash(user_id: int, entry_id: int) -> None:
+    """Delete one bank/cash entry, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM bank_cash WHERE id = ? AND user_id = ?",
+            (entry_id, user_id),
         )
 
 

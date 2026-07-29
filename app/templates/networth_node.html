@@ -120,6 +120,86 @@
       </form>
     </div>
   </section>
+  {% elif leaf_data.is_bank_cash %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Total</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          {% if leaf_data.is_bank %}<th>Bank</th>{% endif %}
+          <th>{{ "Nickname" if leaf_data.is_bank else "Label" }}</th>
+          {% if leaf_data.is_bank %}<th>Type</th>{% endif %}
+          <th class="num">Balance</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          {% if leaf_data.is_bank %}<td class="h-name">{{ h.bank_name or "—" }}</td>{% endif %}
+          <td>{{ h.label or "—" }}</td>
+          {% if leaf_data.is_bank %}<td>{{ h.account_type or "—" }}</td>{% endif %}
+          <td class="num">₹{{ "{:,.0f}".format(h.balance) }}</td>
+          <td class="num">
+            <form method="post" action="/networth/bank/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this entry?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">{{ "Add bank account" if leaf_data.is_bank else "Add cash" }}</h3>
+      <form class="manual-add" method="post" action="/networth/bank/add">
+        <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        {% if leaf_data.is_bank %}
+        <div class="manual-field col-2">
+          <label for="bc-bank">Bank name</label>
+          <input id="bc-bank" name="bank_name" placeholder="e.g. HDFC Bank" required>
+        </div>
+        <div class="manual-field">
+          <label for="bc-nick">Nickname <span class="opt">optional</span></label>
+          <input id="bc-nick" name="label" placeholder="e.g. Salary">
+        </div>
+        <div class="manual-field">
+          <label for="bc-type">Type</label>
+          <select id="bc-type" name="account_type">
+            <option value="Savings">Savings</option>
+            <option value="Current">Current</option>
+          </select>
+        </div>
+        <div class="manual-field">
+          <label for="bc-bal">Balance ₹</label>
+          <input id="bc-bal" name="balance" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        {% else %}
+        <div class="manual-field col-2">
+          <label for="bc-nick">Label <span class="opt">optional</span></label>
+          <input id="bc-nick" name="label" placeholder="e.g. Cash at home">
+        </div>
+        <div class="manual-field col-2">
+          <label for="bc-bal">Balance ₹</label>
+          <input id="bc-bal" name="balance" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        {% endif %}
+        <div class="manual-actions">
+          <span class="manual-hint muted">Balance counts toward your net worth.</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
   {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>

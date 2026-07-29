@@ -166,3 +166,10 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   `_leaf_holdings` combine CAS-live holdings **and** manual rows, so a leaf like Corporate Bonds
   shows both. Add via `POST /networth/manual/add`, remove via `POST /networth/manual/{id}/delete`
   (both carry a `redirect` = the leaf's slug-path, validated through `networth.resolve`).
+- **Other hand-entered leaves** (own shapes, handled specially in `main`, not via `manual_holdings`):
+  *Foreign / US Equity* (`FOREIGN_LEAF`) — ticker + shares in `foreign_holdings`, priced live
+  (see prices.py). *Bank Accounts & Cash* — `networth.BANK_CASH_LEAVES` = {`bank-accounts`, `cash`}
+  under the `bank-cash` category; rows in the `bank_cash` table (bank_name, account_type, label,
+  balance — **no account number is stored, by design**). Balance rolls into net worth. Routes:
+  `POST /networth/bank/add` and `/networth/bank/{id}/delete`. All three (foreign, bank, cash) roll
+  up the tree via `_leaf_value` alongside CAS/manual leaves.

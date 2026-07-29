@@ -298,7 +298,8 @@ form { display: inline; }
   font-size: 0.75rem; font-weight: 600; color: var(--muted);
 }
 .manual-field label .opt { font-weight: 400; opacity: 0.65; }
-.manual-field input {
+.manual-field input,
+.manual-field select {
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -306,8 +307,10 @@ form { display: inline; }
   padding: 9px 11px;
   color: var(--text);
   font: inherit;
+  height: 38px;
 }
-.manual-field input:focus { outline: none; border-color: var(--accent); }
+.manual-field input:focus,
+.manual-field select:focus { outline: none; border-color: var(--accent); }
 .manual-field input::placeholder { color: var(--muted); }
 .manual-actions {
   grid-column: 1 / -1;

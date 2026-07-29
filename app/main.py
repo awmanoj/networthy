@@ -304,6 +304,9 @@ def _leaf_value(user, slug: str) -> float | None:
         _price_foreign(rows)
         return sum(r["value"] or 0.0 for r in rows)
 
+    if slug in networth.BANK_CASH_LEAVES:
+        return sum(r["balance"] or 0.0 for r in storage.list_bank_cash(user.id, slug))
+
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
     if not (data_backed or manual_enabled):
@@ -337,6 +340,16 @@ def _leaf_holdings(user, slug: str) -> dict | None:
             "live_total": sum(r["value"] or 0.0 for r in rows),
             "fx": fx,
             "has_priced": any(r["value"] is not None for r in rows),
+            "leaf_slug": slug,
+        }
+
+    if slug in networth.BANK_CASH_LEAVES:
+        rows = storage.list_bank_cash(user.id, slug)
+        return {
+            "is_bank_cash": True,
+            "is_bank": slug == "bank-accounts",
+            "holdings": rows,
+            "live_total": sum(r["balance"] or 0.0 for r in rows),
             "leaf_slug": slug,
         }
 
@@ -557,6 +570,35 @@ def foreign_add(
 @app.post("/networth/foreign/{holding_id}/delete")
 def foreign_delete(request: Request, holding_id: int, redirect: str = Form(...)):
     storage.delete_foreign_holding(request.state.user.id, holding_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/bank/add")
+def bank_cash_add(
+    request: Request,
+    leaf_slug: str = Form(...),
+    redirect: str = Form(...),
+    balance: float = Form(...),
+    bank_name: str = Form(""),
+    account_type: str = Form(""),
+    label: str = Form(""),
+):
+    """Add a bank-account or cash entry to its leaf."""
+    if leaf_slug in networth.BANK_CASH_LEAVES:
+        storage.add_bank_cash(
+            request.state.user.id,
+            leaf_slug,
+            balance,
+            bank_name=bank_name.strip() or None,
+            account_type=account_type.strip() or None,
+            label=label.strip() or None,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/bank/{entry_id}/delete")
+def bank_cash_delete(request: Request, entry_id: int, redirect: str = Form(...)):
+    storage.delete_bank_cash(request.state.user.id, entry_id)
     return _networth_redirect(redirect)
 
 

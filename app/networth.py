@@ -49,7 +49,11 @@ SECTIONS: list[Node] = [
             ]),
             Node("gold-silver", "Gold & Silver",
                  note="SGBs, Gold/Silver ETFs & funds, digital gold"),
-            Node("bank-cash", "Bank Account & Cash"),
+            Node("bank-cash", "Bank Account & Cash", children=[
+                Node("bank-accounts", "Bank Accounts",
+                     note="Savings & current account balances"),
+                Node("cash", "Cash", note="Cash in hand"),
+            ]),
             Node("foreign-exchange", "Foreign Exchange"),
             Node("alternate-investments", "Alternate Investments",
                  note="Startups / angel investments, ESOPs in companies"),
@@ -131,6 +135,10 @@ MANUAL_LEAVES: set[str] = {
     "ppf", "epf", "sukanya-samriddhi", "nsc",
     "fixed-deposits", "other-fixed-income", "others",
 }
+
+# Leaves backed by hand-entered bank-account / cash balances (their own shape:
+# bank name, type, nickname, balance — handled specially in the web layer).
+BANK_CASH_LEAVES: set[str] = {"bank-accounts", "cash"}
 
 
 def rollup(leaf_value: Callable[[str], float | None]) -> dict[str, float]:

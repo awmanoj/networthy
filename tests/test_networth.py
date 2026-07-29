@@ -44,6 +44,15 @@ def test_fixed_income_has_instrument_children():
     assert all(c.is_leaf for c in fi.children)
 
 
+def test_bank_cash_split_into_bank_and_cash_leaves():
+    bc = resolve("assets/financial-assets/bank-cash")[-1]
+    assert not bc.is_leaf  # a drill-in category now
+    assert [c.slug for c in bc.children] == ["bank-accounts", "cash"]
+    assert all(c.is_leaf for c in bc.children)
+    from app.networth import BANK_CASH_LEAVES
+    assert BANK_CASH_LEAVES == {"bank-accounts", "cash"}
+
+
 def test_non_financial_assets_children_in_order():
     nfa = resolve("assets/non-financial-assets")[-1]
     assert [c.slug for c in nfa.children] == [
