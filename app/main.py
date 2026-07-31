@@ -174,25 +174,68 @@ def portfolio(request: Request):
     )
 
 
+# Allocation colour per category slug — maps to the --c-* CSS tokens.
+_CAT_COLOR = {
+    "equity": "--c-equity", "mutual-funds": "--c-mf", "foreign-equity": "--c-us",
+    "fixed-income": "--c-fixed", "gold-silver": "--c-gold", "bank-cash": "--c-bank",
+    "others": "--c-other", "real-estate": "--c-realty", "physical-gold": "--c-gold",
+    "private-business": "--c-alt",
+}
+# The category level the dashboard summarises: the children of these parents.
+_ALLOC_PARENTS = ("assets/financial-assets", "assets/non-financial-assets")
+
+
+def _dashboard(user) -> dict:
+    """Everything the home dashboard shows, derived from the rolled-up tree.
+
+    Net worth = live Assets − Liabilities (sum-the-tree). Allocation buckets are the
+    funded categories under Financial/Non-Financial assets, sorted by value.
+    """
+    values = _networth_values(user)
+    assets = values.get("assets", 0.0)
+    liabilities = values.get("liabilities", 0.0)
+
+    buckets: list[dict] = []
+    for parent in _ALLOC_PARENTS:
+        chain = networth.resolve(parent)
+        if not chain:
+            continue
+        for child in chain[-1].children:
+            path = f"{parent}/{child.slug}"
+            value = values.get(path)
+            if not value:
+                continue
+            buckets.append({
+                "label": child.title,
+                "value": value,
+                "color": _CAT_COLOR.get(child.slug, "--c-other"),
+                "url": f"/networth/{path}",
+            })
+    buckets.sort(key=lambda b: b["value"], reverse=True)
+    alloc_total = sum(b["value"] for b in buckets) or 1.0
+    for b in buckets:
+        b["pct"] = b["value"] / alloc_total * 100.0
+
+    return {
+        "net_worth": assets - liabilities,
+        "assets": assets,
+        "liabilities": liabilities,
+        "fin_assets": values.get("assets/financial-assets", 0.0),
+        "non_fin": values.get("assets/non-financial-assets", 0.0),
+        "buckets": buckets,
+        "has_data": bool(buckets) or liabilities > 0,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    """Dashboard (home) — the Assets/Liabilities net-worth breakdown, with the
-    'Where do you stand?' explorer below it."""
+    """Dashboard (home) — the live net-worth summary: hero total, allocation,
+    category tiles, funded holdings, and a CTA into the 'Where do you stand?' page."""
     user = request.state.user
-    latest = storage.latest_snapshot(user.id)
-    default_nw = latest.total_value if latest else wealth.DEFAULT_NET_WORTH
+    dash = _dashboard(user)
     return templates.TemplateResponse(
         "networth.html",
-        {
-            "request": request,
-            "user": user,
-            "sections": networth.SECTIONS,
-            "values": _networth_values(user),
-            # "Where do you stand?" widget, embedded on the dashboard.
-            "my_net_worth": latest.total_value if latest else None,
-            "default_net_worth": default_nw,
-            "dataset": wealth.client_dataset(),
-        },
+        {"request": request, "user": user, "dash": dash},
     )
 
 
@@ -672,10 +715,24 @@ def networth_node(request: Request, path: str):
     )
 
 
-@app.get("/standing")
-def standing_redirect():
-    """The 'Where do you stand?' explorer now lives on the dashboard; keep the URL."""
-    return RedirectResponse(url="/", status_code=307)
+@app.get("/standing", response_class=HTMLResponse)
+def standing(request: Request):
+    """The 'Where do you stand?' explorer — a full page reached from the dashboard
+    CTA. Pre-fills with the user's live net worth (sum-the-tree) when they have data."""
+    user = request.state.user
+    dash = _dashboard(user)
+    my_nw = dash["net_worth"] if dash["has_data"] else None
+    default_nw = my_nw if my_nw else wealth.DEFAULT_NET_WORTH
+    return templates.TemplateResponse(
+        "standing.html",
+        {
+            "request": request,
+            "user": user,
+            "my_net_worth": my_nw,
+            "default_net_worth": default_nw,
+            "dataset": wealth.client_dataset(),
+        },
+    )
 
 
 @app.get("/upload", response_class=HTMLResponse)

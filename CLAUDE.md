@@ -73,10 +73,14 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `app/parser/_common.py` (`nsdl_cas` keeps `_decrypt`/`_to_float` aliases for its tests). Same
   caveat as NSDL: built to the documented layout, snippet-tested, not yet validated on a real PDF.
 
-- **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. The tree
-  **overview is the home page** (`GET /` → `main.home`, template `networth.html`, titled
-  "Dashboard"); detail pages stay at `/networth/{path}`, and `/networth` 307-redirects to `/`.
-  Leaves are blank scaffolds except the **data-backed** ones in
+- **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. The **home
+  page is a live net-worth Dashboard** (`GET /` → `main.home` + `main._dashboard`, template
+  `networth.html`): a hero total (Assets − Liabilities, summed live from the tree via
+  `_networth_values`), an allocation strip + legend over the funded top-level categories, category
+  tiles, a "Where do you stand?" CTA, and a "where it sits" list. Empty scaffold categories are
+  omitted from the Dashboard. The full nested tree is reached by drilling in: detail pages stay at
+  `/networth/{path}`, and `/networth` 307-redirects to `/`. Leaves are blank scaffolds except the
+  **data-backed** ones in
   `LEAF_ASSET_CLASSES` (Mutual Funds, Gold & Silver), which render holdings from two sources: an
   uploaded CAMS import and/or the latest NSDL snapshot's classified rows. `POST
   /networth/import/cams` parses a CAMS PDF and stores it via `replace_networth_import`. **Invariant:
@@ -103,8 +107,8 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 - **`app/models.py`** — dataclasses shared across layers: `Holding`, `ParsedStatement` (parser
   output), `Snapshot` (stored row).
 
-- **`app/wealth.py`** — the "Where do you stand?" feature, a widget **embedded on the Dashboard**
-  (`/`); `/standing` 307-redirects there. Static net-worth
+- **`app/wealth.py`** — the "Where do you stand?" feature, a **full page at `GET /standing`**
+  reached from the Dashboard CTA tile; pre-fills with the user's live sum-the-tree net worth. Static net-worth
   distribution data (adults per band for India/Indonesia/Singapore/USA/World, from
   `wealth_distribution.xlsx` — UBS/Knight Frank/Forbes) plus `rank_net_worth()`, which places a
   net worth within each geography by **piecewise power-law (Pareto) interpolation** between the
@@ -136,6 +140,14 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
 
 ## Conventions
 
+- **Design system** (`static/style.css`): "Ink Navy & Copper" — one **token** set on `:root`
+  (`--bg/--surface/--ink/--brand/--copper/--gain/--loss/--c-*` asset-class hues) drives everything.
+  Both **light and dark** themes are defined by redefining those tokens under
+  `@media (prefers-color-scheme: dark)` and `:root[data-theme="dark|light"]`; the nav toggle stamps
+  `data-theme` and persists it in `localStorage` (`nw-theme`), applied pre-paint in `base.html`.
+  Style components through tokens, never hardcode theme colors. Legacy names (`--text/--accent/--up/
+  --down`) are aliased to the new tokens. Figures use `var(--serif)` (a system serif) for gravitas;
+  UI chrome stays system-sans. Buttons go through `--btn-bg/--btn-fg` for dark-mode legibility.
 - Amounts are INR, formatted with Indian digit grouping (`_to_float` strips lakh/crore commas
   like `12,34,567.89`).
 - The privacy invariant is load-bearing: never add code paths that write statement contents or

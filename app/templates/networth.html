@@ -1,131 +1,105 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Networthy{% endblock %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
+{% set d = dash %}
 
-<section class="nw-page-head">
-  <h1>Dashboard</h1>
-  <p class="muted">
-    A complete breakdown of everything you own and owe, valued live where we can.
+{% if not d.has_data %}
+<section class="dash-empty">
+  <h1>Welcome to Networthy</h1>
+  <p>
+    Upload an NSDL CAS to import your demat &amp; mutual-fund holdings, or add
+    accounts by hand from any category — and your net worth builds up here.
   </p>
+  <a href="/upload" class="btn btn-lg">Upload a CAS statement</a>
 </section>
 
-{% macro amount(v) -%}
-  {%- if v is not none %}<span class="nw-val">₹{{ "{:,.0f}".format(v) }}</span>{% endif -%}
-{%- endmacro %}
-
-{% for section in sections %}
-<section class="card nw-section">
-  <div class="card-head">
-    <h2>{{ section.title }}</h2>
-    {{ amount(values.get(section.slug)) }}
+{% else %}
+<section class="dash-hero">
+  <div class="dash-card hero-main">
+    <span class="eyebrow">Total net worth</span>
+    <div class="hero-nw num"><span class="rs">₹</span>{{ "{:,.0f}".format(d.net_worth) }}</div>
+    <span class="hero-note">Valued live where we can · as of today</span>
+    <div class="hero-split">
+      <div>
+        <div class="lab"><span class="swatch" style="background:var(--brand)"></span>Assets</div>
+        <div class="val num">₹{{ "{:,.0f}".format(d.assets) }}</div>
+      </div>
+      <div>
+        <div class="lab"><span class="swatch" style="background:var(--loss)"></span>Liabilities</div>
+        <div class="val num{{ ' neg' if d.liabilities else '' }}">
+          {{ '−₹' ~ '{:,.0f}'.format(d.liabilities) if d.liabilities else '₹0' }}
+        </div>
+      </div>
+    </div>
   </div>
 
-  {% if section.children %}
-    {% for sub in section.children %}
-    <div class="nw-subsection">
-      <h3 class="nw-subhead">
-        <a href="/networth/{{ section.slug }}/{{ sub.slug }}">{{ sub.title }}</a>
-        {{ amount(values.get(section.slug ~ '/' ~ sub.slug)) }}
-      </h3>
-      {% if sub.children %}
-      <ul class="nw-leaf-list">
-        {% for leaf in sub.children %}
-        <li>
-          <a class="nw-leaf{% if not leaf.is_leaf %} nw-cat{% endif %}" href="/networth/{{ section.slug }}/{{ sub.slug }}/{{ leaf.slug }}">
-            <span class="nw-leaf-body">
-              <span class="nw-leaf-title">{{ leaf.title }}</span>
-              {% if leaf.note %}<span class="nw-leaf-note">{{ leaf.note }}</span>{% endif %}
-            </span>
-            {{ amount(values.get(section.slug ~ '/' ~ sub.slug ~ '/' ~ leaf.slug)) }}
-            {% if leaf.is_leaf %}
-              <span class="nw-leaf-arrow">→</span>
-            {% else %}
-              <span class="nw-cat-count">{{ leaf.children|length }} inside</span>
-              <span class="nw-leaf-arrow">›</span>
-            {% endif %}
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="muted nw-empty">No categories yet.</p>
-      {% endif %}
+  {% if d.buckets %}
+  <div class="dash-card alloc-card">
+    <h2>How it's composed</h2>
+    <div class="alloc-strip">
+      {% for b in d.buckets %}
+      <span style="width: {{ '%.2f'|format(b.pct) }}%; background: var({{ b.color }})"
+            title="{{ b.label }} · ₹{{ '{:,.0f}'.format(b.value) }} ({{ '%.1f'|format(b.pct) }}%)"></span>
+      {% endfor %}
     </div>
-    {% endfor %}
-  {% else %}
-    <p class="muted nw-empty">No categories yet.</p>
+    <ul class="alloc-legend">
+      {% for b in d.buckets %}
+      <li>
+        <span class="swatch" style="background: var({{ b.color }})"></span>
+        <span class="lname">{{ b.label }}</span>
+        <span class="lval">₹{{ "{:,.0f}".format(b.value) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
   {% endif %}
 </section>
-{% endfor %}
 
-{# --- "Where do you stand?" — moved here from its own tab -------------------- #}
-<section class="card stand-intro">
-  <h2>Where do you stand?</h2>
-  <p class="muted">
-    Type a net worth and see where it ranks among adults in India, Indonesia,
-    Singapore, the USA and the world. Modelled from UBS, Knight Frank and Forbes
-    wealth data — a fun estimate, not a census.
-  </p>
+<section class="dash-tiles">
+  <a class="dash-card dash-tile" href="/networth/assets/financial-assets">
+    <span class="k">Financial Assets</span>
+    <span class="v num">₹{{ "{:,.0f}".format(d.fin_assets) }}</span>
+    <span class="sub">Equity, funds, fixed income &amp; more</span>
+  </a>
+  <a class="dash-card dash-tile" href="/networth/assets/non-financial-assets">
+    <span class="k">Non-Financial</span>
+    <span class="v num">₹{{ "{:,.0f}".format(d.non_fin) }}</span>
+    <span class="sub">Real estate, gold, business</span>
+  </a>
+  <a class="dash-card dash-tile" href="/networth/liabilities">
+    <span class="k">Liabilities</span>
+    <span class="v num{{ ' neg' if d.liabilities else '' }}">
+      {{ '−₹' ~ '{:,.0f}'.format(d.liabilities) if d.liabilities else '₹0' }}
+    </span>
+    <span class="sub">Loans &amp; dues</span>
+  </a>
+  <a class="dash-card dash-tile cta-tile" href="/standing">
+    <div class="cta-pyr"><i style="width:34px"></i><i style="width:26px"></i><i style="width:18px"></i><i style="width:10px"></i></div>
+    <h3>Where do you stand?</h3>
+    <p>See where ₹{{ "{:,.0f}".format(d.net_worth) }} ranks you among adults in India, the US &amp; the world.</p>
+    <span class="go">Open explorer →</span>
+  </a>
+</section>
 
-  <div class="nw-control">
-    <div class="nw-amount">
-      <span class="nw-currency">₹</span>
-      <input id="nw-input" type="text" inputmode="decimal" autocomplete="off"
-             aria-label="Net worth amount" />
-      <select id="nw-unit" aria-label="Unit">
-        <option value="7" selected>Crore</option>
-        <option value="5">Lakh</option>
-      </select>
-    </div>
-
-    <input id="nw-slider" type="range" min="0" max="1000" value="0"
-           aria-label="Net worth slider" />
-
-    <div class="nw-presets" id="nw-presets">
-      <button type="button" data-inr="5000000">₹50 L</button>
-      <button type="button" data-inr="10000000">₹1 Cr</button>
-      <button type="button" data-inr="50000000">₹5 Cr</button>
-      <button type="button" data-inr="100000000">₹10 Cr</button>
-      <button type="button" data-inr="1000000000">₹100 Cr</button>
-      <button type="button" data-inr="10000000000">₹1,000 Cr</button>
-      {% if my_net_worth %}
-      <button type="button" class="preset-mine" data-inr="{{ my_net_worth|round|int }}">
-        ★ My net worth
-      </button>
-      {% endif %}
-    </div>
+{% if d.buckets %}
+<section class="dash-card dash-holdings">
+  <div class="bh">
+    <h2>Where it sits</h2>
+    <span class="hint">Funded categories · empty ones hidden</span>
+  </div>
+  <div class="rows">
+    {% for b in d.buckets %}
+    <a class="hrow" href="{{ b.url }}">
+      <span class="swatch" style="background: var({{ b.color }})"></span>
+      <span class="name">{{ b.label }}</span>
+      <span class="amt num">₹{{ "{:,.0f}".format(b.value) }}</span>
+      <span class="chev">›</span>
+    </a>
+    {% endfor %}
   </div>
 </section>
-
-<section id="stand-results" class="card stand-results">
-  <p class="stand-lead"><strong id="lead-amount"></strong> would place you…</p>
-  <div id="country-rows" class="country-rows"></div>
-  <p id="fun-fact" class="fun-fact" hidden></p>
-  <p id="base-note" class="muted stand-note" hidden>
-    Below ₹1 cr, placement is a rough estimate — the source data models the
-    ₹1 cr+ tail in detail, not the broad base.
-  </p>
-</section>
-
-<section class="card pyramid-card">
-  <div class="card-head">
-    <h2>The wealth pyramid — <span id="pyramid-geo-name">India</span></h2>
-    <div class="pyramid-tabs" id="pyramid-tabs" role="tablist"></div>
-  </div>
-  <div id="pyramid" class="pyramid"></div>
-  <p class="pyramid-note muted">
-    Band widths are on a log scale so the tiny top bands stay visible. Bands defined
-    in INR crore; USD at ₹96.5/$1.
-  </p>
-</section>
-
-<script id="stand-data" type="application/json">{{ dataset | tojson }}</script>
-<script src="/static/standing.js?v={{ version }}"></script>
-<script>
-  initStanding({
-    defaultNetWorth: {{ default_net_worth|round|int }},
-    myNetWorth: {{ (my_net_worth|round|int) if my_net_worth else 'null' }}
-  });
-</script>
+{% endif %}
+{% endif %}
 
 {% endblock %}

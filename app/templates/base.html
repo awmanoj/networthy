@@ -5,10 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Networthy{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css?v={{ version }}" />
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var t = localStorage.getItem('nw-theme');
+        if (t) document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Networthy</a>
+    <a class="brand" href="/"><span class="mark">₹</span>Networthy</a>
     <nav>
       {% if user %}
       <a href="/">Dashboard</a>
@@ -20,13 +29,29 @@
         <button class="link-muted" type="submit">Log out</button>
       </form>
       {% endif %}
+      <button class="theme-toggle" id="theme-toggle" type="button"
+              title="Toggle light / dark" aria-label="Toggle light or dark theme">◑</button>
     </nav>
   </header>
-  <main>
+  <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
   <footer>
     <span>Your data is private to your account. Statements are parsed on this server and never sent to third parties.</span>
   </footer>
+  <script>
+    (function () {
+      var root = document.documentElement, btn = document.getElementById('theme-toggle');
+      function current() {
+        return root.getAttribute('data-theme') ||
+          (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      }
+      btn.addEventListener('click', function () {
+        var next = current() === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('nw-theme', next); } catch (e) {}
+      });
+    })();
+  </script>
 </body>
 </html>
