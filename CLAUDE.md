@@ -35,19 +35,19 @@ There is no linter/formatter configured.
 The core data flow is one pipeline, worth understanding before touching any piece:
 
 ```
-upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite  →  NSDL CAS chart + /portfolio
+upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite  →  NSDL CAS page (chart + holdings)
 ```
 
-- **`app/main.py`** — FastAPI routes. **Home `/` is the Dashboard** (the Networth tree +
-  "Where do you stand?"; `main.home`). The net-worth-over-time **chart + snapshots table** moved
-  to **`GET /nsdl-cas`** (`main.nsdl_cas`, template `index.html`). `POST /upload` takes N files +
-  one shared password (the PAN — all of a person's CAS PDFs use the same one) and parses each
+- **`app/main.py`** — FastAPI routes. The nav is just **Dashboard** + **NSDL CAS**. **Home `/` is
+  the Dashboard** (`main.home`). **`GET /nsdl-cas`** (`main.nsdl_cas`, template `index.html`) holds
+  the net-worth-over-time **chart + snapshots table**, an **Upload CAS** button, *and* the latest
+  statement's **detailed per-account holdings** (the former Portfolio page, folded in here — colour-
+  coded by asset class); `GET /portfolio` 307-redirects to it. `POST /upload` takes N files + one
+  shared password (the PAN — all of a person's CAS PDFs use the same one) and parses each
   independently: one bad file doesn't sink the batch (200 if any saved, 400 only if all fail). It
   stores both the `Snapshot` and its detailed per-holding rows (`replace_holdings`). Delete routes:
   per-row `POST /snapshots/{id}/delete` and `POST /snapshots/delete-all` (both redirect to
-  `/nsdl-cas`). `GET /portfolio`
-  renders the latest snapshot's holdings grouped by account (colour-coded by asset class);
-  its Refresh button just re-renders — a future performance-signal pass will recompute there.
+  `/nsdl-cas`).
 
 - **`app/parser/nsdl_cas.py`** — the fragile core. `parse_cas()` = pikepdf decrypt →
   pdfplumber text extraction → regex to pull `statement_date` and `total_value`, plus

@@ -109,7 +109,8 @@ def logout(request: Request):
 
 @app.get("/nsdl-cas", response_class=HTMLResponse)
 def nsdl_cas(request: Request):
-    """NSDL CAS view — net-worth-over-time chart + the uploaded snapshots table."""
+    """NSDL CAS view — net-worth-over-time chart, the snapshots table, and the
+    latest statement's detailed per-account holdings (the former Portfolio page)."""
     user = request.state.user
     snapshots = storage.list_snapshots(user.id)
     chart = [
@@ -120,32 +121,9 @@ def nsdl_cas(request: Request):
     change = None
     if len(snapshots) >= 2:
         change = snapshots[-1].total_value - snapshots[-2].total_value
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "user": user,
-            "snapshots": list(reversed(snapshots)),  # newest-first in the table
-            "chart": chart,
-            "latest": latest,
-            "change": change,
-        },
-    )
 
-
-@app.get("/portfolio", response_class=HTMLResponse)
-def portfolio(request: Request):
-    """Detailed holdings view for the user's most recent statement.
-
-    Always renders live from the latest snapshot's stored holdings, so uploading
-    a newer detailed CAS updates it automatically; the Refresh button just
-    re-renders (a future performance-signal pass will recompute here).
-    """
-    user = request.state.user
-    latest = storage.latest_snapshot(user.id)
+    # Detailed holdings for the latest snapshot (merged in from the old Portfolio).
     accounts = storage.list_accounts(latest.id) if latest else []
-
-    # Asset-class rollup across every account, for the coloured summary strip.
     by_class: dict[str, float] = {}
     for account in accounts:
         for h in account.holdings:
@@ -162,16 +140,25 @@ def portfolio(request: Request):
     ]
 
     return templates.TemplateResponse(
-        "portfolio.html",
+        "index.html",
         {
             "request": request,
             "user": user,
+            "snapshots": list(reversed(snapshots)),  # newest-first in the table
+            "chart": chart,
             "latest": latest,
+            "change": change,
             "accounts": accounts,
             "breakdown": breakdown,
             "class_label": _class_label,
         },
     )
+
+
+@app.get("/portfolio")
+def portfolio_redirect():
+    """The Portfolio holdings moved onto the NSDL CAS page; keep the old URL."""
+    return RedirectResponse(url="/nsdl-cas", status_code=307)
 
 
 # Allocation colour per category slug — maps to the --c-* CSS tokens.
