@@ -196,5 +196,9 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   (startups/angel, ESOPs, unlisted, PE/VC, crypto) in the `alt_investments` table (name, category,
   cost, current_value, invested_date); `current_value` rolls into net worth, `cost` drives a
   gain% (`main._enrich_alt`); routes `POST /networth/alt/add` + `/alt/{id}/delete`. No live price.
-  All of these roll up the tree via `_leaf_value` alongside CAS/manual leaves; only the ticker /
-  currency pair egresses.
+  *Real Estate* — `networth.REALTY_LEAVES` (the five sub-leaves under `real-estate`); hand-entered
+  properties in the `property_holdings` table (leaf_slug, label, current_value, cost, purchase_date,
+  notes), reusing `_enrich_alt` for gain/date; `current_value` is **gross** (a loan against it lives
+  under Liabilities and net worth already nets it); routes `POST /networth/property/add` +
+  `/property/{id}/delete`. All of these roll up the tree via `_leaf_value` alongside CAS/manual
+  leaves; only the ticker / currency pair egresses.

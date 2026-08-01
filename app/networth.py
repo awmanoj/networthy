@@ -140,6 +140,13 @@ MANUAL_LEAVES: set[str] = {
 # bank name, type, nickname, balance — handled specially in the web layer).
 BANK_CASH_LEAVES: set[str] = {"bank-accounts", "cash"}
 
+# The five Real Estate sub-leaves — each holds hand-entered properties (label,
+# current value, cost, purchase date, notes), handled specially in the web layer.
+REALTY_LEAVES: set[str] = {
+    "primary-residence", "residential-property", "commercial-property",
+    "land", "under-construction",
+}
+
 
 def rollup(leaf_value: Callable[[str], float | None]) -> dict[str, float]:
     """Total value per node, keyed by its '/'-joined slug path.

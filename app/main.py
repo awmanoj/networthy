@@ -392,6 +392,11 @@ def _leaf_value(user, slug: str) -> float | None:
     if slug == ALT_LEAF:
         return sum(r["current_value"] or 0.0 for r in storage.list_alt_investments(user.id))
 
+    if slug in networth.REALTY_LEAVES:
+        return sum(
+            r["current_value"] or 0.0 for r in storage.list_property_holdings(user.id, slug)
+        )
+
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
     if not (data_backed or manual_enabled):
@@ -455,6 +460,18 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
         return {
             "is_alt": True,
+            "holdings": rows,
+            "live_total": sum(r["current_value"] or 0.0 for r in rows),
+            "cost_total": cost_total,
+            "leaf_slug": slug,
+        }
+
+    if slug in networth.REALTY_LEAVES:
+        rows = storage.list_property_holdings(user.id, slug)
+        _enrich_alt(rows)  # same gain-vs-cost + date shape
+        cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
+        return {
+            "is_property": True,
             "holdings": rows,
             "live_total": sum(r["current_value"] or 0.0 for r in rows),
             "cost_total": cost_total,
@@ -729,6 +746,33 @@ def alt_add(
 @app.post("/networth/alt/{inv_id}/delete")
 def alt_delete(request: Request, inv_id: int, redirect: str = Form(...)):
     storage.delete_alt_investment(request.state.user.id, inv_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/property/add")
+def property_add(
+    request: Request,
+    leaf_slug: str = Form(...),
+    redirect: str = Form(...),
+    label: str = Form(...),
+    current_value: float = Form(...),
+    cost: str = Form(""),
+    purchase_date: str = Form(""),
+    notes: str = Form(""),
+):
+    """Add a property to a Real Estate sub-leaf."""
+    if leaf_slug in networth.REALTY_LEAVES and label.strip():
+        storage.add_property_holding(
+            request.state.user.id, leaf_slug, label.strip(), current_value,
+            cost=_opt_float(cost), purchase_date=_opt_date(purchase_date),
+            notes=notes.strip() or None,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/property/{prop_id}/delete")
+def property_delete(request: Request, prop_id: int, redirect: str = Form(...)):
+    storage.delete_property_holding(request.state.user.id, prop_id)
     return _networth_redirect(redirect)
 
 

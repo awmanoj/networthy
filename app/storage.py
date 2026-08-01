@@ -224,6 +224,30 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_alt_user ON alt_investments(user_id)"
         )
+        # Hand-entered real estate, one table across the five Real Estate sub-leaves
+        # (keyed by leaf_slug). current_value (gross market value) rolls into net worth
+        # — any loan against it is tracked separately under Liabilities. cost enables
+        # gain%; notes hold location/size.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS property_holdings (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                leaf_slug     TEXT NOT NULL,
+                label         TEXT NOT NULL,
+                current_value REAL NOT NULL,
+                cost          REAL,
+                purchase_date TEXT,
+                notes         TEXT,
+                position      INTEGER NOT NULL DEFAULT 0,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_property_user_leaf "
+            "ON property_holdings(user_id, leaf_slug)"
+        )
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -857,6 +881,62 @@ def delete_alt_investment(user_id: int, inv_id: int) -> None:
         conn.execute(
             "DELETE FROM alt_investments WHERE id = ? AND user_id = ?",
             (inv_id, user_id),
+        )
+
+
+# --- Real estate (property) -------------------------------------------------
+
+def add_property_holding(
+    user_id: int, leaf_slug: str, label: str, current_value: float,
+    cost: float | None = None, purchase_date: str | None = None,
+    notes: str | None = None,
+) -> None:
+    """Append one property to a Real Estate sub-leaf."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM property_holdings WHERE user_id = ? AND leaf_slug = ?",
+            (user_id, leaf_slug),
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO property_holdings
+                (user_id, leaf_slug, label, current_value, cost, purchase_date, notes, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, leaf_slug, label, current_value, cost, purchase_date, notes, count),
+        )
+
+
+def list_property_holdings(user_id: int, leaf_slug: str) -> list[dict]:
+    """A user's properties for one Real Estate sub-leaf, in entry order.
+
+    The date is exposed as ``invested_date`` so the shared gain/date enrichment
+    (``main._enrich_alt``) applies unchanged.
+    """
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM property_holdings
+            WHERE user_id = ? AND leaf_slug = ?
+            ORDER BY position ASC, id ASC
+            """,
+            (user_id, leaf_slug),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "label": r["label"], "current_value": r["current_value"],
+            "cost": r["cost"], "invested_date": r["purchase_date"], "notes": r["notes"],
+        }
+        for r in rows
+    ]
+
+
+def delete_property_holding(user_id: int, prop_id: int) -> None:
+    """Delete one property, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM property_holdings WHERE id = ? AND user_id = ?",
+            (prop_id, user_id),
         )
 
 

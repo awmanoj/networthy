@@ -67,6 +67,9 @@ def test_real_estate_sub_types():
         "land", "under-construction",
     ]
     assert all(c.is_leaf for c in real_estate.children)
+    # All five Real Estate leaves accept hand-entered properties.
+    from app.networth import REALTY_LEAVES
+    assert REALTY_LEAVES == {c.slug for c in real_estate.children}
 
 
 def test_liabilities_split_into_secured_and_unsecured():

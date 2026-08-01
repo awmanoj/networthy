@@ -358,6 +358,83 @@
     </div>
   </section>
 
+  {% elif leaf_data.is_property %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Current value{% if leaf_data.cost_total %} · bought for ₹{{ "{:,.0f}".format(leaf_data.cost_total) }}{% endif %}</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th class="num">Bought for</th>
+          <th class="num">Current value</th>
+          <th class="num">Gain</th>
+          <th>Purchased</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.label }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(h.current_value) }}</td>
+          <td class="num">
+            {% if h.gain_pct is not none %}
+              <span class="chg {{ h.signal }}">{{ '+' if h.gain_pct >= 0 else '' }}{{ "%.0f"|format(h.gain_pct) }}%</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ h.invested_fmt or "—" }}</td>
+          <td class="num">
+            <form method="post" action="/networth/property/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this property?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add property</h3>
+      <form class="manual-add" method="post" action="/networth/property/add">
+        <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field col-2">
+          <label for="pr-label">Name</label>
+          <input id="pr-label" name="label" placeholder="e.g. 3BHK, Whitefield" required>
+        </div>
+        <div class="manual-field">
+          <label for="pr-cur">Current value ₹</label>
+          <input id="pr-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="pr-cost">Bought for ₹ <span class="opt">optional</span></label>
+          <input id="pr-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="pr-date">Purchased on <span class="opt">optional</span></label>
+          <input id="pr-date" name="purchase_date" type="date">
+        </div>
+        <div class="manual-field col-2">
+          <label for="pr-notes">Location / size <span class="opt">optional</span></label>
+          <input id="pr-notes" name="notes" placeholder="e.g. Whitefield · 1,200 sq ft">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Current value counts toward net worth (gross — any home loan is tracked under Liabilities).</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>

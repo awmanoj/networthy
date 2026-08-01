@@ -328,6 +328,27 @@ def test_alt_investments_crud(db):
     assert [r["name"] for r in db.list_alt_investments(alice)] == ["MyCo ESOP"]
 
 
+def test_property_holdings_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_property_holding(alice, "primary-residence", "3BHK Whitefield", 12000000.0,
+                            cost=8000000.0, purchase_date="2019-06-01", notes="1200 sqft")
+    db.add_property_holding(alice, "land", "Plot", 3000000.0)          # different leaf
+    db.add_property_holding(bob, "primary-residence", "Bob home", 99.0)
+
+    home = db.list_property_holdings(alice, "primary-residence")
+    assert [p["label"] for p in home] == ["3BHK Whitefield"]
+    assert home[0]["current_value"] == 12000000.0 and home[0]["cost"] == 8000000.0
+    assert home[0]["invested_date"] == "2019-06-01" and home[0]["notes"] == "1200 sqft"
+    # Leaf scoping: the land plot doesn't show under primary-residence.
+    assert [p["label"] for p in db.list_property_holdings(alice, "land")] == ["Plot"]
+
+    db.delete_property_holding(bob, home[0]["id"])       # not Bob's -> no-op
+    assert len(db.list_property_holdings(alice, "primary-residence")) == 1
+    db.delete_property_holding(alice, home[0]["id"])
+    assert db.list_property_holdings(alice, "primary-residence") == []
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")
