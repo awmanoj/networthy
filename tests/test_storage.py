@@ -349,6 +349,39 @@ def test_property_holdings_crud(db):
     assert db.list_property_holdings(alice, "primary-residence") == []
 
 
+def test_gold_items_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_gold_item(alice, "Coins", weight_g=50.0, karat=24)
+    db.add_gold_item(alice, "Necklace (stones)", flat_value=200000.0)  # flat
+    db.add_gold_item(bob, "Bob bar", weight_g=10.0, karat=24)
+
+    rows = db.list_gold_items(alice)
+    assert [r["description"] for r in rows] == ["Coins", "Necklace (stones)"]
+    assert rows[0]["weight_g"] == 50.0 and rows[0]["karat"] == 24 and rows[0]["flat_value"] is None
+    assert rows[1]["flat_value"] == 200000.0 and rows[1]["weight_g"] is None
+
+    db.delete_gold_item(bob, rows[0]["id"])            # not Bob's -> no-op
+    assert len(db.list_gold_items(alice)) == 2
+    db.delete_gold_item(alice, rows[0]["id"])
+    assert [r["description"] for r in db.list_gold_items(alice)] == ["Necklace (stones)"]
+
+
+def test_business_holdings_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    db.add_business_holding(alice, "Acme LLP", 5000000.0,
+                            ownership_pct=30.0, cost=1000000.0, invested_date="2020-01-01",
+                            notes="co-founder")
+    db.add_business_holding(alice, "SideCo", 250000.0)  # optional fields None
+    rows = db.list_business_holdings(alice)
+    assert [r["name"] for r in rows] == ["Acme LLP", "SideCo"]
+    assert rows[0]["ownership_pct"] == 30.0 and rows[0]["cost"] == 1000000.0
+    assert rows[0]["current_value"] == 5000000.0 and rows[0]["notes"] == "co-founder"
+    assert rows[1]["ownership_pct"] is None and rows[1]["cost"] is None
+    db.delete_business_holding(alice, rows[0]["id"])
+    assert [r["name"] for r in db.list_business_holdings(alice)] == ["SideCo"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

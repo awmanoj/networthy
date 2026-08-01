@@ -200,5 +200,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   properties in the `property_holdings` table (leaf_slug, label, current_value, cost, purchase_date,
   notes), reusing `_enrich_alt` for gain/date; `current_value` is **gross** (a loan against it lives
   under Liabilities and net worth already nets it); routes `POST /networth/property/add` +
-  `/property/{id}/delete`. All of these roll up the tree via `_leaf_value` alongside CAS/manual
-  leaves; only the ticker / currency pair egresses.
+  `/property/{id}/delete`. *Physical Gold & Jewellery* (`GOLD_LEAF` = `physical-gold`) —
+  `gold_items` table; each item is **either** weight+karat (valued live at
+  `prices.gold_inr_per_gram()`, derived from `GC=F`×`INR=X`, × karat purity in `main._price_gold`)
+  **or** a flat hand-entered value; routes `POST /networth/gold/add` + `/gold/{id}/delete`.
+  *Private Business* (`BUSINESS_LEAF` = `private-business`) — `business_holdings` (name,
+  ownership_pct, cost, current_value, invested_date, notes), gain via `_enrich_alt`; routes
+  `POST /networth/business/add` + `/business/{id}/delete`. All of these roll up the tree via
+  `_leaf_value` alongside CAS/manual leaves; only tickers / currency pairs / gold+FX symbols egress.

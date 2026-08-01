@@ -248,6 +248,42 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_property_user_leaf "
             "ON property_holdings(user_id, leaf_slug)"
         )
+        # Physical gold & jewellery: each item is either weight+karat (valued live at
+        # the gold rate) or a flat hand-entered value (jewellery with stones, etc.).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gold_items (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                description TEXT NOT NULL,
+                weight_g    REAL,
+                karat       INTEGER,
+                flat_value  REAL,
+                position    INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gold_user ON gold_items(user_id)")
+        # Private business ownership: hand-valued stake (current_value rolls into net
+        # worth; cost enables gain%; ownership_pct is informational).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS business_holdings (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name          TEXT NOT NULL,
+                ownership_pct REAL,
+                cost          REAL,
+                current_value REAL NOT NULL,
+                invested_date TEXT,
+                notes         TEXT,
+                position      INTEGER NOT NULL DEFAULT 0,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_business_user ON business_holdings(user_id)")
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -937,6 +973,99 @@ def delete_property_holding(user_id: int, prop_id: int) -> None:
         conn.execute(
             "DELETE FROM property_holdings WHERE id = ? AND user_id = ?",
             (prop_id, user_id),
+        )
+
+
+# --- Physical gold & jewellery ----------------------------------------------
+
+def add_gold_item(
+    user_id: int, description: str,
+    weight_g: float | None = None, karat: int | None = None,
+    flat_value: float | None = None,
+) -> None:
+    """Append one physical-gold item (weight+karat for live valuation, or flat)."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM gold_items WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO gold_items
+                (user_id, description, weight_g, karat, flat_value, position)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, description, weight_g, karat, flat_value, count),
+        )
+
+
+def list_gold_items(user_id: int) -> list[dict]:
+    """A user's physical-gold items, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM gold_items WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "description": r["description"], "weight_g": r["weight_g"],
+            "karat": r["karat"], "flat_value": r["flat_value"],
+        }
+        for r in rows
+    ]
+
+
+def delete_gold_item(user_id: int, item_id: int) -> None:
+    """Delete one gold item, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM gold_items WHERE id = ? AND user_id = ?", (item_id, user_id)
+        )
+
+
+# --- Private business -------------------------------------------------------
+
+def add_business_holding(
+    user_id: int, name: str, current_value: float,
+    ownership_pct: float | None = None, cost: float | None = None,
+    invested_date: str | None = None, notes: str | None = None,
+) -> None:
+    """Append one private-business ownership stake."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM business_holdings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO business_holdings
+                (user_id, name, ownership_pct, cost, current_value, invested_date, notes, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, name, ownership_pct, cost, current_value, invested_date, notes, count),
+        )
+
+
+def list_business_holdings(user_id: int) -> list[dict]:
+    """A user's private-business stakes, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM business_holdings WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "name": r["name"], "ownership_pct": r["ownership_pct"],
+            "cost": r["cost"], "current_value": r["current_value"],
+            "invested_date": r["invested_date"], "notes": r["notes"],
+        }
+        for r in rows
+    ]
+
+
+def delete_business_holding(user_id: int, biz_id: int) -> None:
+    """Delete one private-business stake, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM business_holdings WHERE id = ? AND user_id = ?", (biz_id, user_id)
         )
 
 

@@ -73,6 +73,24 @@ def usd_inr() -> float | None:
     return get_quote("INR=X")
 
 
+_TROY_OZ_G = 31.1034768
+
+
+def gold_inr_per_gram() -> float | None:
+    """Live 24k gold price in INR per gram, cached ~15 min. None on failure.
+
+    Derived from COMEX gold futures (GC=F, USD per troy ounce) × live USD→INR.
+    This tracks *international* spot, so it runs a little below Indian retail (which
+    carries import duty / making charges) — a deliberately conservative estimate.
+    Only the public symbols GC=F and INR=X are fetched; nothing about holdings egresses.
+    """
+    spot = get_quote("GC=F")   # USD per troy ounce, 24k
+    fx = usd_inr()
+    if spot is None or fx is None:
+        return None
+    return spot / _TROY_OZ_G * fx
+
+
 def fx_to_inr(currency: str | None) -> float | None:
     """Live rate to convert one unit of `currency` into INR, via Yahoo's
     `<CUR>INR=X` pair (e.g. EURINR=X). Cached ~15 min; None on failure."""

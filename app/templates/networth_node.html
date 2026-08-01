@@ -435,6 +435,158 @@
     </div>
   </section>
 
+  {% elif leaf_data.is_gold %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Value{% if leaf_data.rate24 %} · 24k ₹{{ "{:,.0f}".format(leaf_data.rate24) }}/g{% endif %}</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="num">Weight</th>
+          <th class="num">Karat</th>
+          <th class="num">Rate (₹/g)</th>
+          <th class="num">Value</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.description }}{% if h.basis == "flat" %} <span class="h-isin muted">flat</span>{% endif %}</td>
+          <td class="num">{{ "{:g} g".format(h.weight_g) if h.weight_g is not none else "—" }}</td>
+          <td class="num">{{ (h.karat ~ "k") if h.karat is not none else "—" }}</td>
+          <td class="num">{{ "{:,.0f}".format(h.rate) if h.rate is not none else "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
+          <td class="num">
+            <form method="post" action="/networth/gold/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this item?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add gold item</h3>
+      <form class="manual-add" method="post" action="/networth/gold/add">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field col-2">
+          <label for="g-desc">Item</label>
+          <input id="g-desc" name="description" placeholder="e.g. Coins, bangles" required>
+        </div>
+        <div class="manual-field">
+          <label for="g-wt">Weight (g) <span class="opt">for live value</span></label>
+          <input id="g-wt" name="weight_g" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="g-k">Karat</label>
+          <select id="g-k" name="karat">
+            {% for k in [24, 22, 18, 14] %}<option value="{{ k }}"{{ ' selected' if k == 22 else '' }}>{{ k }}k</option>{% endfor %}
+          </select>
+        </div>
+        <div class="manual-field">
+          <label for="g-flat">or Value ₹ <span class="opt">flat</span></label>
+          <input id="g-flat" name="flat_value" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Enter weight + karat to value it live at the gold rate, or a flat value for stone-set jewellery.</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  {% elif leaf_data.is_business %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Current value{% if leaf_data.cost_total %} · invested ₹{{ "{:,.0f}".format(leaf_data.cost_total) }}{% endif %}</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Business</th>
+          <th class="num">Stake</th>
+          <th class="num">Invested</th>
+          <th class="num">Current</th>
+          <th class="num">Gain</th>
+          <th>Since</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.name }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
+          <td class="num">{{ "{:g}%".format(h.ownership_pct) if h.ownership_pct is not none else "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(h.current_value) }}</td>
+          <td class="num">
+            {% if h.gain_pct is not none %}
+              <span class="chg {{ h.signal }}">{{ '+' if h.gain_pct >= 0 else '' }}{{ "%.0f"|format(h.gain_pct) }}%</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ h.invested_fmt or "—" }}</td>
+          <td class="num">
+            <form method="post" action="/networth/business/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this entry?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add business stake</h3>
+      <form class="manual-add" method="post" action="/networth/business/add">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field col-2">
+          <label for="b-name">Business</label>
+          <input id="b-name" name="name" placeholder="e.g. Acme Trading LLP" required>
+        </div>
+        <div class="manual-field">
+          <label for="b-pct">Stake % <span class="opt">optional</span></label>
+          <input id="b-pct" name="ownership_pct" type="number" step="any" min="0" max="100" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="b-cost">Invested ₹ <span class="opt">optional</span></label>
+          <input id="b-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="b-cur">Current value ₹</label>
+          <input id="b-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="b-date">Since <span class="opt">optional</span></label>
+          <input id="b-date" name="invested_date" type="date">
+        </div>
+        <div class="manual-field col-2">
+          <label for="b-notes">Notes <span class="opt">optional</span></label>
+          <input id="b-notes" name="notes" placeholder="e.g. co-founder stake">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Current value of your stake counts toward net worth; gain is shown vs invested.</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>

@@ -336,6 +336,28 @@ def _price_forex(rows: list[dict]) -> None:
 
 # Alternate Investments leaf: illiquid, hand-valued bets (no live price).
 ALT_LEAF = "alternate-investments"
+# Physical Gold & Jewellery: each item is weight+karat (live-valued) or a flat value.
+GOLD_LEAF = "physical-gold"
+# Private Business: a hand-valued ownership stake.
+BUSINESS_LEAF = "private-business"
+_KARAT_FACTOR = {24: 1.0, 22: 0.916, 18: 0.75, 14: 0.585}
+
+
+def _price_gold(rows: list[dict]) -> float | None:
+    """Value gold items: a flat value if set, else weight × karat purity × live 24k
+    rate. Returns the live 24k INR/gram rate used (None if unavailable)."""
+    rate24 = prices.gold_inr_per_gram()
+    for r in rows:
+        flat = r.get("flat_value")
+        if flat is not None:
+            r["value"], r["rate"], r["basis"] = flat, None, "flat"
+        elif r.get("weight_g") and r.get("karat") and rate24 is not None:
+            r["rate"] = rate24 * _KARAT_FACTOR.get(int(r["karat"]), 1.0)
+            r["value"] = r["weight_g"] * r["rate"]
+            r["basis"] = "weight"
+        else:
+            r["value"], r["rate"], r["basis"] = None, None, None
+    return rate24
 
 
 def _enrich_alt(rows: list[dict]) -> None:
@@ -396,6 +418,14 @@ def _leaf_value(user, slug: str) -> float | None:
         return sum(
             r["current_value"] or 0.0 for r in storage.list_property_holdings(user.id, slug)
         )
+
+    if slug == GOLD_LEAF:
+        rows = storage.list_gold_items(user.id)
+        _price_gold(rows)
+        return sum(r["value"] or 0.0 for r in rows)
+
+    if slug == BUSINESS_LEAF:
+        return sum(r["current_value"] or 0.0 for r in storage.list_business_holdings(user.id))
 
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
@@ -472,6 +502,29 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
         return {
             "is_property": True,
+            "holdings": rows,
+            "live_total": sum(r["current_value"] or 0.0 for r in rows),
+            "cost_total": cost_total,
+            "leaf_slug": slug,
+        }
+
+    if slug == GOLD_LEAF:
+        rows = storage.list_gold_items(user.id)
+        rate24 = _price_gold(rows)
+        return {
+            "is_gold": True,
+            "holdings": rows,
+            "live_total": sum(r["value"] or 0.0 for r in rows),
+            "rate24": rate24,
+            "leaf_slug": slug,
+        }
+
+    if slug == BUSINESS_LEAF:
+        rows = storage.list_business_holdings(user.id)
+        _enrich_alt(rows)  # gain vs cost + date
+        cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
+        return {
+            "is_business": True,
             "holdings": rows,
             "live_total": sum(r["current_value"] or 0.0 for r in rows),
             "cost_total": cost_total,
@@ -773,6 +826,67 @@ def property_add(
 @app.post("/networth/property/{prop_id}/delete")
 def property_delete(request: Request, prop_id: int, redirect: str = Form(...)):
     storage.delete_property_holding(request.state.user.id, prop_id)
+    return _networth_redirect(redirect)
+
+
+def _opt_int(raw: str) -> int | None:
+    try:
+        return int(raw) if raw.strip() else None
+    except (ValueError, AttributeError):
+        return None
+
+
+@app.post("/networth/gold/add")
+def gold_add(
+    request: Request,
+    redirect: str = Form(...),
+    description: str = Form(...),
+    weight_g: str = Form(""),
+    karat: str = Form(""),
+    flat_value: str = Form(""),
+):
+    """Add a physical-gold item (weight+karat for live valuation, or a flat value)."""
+    desc = description.strip()
+    weight, flat = _opt_float(weight_g), _opt_float(flat_value)
+    # Need at least one basis to value it.
+    if desc and (weight or flat is not None):
+        storage.add_gold_item(
+            request.state.user.id, desc,
+            weight_g=weight, karat=_opt_int(karat), flat_value=flat,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/gold/{item_id}/delete")
+def gold_delete(request: Request, item_id: int, redirect: str = Form(...)):
+    storage.delete_gold_item(request.state.user.id, item_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/business/add")
+def business_add(
+    request: Request,
+    redirect: str = Form(...),
+    name: str = Form(...),
+    current_value: float = Form(...),
+    ownership_pct: str = Form(""),
+    cost: str = Form(""),
+    invested_date: str = Form(""),
+    notes: str = Form(""),
+):
+    """Add a private-business ownership stake."""
+    if name.strip():
+        storage.add_business_holding(
+            request.state.user.id, name.strip(), current_value,
+            ownership_pct=_opt_float(ownership_pct), cost=_opt_float(cost),
+            invested_date=_opt_date(invested_date), notes=notes.strip() or None,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/business/{biz_id}/delete")
+def business_delete(request: Request, biz_id: int, redirect: str = Form(...)):
+    storage.delete_business_holding(request.state.user.id, biz_id)
     return _networth_redirect(redirect)
 
 
