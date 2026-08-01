@@ -126,7 +126,7 @@ body {
 }
 .link-muted:hover { color: var(--text); text-decoration: underline; }
 
-.auth-title { margin: 0 0 6px; font-size: 1.5rem; }
+.auth-title { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.6rem; letter-spacing: -0.01em; }
 .auth-sub { margin: 0 0 18px; font-size: 0.9rem; }
 .card.narrow .auth-sub:last-child { margin: 16px 0 0; }
 
@@ -252,7 +252,7 @@ form { display: inline; }
 .result-list .r-msg { color: var(--muted); }
 
 .empty { text-align: center; padding: 80px 20px; }
-.empty h1 { font-size: 1.6rem; }
+.empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.7rem; letter-spacing: -0.01em; }
 .empty p { color: var(--muted); margin-bottom: 24px; }
 
 /* Chart */
@@ -447,7 +447,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .h-isin { display: inline-block; margin-left: 8px; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
 
 /* --- "Where do you stand?" ------------------------------------------------ */
-.stand-intro h1 { margin: 0 0 8px; font-size: 1.6rem; letter-spacing: -0.02em; }
+.stand-intro h1 { margin: 0 0 8px; font-family: var(--serif); font-weight: 600; font-size: 1.7rem; letter-spacing: -0.02em; }
 .stand-intro > .muted { margin: 0; max-width: 640px; font-size: 0.92rem; }
 
 .nw-control { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
@@ -590,7 +590,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 
 /* --- Net worth breakdown --------------------------------------------------- */
 .nw-page-head { margin-bottom: 22px; }
-.nw-page-head h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: -0.02em; }
+.nw-page-head h1 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.7rem; letter-spacing: -0.02em; }
 .nw-page-head > .muted { margin: 0; max-width: 640px; font-size: 0.92rem; }
 
 .nw-section .card-head { margin-bottom: 6px; }
@@ -628,7 +628,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .nw-val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
 .nw-subhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .nw-subhead .nw-val { font-size: 0.95rem; }
-.nw-page-total { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0 6px; }
+.nw-page-total { font-family: var(--serif); font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; margin: 2px 0 6px; font-variant-numeric: tabular-nums; }
 .nw-leaf:hover .nw-leaf-arrow { color: var(--accent); }
 .nw-empty { margin: 6px 0 0; font-size: 0.88rem; }
 
@@ -646,7 +646,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 
 .nw-blank { text-align: center; padding: 48px 24px; }
 .nw-blank-icon { font-size: 2rem; margin-bottom: 8px; }
-.nw-blank h2 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text); }
+.nw-blank h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; color: var(--text); }
 .nw-blank p { margin: 0 auto 16px; max-width: 420px; }
 
 footer {
@@ -726,5 +726,5 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .hrow .chev { color: var(--faint); }
 
 .dash-empty { text-align: center; padding: 60px 24px; }
-.dash-empty h1 { font-size: 1.5rem; margin: 0 0 8px; }
+.dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .dash-empty p { color: var(--muted); margin: 0 auto 22px; max-width: 460px; }
