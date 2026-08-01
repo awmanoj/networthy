@@ -200,6 +200,82 @@
       </form>
     </div>
   </section>
+
+  {% elif leaf_data.is_forex %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Total</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Currency</th>
+          <th class="num">Amount</th>
+          <th>Held as</th>
+          <th class="num">Rate (₹)</th>
+          <th class="num">Value</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.currency }}{% if h.label %} <span class="h-isin muted">{{ h.label }}</span>{% endif %}</td>
+          <td class="num">{{ "{:,.2f}".format(h.amount) }}</td>
+          <td>{{ h.kind or "—" }}</td>
+          <td class="num">{{ "{:,.4f}".format(h.rate) if h.rate is not none else "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
+          <td class="num">
+            <form method="post" action="/networth/forex/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this entry?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add foreign currency</h3>
+      <form class="manual-add" method="post" action="/networth/forex/add">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field">
+          <label for="fx-cur">Currency</label>
+          <select id="fx-cur" name="currency">
+            {% for c in ["USD","EUR","GBP","AED","SGD","JPY","AUD","CAD","CHF","HKD"] %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="manual-field">
+          <label for="fx-amt">Amount</label>
+          <input id="fx-amt" name="amount" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="fx-kind">Held as</label>
+          <select id="fx-kind" name="kind">
+            <option value="Account">Account</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+        <div class="manual-field">
+          <label for="fx-label">Label <span class="opt">optional</span></label>
+          <input id="fx-label" name="label" placeholder="e.g. Wise USD">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Valued live at the currency's INR rate · only the currency pair is sent externally.</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>

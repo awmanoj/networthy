@@ -165,8 +165,8 @@ def portfolio_redirect():
 _CAT_COLOR = {
     "equity": "--c-equity", "mutual-funds": "--c-mf", "foreign-equity": "--c-us",
     "fixed-income": "--c-fixed", "gold-silver": "--c-gold", "bank-cash": "--c-bank",
-    "others": "--c-other", "real-estate": "--c-realty", "physical-gold": "--c-gold",
-    "private-business": "--c-alt",
+    "foreign-exchange": "--c-forex", "others": "--c-other", "real-estate": "--c-realty",
+    "physical-gold": "--c-gold", "private-business": "--c-alt",
 }
 # The category level the dashboard summarises: the children of these parents.
 _ALLOC_PARENTS = ("assets/financial-assets", "assets/non-financial-assets")
@@ -320,6 +320,17 @@ def _live_total(rows: list[dict]) -> float:
 # The Foreign / US Equity leaf is its own thing: hand-entered tickers + shares,
 # priced live in USD via Yahoo and converted to INR (no CAS, no fixed amount).
 FOREIGN_LEAF = "foreign-equity"
+# Foreign Exchange leaf: money held in a foreign currency (account or cash),
+# valued live in INR at the currency's FX rate.
+FOREX_LEAF = "foreign-exchange"
+
+
+def _price_forex(rows: list[dict]) -> None:
+    """Value foreign-currency holdings: amount × live FX rate → INR."""
+    for h in rows:
+        rate = prices.fx_to_inr(h["currency"])
+        h["rate"] = rate
+        h["value"] = (h["amount"] * rate) if rate is not None else None
 
 
 def _price_foreign(rows: list[dict]) -> float | None:
@@ -351,6 +362,11 @@ def _leaf_value(user, slug: str) -> float | None:
 
     if slug in networth.BANK_CASH_LEAVES:
         return sum(r["balance"] or 0.0 for r in storage.list_bank_cash(user.id, slug))
+
+    if slug == FOREX_LEAF:
+        rows = storage.list_forex_holdings(user.id)
+        _price_forex(rows)
+        return sum(r["value"] or 0.0 for r in rows)
 
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
@@ -395,6 +411,17 @@ def _leaf_holdings(user, slug: str) -> dict | None:
             "is_bank": slug == "bank-accounts",
             "holdings": rows,
             "live_total": sum(r["balance"] or 0.0 for r in rows),
+            "leaf_slug": slug,
+        }
+
+    if slug == FOREX_LEAF:
+        rows = storage.list_forex_holdings(user.id)
+        _price_forex(rows)
+        return {
+            "is_forex": True,
+            "holdings": rows,
+            "live_total": sum(r["value"] or 0.0 for r in rows),
+            "has_priced": any(r["value"] is not None for r in rows),
             "leaf_slug": slug,
         }
 
@@ -615,6 +642,31 @@ def foreign_add(
 @app.post("/networth/foreign/{holding_id}/delete")
 def foreign_delete(request: Request, holding_id: int, redirect: str = Form(...)):
     storage.delete_foreign_holding(request.state.user.id, holding_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/forex/add")
+def forex_add(
+    request: Request,
+    redirect: str = Form(...),
+    currency: str = Form(...),
+    amount: float = Form(...),
+    kind: str = Form(""),
+    label: str = Form(""),
+):
+    """Add a foreign-currency holding (amount in a currency, held account/cash)."""
+    cur = currency.strip().upper()
+    if cur:
+        storage.add_forex_holding(
+            request.state.user.id, cur, amount,
+            kind=kind.strip() or None, label=label.strip() or None,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/forex/{holding_id}/delete")
+def forex_delete(request: Request, holding_id: int, redirect: str = Form(...)):
+    storage.delete_forex_holding(request.state.user.id, holding_id)
     return _networth_redirect(redirect)
 
 

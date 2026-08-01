@@ -184,6 +184,25 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_foreign_user ON foreign_holdings(user_id)"
         )
+        # Hand-entered foreign-currency money (Foreign Exchange leaf): an amount in a
+        # currency, held in an account or as cash, valued live in INR at the FX rate.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS forex_holdings (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                currency   TEXT NOT NULL,
+                amount     REAL NOT NULL,
+                kind       TEXT,
+                label      TEXT,
+                position   INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_forex_user ON forex_holdings(user_id)"
+        )
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -723,6 +742,51 @@ def delete_foreign_holding(user_id: int, holding_id: int) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM foreign_holdings WHERE id = ? AND user_id = ?",
+            (holding_id, user_id),
+        )
+
+
+# --- Foreign currency (forex) holdings --------------------------------------
+
+def add_forex_holding(
+    user_id: int, currency: str, amount: float,
+    kind: str | None = None, label: str | None = None,
+) -> None:
+    """Append one foreign-currency holding (amount in a currency, account or cash)."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM forex_holdings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO forex_holdings (user_id, currency, amount, kind, label, position)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, currency, amount, kind, label, count),
+        )
+
+
+def list_forex_holdings(user_id: int) -> list[dict]:
+    """A user's foreign-currency holdings, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM forex_holdings WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "currency": r["currency"], "amount": r["amount"],
+            "kind": r["kind"], "label": r["label"],
+        }
+        for r in rows
+    ]
+
+
+def delete_forex_holding(user_id: int, holding_id: int) -> None:
+    """Delete one forex holding, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM forex_holdings WHERE id = ? AND user_id = ?",
             (holding_id, user_id),
         )
 

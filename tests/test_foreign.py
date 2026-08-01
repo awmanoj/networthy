@@ -32,3 +32,32 @@ def test_price_foreign_unpriced_or_no_fx(monkeypatch):
     fx = main._price_foreign(rows)
     assert fx is None
     assert rows[0]["value"] is None and rows[0]["gain_pct"] is None
+
+
+# --- Foreign currency (forex) -----------------------------------------------
+
+@pytest.mark.parametrize(
+    "cur,expected", [("USD", "USDINR=X"), ("eur", "EURINR=X"), ("", None), (None, None)]
+)
+def test_fx_to_inr_symbol(monkeypatch, cur, expected):
+    seen = {}
+    monkeypatch.setattr(prices, "get_quote", lambda s: seen.setdefault("sym", s) or 95.0)
+    prices.fx_to_inr(cur)
+    assert seen.get("sym") == expected
+
+
+def test_fx_to_inr_identity():
+    assert prices.fx_to_inr("INR") == 1.0
+
+
+def test_price_forex_values_amount_times_rate(monkeypatch):
+    monkeypatch.setattr(prices, "fx_to_inr", lambda c: {"USD": 95.0, "EUR": 110.0}.get(c))
+    rows = [
+        {"currency": "USD", "amount": 5000.0},
+        {"currency": "EUR", "amount": 1000.0},
+        {"currency": "XXX", "amount": 10.0},   # unknown -> no rate
+    ]
+    main._price_forex(rows)
+    assert rows[0]["value"] == pytest.approx(5000 * 95.0)
+    assert rows[1]["value"] == pytest.approx(1000 * 110.0)
+    assert rows[2]["rate"] is None and rows[2]["value"] is None

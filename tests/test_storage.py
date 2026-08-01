@@ -290,6 +290,24 @@ def test_bank_cash_crud(db):
     assert [b["bank_name"] for b in db.list_bank_cash(alice, "bank-accounts")] == ["SBI"]
 
 
+def test_forex_holdings_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_forex_holding(alice, "USD", 5000.0, kind="Account", label="Wise")
+    db.add_forex_holding(alice, "EUR", 800.0, kind="Cash")
+    db.add_forex_holding(bob, "GBP", 200.0)
+
+    rows = db.list_forex_holdings(alice)
+    assert [r["currency"] for r in rows] == ["USD", "EUR"]  # entry order
+    assert rows[0]["amount"] == 5000.0 and rows[0]["kind"] == "Account" and rows[0]["label"] == "Wise"
+    assert rows[1]["label"] is None
+
+    db.delete_forex_holding(bob, rows[0]["id"])            # not Bob's -> no-op
+    assert len(db.list_forex_holdings(alice)) == 2
+    db.delete_forex_holding(alice, rows[0]["id"])
+    assert [r["currency"] for r in db.list_forex_holdings(alice)] == ["EUR"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

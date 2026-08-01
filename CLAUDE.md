@@ -188,6 +188,9 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   *Foreign / US Equity* (`FOREIGN_LEAF`) — ticker + shares in `foreign_holdings`, priced live
   (see prices.py). *Bank Accounts & Cash* — `networth.BANK_CASH_LEAVES` = {`bank-accounts`, `cash`}
   under the `bank-cash` category; rows in the `bank_cash` table (bank_name, account_type, label,
-  balance — **no account number is stored, by design**). Balance rolls into net worth. Routes:
-  `POST /networth/bank/add` and `/networth/bank/{id}/delete`. All three (foreign, bank, cash) roll
-  up the tree via `_leaf_value` alongside CAS/manual leaves.
+  balance — **no account number is stored, by design**). *Foreign Exchange* (`FOREX_LEAF` =
+  `foreign-exchange`) — money in a foreign currency held in an account or as cash, in the
+  `forex_holdings` table (currency, amount, kind, label), valued live via `prices.fx_to_inr(cur)`
+  (Yahoo `<CUR>INR=X`) in `main._price_forex`; routes `POST /networth/forex/add` + `/forex/{id}/delete`.
+  All of these roll up the tree via `_leaf_value` alongside CAS/manual leaves; only the ticker /
+  currency pair egresses.

@@ -73,6 +73,17 @@ def usd_inr() -> float | None:
     return get_quote("INR=X")
 
 
+def fx_to_inr(currency: str | None) -> float | None:
+    """Live rate to convert one unit of `currency` into INR, via Yahoo's
+    `<CUR>INR=X` pair (e.g. EURINR=X). Cached ~15 min; None on failure."""
+    cur = (currency or "").strip().upper()
+    if not cur:
+        return None
+    if cur == "INR":
+        return 1.0
+    return get_quote(f"{cur}INR=X")
+
+
 def _fetch(symbol: str) -> float | None:
     try:
         r = httpx.get(
