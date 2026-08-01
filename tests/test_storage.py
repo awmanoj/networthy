@@ -308,6 +308,26 @@ def test_forex_holdings_crud(db):
     assert [r["currency"] for r in db.list_forex_holdings(alice)] == ["EUR"]
 
 
+def test_alt_investments_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_alt_investment(alice, "Acme Robotics", 2500000.0,
+                          category="Startup / Angel", cost=500000.0, invested_date="2022-04-01")
+    db.add_alt_investment(alice, "MyCo ESOP", 800000.0)  # optional fields None
+    db.add_alt_investment(bob, "Other", 111.0)
+
+    rows = db.list_alt_investments(alice)
+    assert [r["name"] for r in rows] == ["Acme Robotics", "MyCo ESOP"]  # entry order
+    assert rows[0]["cost"] == 500000.0 and rows[0]["current_value"] == 2500000.0
+    assert rows[0]["category"] == "Startup / Angel" and rows[0]["invested_date"] == "2022-04-01"
+    assert rows[1]["cost"] is None and rows[1]["category"] is None
+
+    db.delete_alt_investment(bob, rows[0]["id"])          # not Bob's -> no-op
+    assert len(db.list_alt_investments(alice)) == 2
+    db.delete_alt_investment(alice, rows[0]["id"])
+    assert [r["name"] for r in db.list_alt_investments(alice)] == ["MyCo ESOP"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

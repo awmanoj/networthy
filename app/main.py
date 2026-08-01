@@ -165,8 +165,9 @@ def portfolio_redirect():
 _CAT_COLOR = {
     "equity": "--c-equity", "mutual-funds": "--c-mf", "foreign-equity": "--c-us",
     "fixed-income": "--c-fixed", "gold-silver": "--c-gold", "bank-cash": "--c-bank",
-    "foreign-exchange": "--c-forex", "others": "--c-other", "real-estate": "--c-realty",
-    "physical-gold": "--c-gold", "private-business": "--c-alt",
+    "foreign-exchange": "--c-forex", "alternate-investments": "--c-alt",
+    "others": "--c-other", "real-estate": "--c-realty",
+    "physical-gold": "--c-gold", "private-business": "--c-realty",
 }
 # The category level the dashboard summarises: the children of these parents.
 _ALLOC_PARENTS = ("assets/financial-assets", "assets/non-financial-assets")
@@ -333,6 +334,26 @@ def _price_forex(rows: list[dict]) -> None:
         h["value"] = (h["amount"] * rate) if rate is not None else None
 
 
+# Alternate Investments leaf: illiquid, hand-valued bets (no live price).
+ALT_LEAF = "alternate-investments"
+
+
+def _enrich_alt(rows: list[dict]) -> None:
+    """Add display fields to alternate-investment rows: gain vs cost + a formatted
+    invested date. `current_value` is the mark that counts toward net worth."""
+    for r in rows:
+        cost, cur = r.get("cost"), r.get("current_value")
+        if cost and cur is not None:
+            pct = (cur / cost - 1.0) * 100.0
+            r["gain_pct"] = pct
+            r["signal"] = "up" if pct > 0.05 else "down" if pct < -0.05 else "flat"
+        else:
+            r["gain_pct"] = None
+            r["signal"] = None
+        inv = _parse_date(r.get("invested_date"))
+        r["invested_fmt"] = inv.strftime("%b %Y") if inv else None
+
+
 def _price_foreign(rows: list[dict]) -> float | None:
     """Price foreign holdings: live USD price × USD→INR into an INR value, plus
     gain% vs the optional cost. Returns the FX rate used (None if unavailable)."""
@@ -367,6 +388,9 @@ def _leaf_value(user, slug: str) -> float | None:
         rows = storage.list_forex_holdings(user.id)
         _price_forex(rows)
         return sum(r["value"] or 0.0 for r in rows)
+
+    if slug == ALT_LEAF:
+        return sum(r["current_value"] or 0.0 for r in storage.list_alt_investments(user.id))
 
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
@@ -422,6 +446,18 @@ def _leaf_holdings(user, slug: str) -> dict | None:
             "holdings": rows,
             "live_total": sum(r["value"] or 0.0 for r in rows),
             "has_priced": any(r["value"] is not None for r in rows),
+            "leaf_slug": slug,
+        }
+
+    if slug == ALT_LEAF:
+        rows = storage.list_alt_investments(user.id)
+        _enrich_alt(rows)
+        cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
+        return {
+            "is_alt": True,
+            "holdings": rows,
+            "live_total": sum(r["current_value"] or 0.0 for r in rows),
+            "cost_total": cost_total,
             "leaf_slug": slug,
         }
 
@@ -667,6 +703,32 @@ def forex_add(
 @app.post("/networth/forex/{holding_id}/delete")
 def forex_delete(request: Request, holding_id: int, redirect: str = Form(...)):
     storage.delete_forex_holding(request.state.user.id, holding_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/alt/add")
+def alt_add(
+    request: Request,
+    redirect: str = Form(...),
+    name: str = Form(...),
+    current_value: float = Form(...),
+    category: str = Form(""),
+    cost: str = Form(""),
+    invested_date: str = Form(""),
+):
+    """Add an alternate investment (illiquid, hand-valued)."""
+    if name.strip():
+        storage.add_alt_investment(
+            request.state.user.id, name.strip(), current_value,
+            category=category.strip() or None, cost=_opt_float(cost),
+            invested_date=_opt_date(invested_date),
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/alt/{inv_id}/delete")
+def alt_delete(request: Request, inv_id: int, redirect: str = Form(...)):
+    storage.delete_alt_investment(request.state.user.id, inv_id)
     return _networth_redirect(redirect)
 
 

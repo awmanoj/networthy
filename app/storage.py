@@ -203,6 +203,27 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_forex_user ON forex_holdings(user_id)"
         )
+        # Hand-entered alternate investments (Alternate Investments leaf): illiquid,
+        # hand-valued bets — startups/angel, ESOPs, unlisted equity, PE/VC, crypto.
+        # current_value is the mark that rolls into net worth; cost enables gain%.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS alt_investments (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name          TEXT NOT NULL,
+                category      TEXT,
+                cost          REAL,
+                current_value REAL NOT NULL,
+                invested_date TEXT,
+                position      INTEGER NOT NULL DEFAULT 0,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_alt_user ON alt_investments(user_id)"
+        )
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -788,6 +809,54 @@ def delete_forex_holding(user_id: int, holding_id: int) -> None:
         conn.execute(
             "DELETE FROM forex_holdings WHERE id = ? AND user_id = ?",
             (holding_id, user_id),
+        )
+
+
+# --- Alternate investments --------------------------------------------------
+
+def add_alt_investment(
+    user_id: int, name: str, current_value: float,
+    category: str | None = None, cost: float | None = None,
+    invested_date: str | None = None,
+) -> None:
+    """Append one alternate investment (illiquid, hand-valued)."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM alt_investments WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO alt_investments
+                (user_id, name, category, cost, current_value, invested_date, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, name, category, cost, current_value, invested_date, count),
+        )
+
+
+def list_alt_investments(user_id: int) -> list[dict]:
+    """A user's alternate investments, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM alt_investments WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "name": r["name"], "category": r["category"],
+            "cost": r["cost"], "current_value": r["current_value"],
+            "invested_date": r["invested_date"],
+        }
+        for r in rows
+    ]
+
+
+def delete_alt_investment(user_id: int, inv_id: int) -> None:
+    """Delete one alternate investment, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM alt_investments WHERE id = ? AND user_id = ?",
+            (inv_id, user_id),
         )
 
 

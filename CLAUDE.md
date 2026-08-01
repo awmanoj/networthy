@@ -192,5 +192,9 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   `foreign-exchange`) — money in a foreign currency held in an account or as cash, in the
   `forex_holdings` table (currency, amount, kind, label), valued live via `prices.fx_to_inr(cur)`
   (Yahoo `<CUR>INR=X`) in `main._price_forex`; routes `POST /networth/forex/add` + `/forex/{id}/delete`.
+  *Alternate Investments* (`ALT_LEAF` = `alternate-investments`) — illiquid hand-valued bets
+  (startups/angel, ESOPs, unlisted, PE/VC, crypto) in the `alt_investments` table (name, category,
+  cost, current_value, invested_date); `current_value` rolls into net worth, `cost` drives a
+  gain% (`main._enrich_alt`); routes `POST /networth/alt/add` + `/alt/{id}/delete`. No live price.
   All of these roll up the tree via `_leaf_value` alongside CAS/manual leaves; only the ticker /
   currency pair egresses.

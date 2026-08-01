@@ -276,6 +276,88 @@
     </div>
   </section>
 
+  {% elif leaf_data.is_alt %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Current value{% if leaf_data.cost_total %} · invested ₹{{ "{:,.0f}".format(leaf_data.cost_total) }}{% endif %}</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Investment</th>
+          <th>Type</th>
+          <th class="num">Invested</th>
+          <th class="num">Current</th>
+          <th class="num">Gain</th>
+          <th>Since</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.name }}</td>
+          <td>{{ h.category or "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(h.current_value) }}</td>
+          <td class="num">
+            {% if h.gain_pct is not none %}
+              <span class="chg {{ h.signal }}">{{ '+' if h.gain_pct >= 0 else '' }}{{ "%.0f"|format(h.gain_pct) }}%</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ h.invested_fmt or "—" }}</td>
+          <td class="num">
+            <form method="post" action="/networth/alt/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this entry?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add alternate investment</h3>
+      <form class="manual-add" method="post" action="/networth/alt/add">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field col-2">
+          <label for="alt-name">Investment</label>
+          <input id="alt-name" name="name" placeholder="e.g. Acme Robotics (angel)" required>
+        </div>
+        <div class="manual-field">
+          <label for="alt-type">Type</label>
+          <select id="alt-type" name="category">
+            {% for t in ["Startup / Angel","ESOP","Unlisted Equity","PE / VC Fund","Crypto","Other"] %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="manual-field">
+          <label for="alt-cost">Invested ₹ <span class="opt">optional</span></label>
+          <input id="alt-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="alt-cur">Current value ₹</label>
+          <input id="alt-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="alt-date">Invested on <span class="opt">optional</span></label>
+          <input id="alt-date" name="invested_date" type="date">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Current value counts toward net worth; invested amount &amp; date are optional (gain is shown vs cost).</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>
