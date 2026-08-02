@@ -6,12 +6,17 @@
 
 {% if not d.has_data %}
 <section class="dash-empty">
-  <h1>Welcome to Networthy</h1>
+  <h1>See where you stand</h1>
   <p>
-    Upload an NSDL CAS to import your demat &amp; mutual-fund holdings, or add
-    accounts by hand from any category — and your net worth builds up here.
+    List what you own and owe — investments, property, gold, bank balances, loans —
+    and Networthy tallies your <strong>net worth</strong>, shows how it's allocated,
+    and where you rank. Start under <strong>Net worth</strong>.
   </p>
-  <a href="/upload" class="btn btn-lg">Upload a CAS statement</a>
+  <a href="/networth" class="btn btn-lg">Add your assets &amp; liabilities</a>
+  <p class="dash-empty-alt muted">
+    Have an NSDL CAS? <a href="/upload">Import it</a> to pull in your demat &amp;
+    mutual-fund holdings automatically.
+  </p>
 </section>
 
 {% else %}
