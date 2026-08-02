@@ -587,6 +587,92 @@
     </div>
   </section>
 
+  {% elif leaf_data.is_liability %}
+  <section class="card">
+    <div class="card-head">
+      <div class="stat">
+        <span class="stat-label">Outstanding{% if leaf_data.emi_total %} · ₹{{ "{:,.0f}".format(leaf_data.emi_total) }}/mo EMI{% endif %}</span>
+        <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
+      </div>
+    </div>
+    {% if leaf_data.holdings %}
+    <table class="holdings">
+      <thead>
+        <tr>
+          <th>Lender</th>
+          <th class="num">Outstanding</th>
+          <th class="num">Rate</th>
+          <th class="num">EMI</th>
+          <th class="num">Paid off</th>
+          <th>Ends</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in leaf_data.holdings %}
+        <tr>
+          <td class="h-name">{{ h.lender }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
+          <td class="num">₹{{ "{:,.0f}".format(h.outstanding) }}</td>
+          <td class="num">{{ "{:g}%".format(h.rate) if h.rate is not none else "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(h.emi) if h.emi is not none else "—" }}</td>
+          <td class="num">{{ "{:.0f}%".format(h.paid_pct) if h.paid_pct is not none else "—" }}</td>
+          <td>
+            {{ h.end_fmt or "—" }}
+            {% if h.remaining %}<span class="matures-in muted">{{ h.remaining }}</span>{% endif %}
+          </td>
+          <td class="num">
+            <form method="post" action="/networth/liability/{{ h.id }}/delete"
+                  onsubmit="return confirm('Delete this liability?');">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <button class="link-danger" type="submit">delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
+      <h3 class="manual-head">Add liability</h3>
+      <form class="manual-add" method="post" action="/networth/liability/add">
+        <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
+        <input type="hidden" name="redirect" value="{{ node_path }}">
+        <div class="manual-field col-2">
+          <label for="l-lender">Lender</label>
+          <input id="l-lender" name="lender" placeholder="e.g. HDFC Home Loan" required>
+        </div>
+        <div class="manual-field">
+          <label for="l-out">Outstanding ₹</label>
+          <input id="l-out" name="outstanding" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="l-prin">Borrowed ₹ <span class="opt">optional</span></label>
+          <input id="l-prin" name="principal" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="l-rate">Rate % <span class="opt">optional</span></label>
+          <input id="l-rate" name="rate" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="l-emi">Monthly EMI ₹ <span class="opt">optional</span></label>
+          <input id="l-emi" name="emi" type="number" step="any" min="0" placeholder="0">
+        </div>
+        <div class="manual-field">
+          <label for="l-end">Ends on <span class="opt">optional</span></label>
+          <input id="l-end" name="end_date" type="date">
+        </div>
+        <div class="manual-field col-2">
+          <label for="l-notes">Notes <span class="opt">optional</span></label>
+          <input id="l-notes" name="notes" placeholder="e.g. floating rate">
+        </div>
+        <div class="manual-actions">
+          <span class="manual-hint muted">Outstanding balance is what net worth subtracts; principal shows how much you've paid off.</span>
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   {% elif not leaf_data.has_cas and not leaf_data.manual_enabled %}
   <section class="card nw-blank">
     <div class="nw-blank-icon">📥</div>

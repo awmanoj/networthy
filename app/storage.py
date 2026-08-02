@@ -284,6 +284,31 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_business_user ON business_holdings(user_id)")
+        # Hand-entered liabilities, one table across the loan/dues leaves (keyed by
+        # leaf_slug). `outstanding` (what you still owe today) is what net worth
+        # subtracts — not the principal borrowed. Everything else is optional context.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS liabilities (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                leaf_slug   TEXT NOT NULL,
+                lender      TEXT NOT NULL,
+                outstanding REAL NOT NULL,
+                principal   REAL,
+                rate        REAL,
+                emi         REAL,
+                end_date    TEXT,
+                notes       TEXT,
+                position    INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_liabilities_user_leaf "
+            "ON liabilities(user_id, leaf_slug)"
+        )
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -1066,6 +1091,61 @@ def delete_business_holding(user_id: int, biz_id: int) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM business_holdings WHERE id = ? AND user_id = ?", (biz_id, user_id)
+        )
+
+
+# --- Liabilities ------------------------------------------------------------
+
+def add_liability(
+    user_id: int, leaf_slug: str, lender: str, outstanding: float,
+    principal: float | None = None, rate: float | None = None,
+    emi: float | None = None, end_date: str | None = None,
+    notes: str | None = None,
+) -> None:
+    """Append one liability to a loan/dues leaf. `outstanding` is what's still owed."""
+    with _connect() as conn:
+        (count,) = conn.execute(
+            "SELECT COUNT(*) FROM liabilities WHERE user_id = ? AND leaf_slug = ?",
+            (user_id, leaf_slug),
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO liabilities
+                (user_id, leaf_slug, lender, outstanding, principal, rate, emi,
+                 end_date, notes, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, leaf_slug, lender, outstanding, principal, rate, emi,
+             end_date, notes, count),
+        )
+
+
+def list_liabilities(user_id: int, leaf_slug: str) -> list[dict]:
+    """A user's liabilities for one leaf, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM liabilities
+            WHERE user_id = ? AND leaf_slug = ?
+            ORDER BY position ASC, id ASC
+            """,
+            (user_id, leaf_slug),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "lender": r["lender"], "outstanding": r["outstanding"],
+            "principal": r["principal"], "rate": r["rate"], "emi": r["emi"],
+            "end_date": r["end_date"], "notes": r["notes"],
+        }
+        for r in rows
+    ]
+
+
+def delete_liability(user_id: int, liab_id: int) -> None:
+    """Delete one liability, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM liabilities WHERE id = ? AND user_id = ?", (liab_id, user_id)
         )
 
 

@@ -382,6 +382,30 @@ def test_business_holdings_crud(db):
     assert [r["name"] for r in db.list_business_holdings(alice)] == ["SideCo"]
 
 
+def test_liabilities_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_liability(alice, "home-loan", "HDFC Home Loan", 3500000.0,
+                     principal=5000000.0, rate=8.5, emi=42000.0, end_date="2035-06-01",
+                     notes="floating")
+    db.add_liability(alice, "credit-card", "Amex", 45000.0)   # balance only
+    db.add_liability(bob, "home-loan", "Bob loan", 100.0)
+
+    home = db.list_liabilities(alice, "home-loan")
+    assert [l["lender"] for l in home] == ["HDFC Home Loan"]
+    assert home[0]["outstanding"] == 3500000.0 and home[0]["principal"] == 5000000.0
+    assert home[0]["rate"] == 8.5 and home[0]["emi"] == 42000.0
+    assert home[0]["end_date"] == "2035-06-01" and home[0]["notes"] == "floating"
+    # Leaf scoping: the card doesn't show under home-loan.
+    cc = db.list_liabilities(alice, "credit-card")
+    assert [l["lender"] for l in cc] == ["Amex"] and cc[0]["principal"] is None
+
+    db.delete_liability(bob, home[0]["id"])       # not Bob's -> no-op
+    assert len(db.list_liabilities(alice, "home-loan")) == 1
+    db.delete_liability(alice, home[0]["id"])
+    assert db.list_liabilities(alice, "home-loan") == []
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

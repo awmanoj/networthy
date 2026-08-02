@@ -360,6 +360,32 @@ def _price_gold(rows: list[dict]) -> float | None:
     return rate24
 
 
+def _enrich_liability(rows: list[dict]) -> None:
+    """Add display fields to liability rows: % paid off (from principal vs
+    outstanding) and remaining tenure (from the end date)."""
+    today = date.today()
+    for r in rows:
+        principal, out = r.get("principal"), r.get("outstanding")
+        if principal and out is not None and principal > 0:
+            r["paid_pct"] = max(0.0, (principal - out) / principal * 100.0)
+        else:
+            r["paid_pct"] = None
+        end = _parse_date(r.get("end_date"))
+        r["end_fmt"] = end.strftime("%b %Y") if end else None
+        if not end:
+            r["remaining"] = None
+        elif end <= today:
+            r["remaining"] = "ended"
+        else:
+            days = (end - today).days
+            if days < 31:
+                r["remaining"] = f"{days} d left"
+            elif days < 365:
+                r["remaining"] = f"{round(days / 30.44)} mo left"
+            else:
+                r["remaining"] = f"{days / 365.25:.1f} yrs left"
+
+
 def _enrich_alt(rows: list[dict]) -> None:
     """Add display fields to alternate-investment rows: gain vs cost + a formatted
     invested date. `current_value` is the mark that counts toward net worth."""
@@ -426,6 +452,9 @@ def _leaf_value(user, slug: str) -> float | None:
 
     if slug == BUSINESS_LEAF:
         return sum(r["current_value"] or 0.0 for r in storage.list_business_holdings(user.id))
+
+    if slug in networth.LIABILITY_LEAVES:
+        return sum(r["outstanding"] or 0.0 for r in storage.list_liabilities(user.id, slug))
 
     data_backed = slug in networth.LEAF_ASSET_CLASSES
     manual_enabled = slug in networth.MANUAL_LEAVES
@@ -528,6 +557,17 @@ def _leaf_holdings(user, slug: str) -> dict | None:
             "holdings": rows,
             "live_total": sum(r["current_value"] or 0.0 for r in rows),
             "cost_total": cost_total,
+            "leaf_slug": slug,
+        }
+
+    if slug in networth.LIABILITY_LEAVES:
+        rows = storage.list_liabilities(user.id, slug)
+        _enrich_liability(rows)
+        return {
+            "is_liability": True,
+            "holdings": rows,
+            "live_total": sum(r["outstanding"] or 0.0 for r in rows),
+            "emi_total": sum(r["emi"] or 0.0 for r in rows if r.get("emi")),
             "leaf_slug": slug,
         }
 
@@ -887,6 +927,36 @@ def business_add(
 @app.post("/networth/business/{biz_id}/delete")
 def business_delete(request: Request, biz_id: int, redirect: str = Form(...)):
     storage.delete_business_holding(request.state.user.id, biz_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/liability/add")
+def liability_add(
+    request: Request,
+    leaf_slug: str = Form(...),
+    redirect: str = Form(...),
+    lender: str = Form(...),
+    outstanding: float = Form(...),
+    principal: str = Form(""),
+    rate: str = Form(""),
+    emi: str = Form(""),
+    end_date: str = Form(""),
+    notes: str = Form(""),
+):
+    """Add a liability to a loan/dues leaf."""
+    if leaf_slug in networth.LIABILITY_LEAVES and lender.strip():
+        storage.add_liability(
+            request.state.user.id, leaf_slug, lender.strip(), outstanding,
+            principal=_opt_float(principal), rate=_opt_float(rate),
+            emi=_opt_float(emi), end_date=_opt_date(end_date),
+            notes=notes.strip() or None,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/liability/{liab_id}/delete")
+def liability_delete(request: Request, liab_id: int, redirect: str = Form(...)):
+    storage.delete_liability(request.state.user.id, liab_id)
     return _networth_redirect(redirect)
 
 

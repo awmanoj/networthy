@@ -147,6 +147,15 @@ REALTY_LEAVES: set[str] = {
     "land", "under-construction",
 }
 
+# Every Liabilities leaf — each holds hand-entered loans/dues (lender, outstanding
+# balance, and optional principal/rate/EMI/end-date). Outstanding is what net worth
+# subtracts.
+LIABILITY_LEAVES: set[str] = {
+    "home-loan", "loan-against-property", "vehicle-loan",
+    "loan-against-securities", "gold-loan",
+    "personal-loan", "credit-card", "education-loan", "consumer-emi",
+}
+
 
 def rollup(leaf_value: Callable[[str], float | None]) -> dict[str, float]:
     """Total value per node, keyed by its '/'-joined slug path.

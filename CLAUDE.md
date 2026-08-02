@@ -206,5 +206,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   **or** a flat hand-entered value; routes `POST /networth/gold/add` + `/gold/{id}/delete`.
   *Private Business* (`BUSINESS_LEAF` = `private-business`) — `business_holdings` (name,
   ownership_pct, cost, current_value, invested_date, notes), gain via `_enrich_alt`; routes
-  `POST /networth/business/add` + `/business/{id}/delete`. All of these roll up the tree via
-  `_leaf_value` alongside CAS/manual leaves; only tickers / currency pairs / gold+FX symbols egress.
+  `POST /networth/business/add` + `/business/{id}/delete`. *Liabilities* — `networth.LIABILITY_LEAVES`
+  (all 9 loan/dues leaves); hand-entered in the `liabilities` table (lender, **outstanding**,
+  principal, rate, emi, end_date, notes); **`outstanding` is what net worth subtracts** (not the
+  principal borrowed), enriched by `main._enrich_liability` (% paid off from principal, remaining
+  tenure from end_date); routes `POST /networth/liability/add` + `/liability/{id}/delete`. Assets
+  roll up to `values["assets"]`, liabilities to `values["liabilities"]`, and the hero shows
+  Assets − Liabilities. All of these roll up the tree via `_leaf_value` alongside CAS/manual
+  leaves; only tickers / currency pairs / gold+FX symbols egress.
