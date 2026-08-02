@@ -197,6 +197,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   `_leaf_holdings` combine CAS-live holdings **and** manual rows, so a leaf like Corporate Bonds
   shows both. Add via `POST /networth/manual/add`, remove via `POST /networth/manual/{id}/delete`
   (both carry a `redirect` = the leaf's slug-path, validated through `networth.resolve`).
+- **Tiny direct-equity filter**: `_leaf_rows` drops `direct_equity` holdings whose statement value
+  is `< MIN_EQUITY_VALUE` (₹10,000) — tracking-only positions (a stray share or two) that
+  shouldn't count toward net worth or clutter the Equity leaf. Applied before valuation, so both
+  the Equity leaf total and the net-worth rollup exclude them. The NSDL CAS page shows the raw
+  statement unfiltered.
 - **Other hand-entered leaves** (own shapes, handled specially in `main`, not via `manual_holdings`):
   *Foreign / US Equity* (`FOREIGN_LEAF`) — ticker + shares in `foreign_holdings`, priced live
   (see prices.py). *Bank Accounts & Cash* — `networth.BANK_CASH_LEAVES` = {`bank-accounts`, `cash`}

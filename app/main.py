@@ -307,6 +307,12 @@ _IMPORT_CTA = {
 }
 
 
+# Direct-equity holdings worth less than this are tracking-only positions (a stray
+# share or two) — they're dropped so they don't count toward net worth or clutter
+# the Equity leaf. Threshold is on the statement value.
+MIN_EQUITY_VALUE = 10_000.0
+
+
 def _leaf_rows(user, slug: str) -> list[dict] | None:
     """Merged holding rows for a data-backed Networth leaf, or None if it isn't one.
 
@@ -314,6 +320,7 @@ def _leaf_rows(user, slug: str) -> list[dict] | None:
     RTA feed — avoids double counting). For Gold & Silver the two sources are largely
     disjoint (funds vs demat SGB/ETF), so union them, deduped by ISIN with CAMS winning.
     Direct equity comes only from the NSDL CAS. No live enrichment here — callers add it.
+    Tiny direct-equity positions (< MIN_EQUITY_VALUE) are dropped as tracking-only.
     """
     classes = networth.LEAF_ASSET_CLASSES.get(slug)
     if not classes:
@@ -322,9 +329,17 @@ def _leaf_rows(user, slug: str) -> list[dict] | None:
     cams = storage.list_networth_holdings(user.id, classes)
     nsdl = storage.latest_holdings_by_class(user.id, classes)
     if slug == "mutual-funds":
-        return cams or nsdl
-    seen = {h["isin"] for h in cams if h["isin"]}
-    return cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
+        rows = cams or nsdl
+    else:
+        seen = {h["isin"] for h in cams if h["isin"]}
+        rows = cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
+    return [
+        r for r in rows
+        if not (
+            r.get("asset_class") == "direct_equity"
+            and (r.get("value") or 0.0) < MIN_EQUITY_VALUE
+        )
+    ]
 
 
 def _live_total(rows: list[dict]) -> float:
