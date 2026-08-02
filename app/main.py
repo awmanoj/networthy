@@ -360,6 +360,14 @@ def _price_gold(rows: list[dict]) -> float | None:
     return rate24
 
 
+def _property_share(row: dict) -> float:
+    """A property's value attributed to the user, applying the ownership share
+    (share_pct None = 100%). This is what rolls into net worth for joint property."""
+    share = row.get("share_pct")
+    share = 100.0 if share is None else share
+    return (row.get("current_value") or 0.0) * share / 100.0
+
+
 def _enrich_liability(rows: list[dict]) -> None:
     """Add display fields to liability rows: % paid off (from principal vs
     outstanding) and remaining tenure (from the end date)."""
@@ -442,7 +450,7 @@ def _leaf_value(user, slug: str) -> float | None:
 
     if slug in networth.REALTY_LEAVES:
         return sum(
-            r["current_value"] or 0.0 for r in storage.list_property_holdings(user.id, slug)
+            _property_share(r) for r in storage.list_property_holdings(user.id, slug)
         )
 
     if slug == GOLD_LEAF:
@@ -527,13 +535,20 @@ def _leaf_holdings(user, slug: str) -> dict | None:
 
     if slug in networth.REALTY_LEAVES:
         rows = storage.list_property_holdings(user.id, slug)
-        _enrich_alt(rows)  # same gain-vs-cost + date shape
-        cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
+        _enrich_alt(rows)  # gain vs cost + date (both share-independent)
+        for r in rows:
+            r["share_pct"] = 100.0 if r.get("share_pct") is None else r["share_pct"]
+            r["your_value"] = _property_share(r)
+        has_joint = any(r["share_pct"] < 100 for r in rows)
         return {
             "is_property": True,
             "holdings": rows,
-            "live_total": sum(r["current_value"] or 0.0 for r in rows),
-            "cost_total": cost_total,
+            "has_joint": has_joint,
+            # Totals are attributed to the user's share (what rolls into net worth).
+            "live_total": sum(r["your_value"] for r in rows),
+            "cost_total": sum(
+                (r["cost"] or 0.0) * r["share_pct"] / 100.0 for r in rows if r.get("cost")
+            ),
             "leaf_slug": slug,
         }
 
@@ -852,13 +867,14 @@ def property_add(
     cost: str = Form(""),
     purchase_date: str = Form(""),
     notes: str = Form(""),
+    share_pct: str = Form(""),
 ):
     """Add a property to a Real Estate sub-leaf."""
     if leaf_slug in networth.REALTY_LEAVES and label.strip():
         storage.add_property_holding(
             request.state.user.id, leaf_slug, label.strip(), current_value,
             cost=_opt_float(cost), purchase_date=_opt_date(purchase_date),
-            notes=notes.strip() or None,
+            notes=notes.strip() or None, share_pct=_opt_float(share_pct),
         )
     return _networth_redirect(redirect)
 

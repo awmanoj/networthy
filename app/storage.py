@@ -239,6 +239,7 @@ def init_db() -> None:
                 cost          REAL,
                 purchase_date TEXT,
                 notes         TEXT,
+                share_pct     REAL,
                 position      INTEGER NOT NULL DEFAULT 0,
                 created_at    TEXT NOT NULL DEFAULT (datetime('now'))
             )
@@ -248,6 +249,9 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_property_user_leaf "
             "ON property_holdings(user_id, leaf_slug)"
         )
+        # share_pct (your ownership share for joint property) was added later; NULL
+        # means 100%. Migrate older DBs.
+        _add_column_if_missing(conn, "property_holdings", "share_pct", "REAL")
         # Physical gold & jewellery: each item is either weight+karat (valued live at
         # the gold rate) or a flat hand-entered value (jewellery with stones, etc.).
         conn.execute(
@@ -950,9 +954,10 @@ def delete_alt_investment(user_id: int, inv_id: int) -> None:
 def add_property_holding(
     user_id: int, leaf_slug: str, label: str, current_value: float,
     cost: float | None = None, purchase_date: str | None = None,
-    notes: str | None = None,
+    notes: str | None = None, share_pct: float | None = None,
 ) -> None:
-    """Append one property to a Real Estate sub-leaf."""
+    """Append one property to a Real Estate sub-leaf. `share_pct` is your ownership
+    share for a joint property (None = 100%)."""
     with _connect() as conn:
         (count,) = conn.execute(
             "SELECT COUNT(*) FROM property_holdings WHERE user_id = ? AND leaf_slug = ?",
@@ -961,10 +966,12 @@ def add_property_holding(
         conn.execute(
             """
             INSERT INTO property_holdings
-                (user_id, leaf_slug, label, current_value, cost, purchase_date, notes, position)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (user_id, leaf_slug, label, current_value, cost, purchase_date, notes,
+                 share_pct, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, leaf_slug, label, current_value, cost, purchase_date, notes, count),
+            (user_id, leaf_slug, label, current_value, cost, purchase_date, notes,
+             share_pct, count),
         )
 
 
@@ -987,6 +994,7 @@ def list_property_holdings(user_id: int, leaf_slug: str) -> list[dict]:
         {
             "id": r["id"], "label": r["label"], "current_value": r["current_value"],
             "cost": r["cost"], "invested_date": r["purchase_date"], "notes": r["notes"],
+            "share_pct": r["share_pct"],
         }
         for r in rows
     ]

@@ -2,8 +2,15 @@
 
 from datetime import date, timedelta
 
-from app.main import _enrich_liability
+from app.main import _enrich_liability, _property_share
 from app.networth import LIABILITY_LEAVES, resolve
+
+
+def test_property_share_attribution():
+    # Joint 50% of a 1.2 Cr flat -> 60 L counts toward net worth.
+    assert _property_share({"current_value": 12000000.0, "share_pct": 50.0}) == 6000000.0
+    # None share means 100%.
+    assert _property_share({"current_value": 4000000.0, "share_pct": None}) == 4000000.0
 
 
 def test_liability_leaves_match_the_tree():

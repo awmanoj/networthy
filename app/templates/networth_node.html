@@ -362,7 +362,7 @@
   <section class="card">
     <div class="card-head">
       <div class="stat">
-        <span class="stat-label">Current value{% if leaf_data.cost_total %} · bought for ₹{{ "{:,.0f}".format(leaf_data.cost_total) }}{% endif %}</span>
+        <span class="stat-label">{{ "Your share" if leaf_data.has_joint else "Current value" }}{% if leaf_data.cost_total %} · bought for ₹{{ "{:,.0f}".format(leaf_data.cost_total) }}{% endif %}</span>
         <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
       </div>
     </div>
@@ -372,7 +372,11 @@
         <tr>
           <th>Property</th>
           <th class="num">Bought for</th>
-          <th class="num">Current value</th>
+          <th class="num">{{ "Full value" if leaf_data.has_joint else "Current value" }}</th>
+          {% if leaf_data.has_joint %}
+          <th class="num">Share</th>
+          <th class="num">Your value</th>
+          {% endif %}
           <th class="num">Gain</th>
           <th>Purchased</th>
           <th></th>
@@ -384,6 +388,10 @@
           <td class="h-name">{{ h.label }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
           <td class="num">₹{{ "{:,.0f}".format(h.current_value) }}</td>
+          {% if leaf_data.has_joint %}
+          <td class="num">{{ "{:g}%".format(h.share_pct) }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(h.your_value) }}</td>
+          {% endif %}
           <td class="num">
             {% if h.gain_pct is not none %}
               <span class="chg {{ h.signal }}">{{ '+' if h.gain_pct >= 0 else '' }}{{ "%.0f"|format(h.gain_pct) }}%</span>
@@ -412,8 +420,12 @@
           <input id="pr-label" name="label" placeholder="e.g. 3BHK, Whitefield" required>
         </div>
         <div class="manual-field">
-          <label for="pr-cur">Current value ₹</label>
+          <label for="pr-cur">Full value ₹</label>
           <input id="pr-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+        </div>
+        <div class="manual-field">
+          <label for="pr-share">Your share % <span class="opt">joint · default 100</span></label>
+          <input id="pr-share" name="share_pct" type="number" step="any" min="0" max="100" placeholder="100">
         </div>
         <div class="manual-field">
           <label for="pr-cost">Bought for ₹ <span class="opt">optional</span></label>
@@ -428,7 +440,7 @@
           <input id="pr-notes" name="notes" placeholder="e.g. Whitefield · 1,200 sq ft">
         </div>
         <div class="manual-actions">
-          <span class="manual-hint muted">Current value counts toward net worth (gross — any home loan is tracked under Liabilities).</span>
+          <span class="manual-hint muted">Only your share of the full value counts toward net worth (gross — any home loan is tracked under Liabilities).</span>
           <button class="btn" type="submit">Add</button>
         </div>
       </form>

@@ -198,9 +198,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   gain% (`main._enrich_alt`); routes `POST /networth/alt/add` + `/alt/{id}/delete`. No live price.
   *Real Estate* — `networth.REALTY_LEAVES` (the five sub-leaves under `real-estate`); hand-entered
   properties in the `property_holdings` table (leaf_slug, label, current_value, cost, purchase_date,
-  notes), reusing `_enrich_alt` for gain/date; `current_value` is **gross** (a loan against it lives
-  under Liabilities and net worth already nets it); routes `POST /networth/property/add` +
-  `/property/{id}/delete`. *Physical Gold & Jewellery* (`GOLD_LEAF` = `physical-gold`) —
+  notes, share_pct), reusing `_enrich_alt` for gain/date; `current_value` is **gross** (a loan
+  against it lives under Liabilities and net worth already nets it). `share_pct` (NULL = 100%)
+  attributes joint property — net worth counts `current_value × share%` (`main._property_share`);
+  the leaf shows Share/Your-value columns only when something is jointly held. Routes
+  `POST /networth/property/add` + `/property/{id}/delete`. *Physical Gold & Jewellery* (`GOLD_LEAF` = `physical-gold`) —
   `gold_items` table; each item is **either** weight+karat (valued live at
   `prices.gold_inr_per_gram()`, derived from `GC=F`×`INR=X`, × karat purity in `main._price_gold`)
   **or** a flat hand-entered value; routes `POST /networth/gold/add` + `/gold/{id}/delete`.

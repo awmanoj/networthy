@@ -349,6 +349,16 @@ def test_property_holdings_crud(db):
     assert db.list_property_holdings(alice, "primary-residence") == []
 
 
+def test_property_share_pct_round_trips(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    db.add_property_holding(alice, "primary-residence", "Joint flat", 12000000.0,
+                            share_pct=50.0)
+    db.add_property_holding(alice, "primary-residence", "Sole flat", 4000000.0)  # None
+    rows = db.list_property_holdings(alice, "primary-residence")
+    assert rows[0]["share_pct"] == 50.0
+    assert rows[1]["share_pct"] is None   # None == 100% at valuation time
+
+
 def test_gold_items_crud(db):
     alice = db.get_or_create_user("alice@example.com").id
     bob = db.get_or_create_user("bob@example.com").id
