@@ -386,6 +386,9 @@ form { display: inline; }
   color: var(--text);
   font: inherit;
   height: 38px;
+  /* Sit the control at the bottom of its cell so a label that wraps to two lines
+     can't push its input out of line with the rest of the row. */
+  margin-top: auto;
 }
 .manual-field input:focus,
 .manual-field select:focus { outline: none; border-color: var(--accent); }
