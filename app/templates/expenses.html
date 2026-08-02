@@ -11,12 +11,12 @@
   </p>
 </section>
 
-{% if expenses %}
+{% if has_expenses %}
 <section class="exp-hero">
   <div class="dash-card exp-burn">
     <span class="eyebrow">Monthly burn</span>
     <div class="hero-nw num"><span class="rs">₹</span>{{ "{:,.0f}".format(monthly_total) }}</div>
-    <span class="hero-note">₹{{ "{:,.0f}".format(annual_total) }} a year across {{ expenses|length }} expense(s)</span>
+    <span class="hero-note">₹{{ "{:,.0f}".format(annual_total) }} a year</span>
   </div>
 
   <div class="dash-card exp-fire">
@@ -64,37 +64,29 @@
 {% endif %}
 {% endif %}
 
-<section class="dash-card exp-list">
-  <div class="bh">
-    <h2>Expenses</h2>
-    {% if expenses %}<span class="hint">Annual = amount × count × frequency</span>{% endif %}
+<p class="exp-lead muted">
+  Fill in whatever applies under each category — the count multiplies the amount, handy for
+  per-person costs (×2 kids, ×4 members). Anything that doesn't fit goes under <strong>Other</strong>.
+</p>
+
+{% for s in sections %}
+<section class="dash-card exp-cat">
+  <div class="exp-cat-head">
+    <span class="dot" style="background: {{ s.color }}"></span>
+    <h3>{{ s.label }}</h3>
+    {% if s.total %}<span class="exp-cat-total num">₹{{ "{:,.0f}".format(s.total) }}<span class="per">/yr</span></span>{% endif %}
   </div>
-  {% if expenses %}
-  <table class="holdings">
-    <thead>
-      <tr>
-        <th>Expense</th>
-        <th class="num">Amount</th>
-        <th>Frequency</th>
-        <th class="num">Count</th>
-        <th class="num">Monthly</th>
-        <th class="num">Annual</th>
-        <th></th>
-      </tr>
-    </thead>
+
+  {% if s.entries %}
+  <table class="holdings exp-cat-table">
     <tbody>
-      {% for e in expenses %}
+      {% for e in s.entries %}
       <tr>
-        <td class="h-name">
-          <span class="dot" style="background: {{ e.category_color }}" title="{{ e.category_label }}"></span>
-          {{ e.name }}
-          {% if e.notes %}<span class="h-isin muted">{{ e.notes }}</span>{% endif %}
-        </td>
+        <td class="h-name">{{ e.name }}{% if e.notes %} <span class="h-isin muted">{{ e.notes }}</span>{% endif %}</td>
         <td class="num">₹{{ "{:,.0f}".format(e.amount) }}</td>
         <td>{{ e.frequency_label }}</td>
-        <td class="num">{{ e.count if e.count and e.count > 1 else "—" }}</td>
-        <td class="num">₹{{ "{:,.0f}".format(e.monthly) }}</td>
-        <td class="num">₹{{ "{:,.0f}".format(e.annual) }}</td>
+        <td class="num">{{ ("× " ~ e.count) if e.count and e.count > 1 else "" }}</td>
+        <td class="num">₹{{ "{:,.0f}".format(e.monthly) }}/mo</td>
         <td class="num">
           <form method="post" action="/expenses/{{ e.id }}/delete"
                 onsubmit="return confirm('Delete this expense?');">
@@ -107,43 +99,18 @@
   </table>
   {% endif %}
 
-  <div class="manual-section{% if expenses %} manual-sep{% endif %}">
-    <h3 class="manual-head">Add expense</h3>
-    <form class="manual-add" method="post" action="/expenses/add">
-      <div class="manual-field col-2">
-        <label for="e-name">Expense</label>
-        <input id="e-name" name="name" placeholder="e.g. Groceries, School fees" required>
-      </div>
-      <div class="manual-field">
-        <label for="e-cat">Category</label>
-        <select id="e-cat" name="category">
-          {% for c in categories %}<option value="{{ c.slug }}">{{ c.label }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="manual-field">
-        <label for="e-amt">Amount ₹</label>
-        <input id="e-amt" name="amount" type="number" step="any" min="0" placeholder="0" required>
-      </div>
-      <div class="manual-field">
-        <label for="e-freq">Frequency</label>
-        <select id="e-freq" name="frequency">
-          {% for slug, f in frequencies.items() %}<option value="{{ slug }}"{{ ' selected' if slug == 'monthly' else '' }}>{{ f.label }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="manual-field">
-        <label for="e-count">Count <span class="opt">e.g. ×2 kids</span></label>
-        <input id="e-count" name="count" type="number" step="1" min="1" placeholder="1">
-      </div>
-      <div class="manual-field col-2">
-        <label for="e-notes">Notes <span class="opt">optional</span></label>
-        <input id="e-notes" name="notes" placeholder="e.g. per member">
-      </div>
-      <div class="manual-actions">
-        <span class="manual-hint muted">Count multiplies the amount — handy for per-person costs (kids, family members).</span>
-        <button class="btn" type="submit">Add</button>
-      </div>
-    </form>
-  </div>
+  <form class="exp-add-row" method="post" action="/expenses/add">
+    <input type="hidden" name="category" value="{{ s.slug }}">
+    <input class="exp-name" name="name" placeholder="{{ s.example }}" required>
+    <input class="exp-amt" name="amount" type="number" step="any" min="0" placeholder="Amount ₹" required
+           aria-label="Amount">
+    <select class="exp-freq" name="frequency" aria-label="Frequency">
+      {% for slug, f in frequencies.items() %}<option value="{{ slug }}"{{ ' selected' if slug == 'monthly' else '' }}>{{ f.label }}</option>{% endfor %}
+    </select>
+    <input class="exp-count" name="count" type="number" step="1" min="1" placeholder="× 1" aria-label="Count">
+    <button class="btn" type="submit">Add</button>
+  </form>
 </section>
+{% endfor %}
 
 {% endblock %}

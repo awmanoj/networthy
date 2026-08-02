@@ -1096,19 +1096,29 @@ def expenses_page(request: Request):
     annual_total = sum(r["annual"] for r in rows)
     monthly_total = annual_total / 12.0
 
-    # Category breakdown (annual), largest first.
-    by_cat: dict[str, float] = {}
+    # One section per category (in the curated order, including empty ones) so each
+    # has its own add form with a category-relevant example. Existing expenses are
+    # grouped under their category.
+    by_slug: dict[str, list[dict]] = {}
     for r in rows:
-        by_cat[r["category"]] = by_cat.get(r["category"], 0.0) + r["annual"]
-    breakdown = [
+        by_slug.setdefault(r["category"], []).append(r)
+    sections = [
         {
-            "label": expenses.category_label(slug),
-            "color": expenses.category_color(slug),
-            "value": val,
-            "pct": (val / annual_total * 100.0) if annual_total else 0.0,
+            **cat,
+            "entries": by_slug.get(cat["slug"], []),
+            "total": sum(i["annual"] for i in by_slug.get(cat["slug"], [])),
         }
-        for slug, val in sorted(by_cat.items(), key=lambda kv: kv[1], reverse=True)
+        for cat in expenses.CATEGORIES
     ]
+    # Category breakdown for the bar — funded categories only, largest first.
+    breakdown = sorted(
+        (
+            {"label": s["label"], "color": s["color"], "value": s["total"],
+             "pct": (s["total"] / annual_total * 100.0) if annual_total else 0.0}
+            for s in sections if s["total"]
+        ),
+        key=lambda b: b["value"], reverse=True,
+    )
 
     # The net-worth connection: runway and a FIRE target.
     net_worth = _dashboard(user)["net_worth"]
@@ -1121,8 +1131,8 @@ def expenses_page(request: Request):
         {
             "request": request,
             "user": user,
-            "expenses": rows,
-            "categories": expenses.CATEGORIES,
+            "has_expenses": bool(rows),
+            "sections": sections,
             "frequencies": expenses.FREQUENCIES,
             "monthly_total": monthly_total,
             "annual_total": annual_total,

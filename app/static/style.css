@@ -738,12 +738,32 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .exp-figure .exp-unit { font-size: 1rem; color: var(--faint); }
 .fire-bar { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 8px 0 4px; }
 .fire-bar span { display: block; height: 100%; background: var(--gain); border-radius: 999px; }
-.exp-list { padding: 6px 6px 10px; }
-.exp-list .bh { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 20px 6px; }
-.exp-list .bh h2 { margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700; }
-.exp-list .bh .hint { font-size: 0.78rem; color: var(--faint); }
-.exp-list .holdings { margin: 0 14px; width: auto; }
-.exp-list .manual-section { padding: 0 14px 8px; }
+.exp-lead { max-width: 720px; font-size: 0.9rem; margin: 0 0 18px; }
+
+/* Per-category expense sections */
+.exp-cat { padding: 16px 20px 18px; margin-bottom: 14px; }
+.exp-cat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.exp-cat-head h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.exp-cat-head .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.exp-cat-total { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.exp-cat-total .per { color: var(--faint); font-weight: 400; font-size: 0.82rem; }
+.exp-cat-table { width: 100%; margin-bottom: 12px; }
+.exp-cat-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.exp-cat-table tr:last-child td { border-bottom: none; }
+.exp-cat-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Compact inline add row per category */
+.exp-add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.exp-add-row input, .exp-add-row select {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; color: var(--text); font: inherit; height: 38px;
+}
+.exp-add-row input::placeholder { color: var(--faint); }
+.exp-add-row .exp-name { flex: 1; min-width: 180px; }
+.exp-add-row .exp-amt { width: 120px; }
+.exp-add-row .exp-freq { width: 130px; }
+.exp-add-row .exp-count { width: 70px; }
+.exp-add-row .btn { height: 38px; }
 
 .dash-empty { text-align: center; padding: 60px 24px; }
 .dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }
