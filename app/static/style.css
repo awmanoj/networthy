@@ -770,6 +770,13 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .dash-empty { text-align: center; padding: 60px 24px; }
 .dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .dash-empty p { color: var(--muted); margin: 0 auto 22px; max-width: 480px; }
-.dash-empty-alt { font-size: 0.9rem; margin-top: 18px; }
+/* Higher specificity than `.dash-empty p` so the top margin isn't overridden;
+   wider + balanced so the secondary line doesn't leave a short orphan. */
+.dash-empty p.dash-empty-alt {
+  font-size: 0.9rem;
+  margin-top: 26px;
+  max-width: 600px;
+  text-wrap: balance;
+}
 .dash-empty-alt a { color: var(--accent); text-decoration: none; }
 .dash-empty-alt a:hover { text-decoration: underline; }
