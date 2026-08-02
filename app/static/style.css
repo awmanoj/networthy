@@ -728,6 +728,23 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .hrow .amt { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
 .hrow .chev { color: var(--faint); }
 
+/* Expenses page */
+.exp-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+@media (max-width: 800px) { .exp-hero { grid-template-columns: 1fr; } }
+.exp-burn { padding: 28px 30px; display: flex; flex-direction: column; }
+.exp-fire { padding: 24px 28px; display: flex; gap: 30px; flex-wrap: wrap; }
+.exp-stat { display: flex; flex-direction: column; gap: 4px; min-width: 160px; flex: 1; }
+.exp-figure { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; letter-spacing: -0.01em; margin-top: 4px; }
+.exp-figure .exp-unit { font-size: 1rem; color: var(--faint); }
+.fire-bar { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 8px 0 4px; }
+.fire-bar span { display: block; height: 100%; background: var(--gain); border-radius: 999px; }
+.exp-list { padding: 6px 6px 10px; }
+.exp-list .bh { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 20px 6px; }
+.exp-list .bh h2 { margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700; }
+.exp-list .bh .hint { font-size: 0.78rem; color: var(--faint); }
+.exp-list .holdings { margin: 0 14px; width: auto; }
+.exp-list .manual-section { padding: 0 14px 8px; }
+
 .dash-empty { text-align: center; padding: 60px 24px; }
 .dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .dash-empty p { color: var(--muted); margin: 0 auto 22px; max-width: 460px; }

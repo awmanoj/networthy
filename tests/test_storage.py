@@ -416,6 +416,24 @@ def test_liabilities_crud(db):
     assert db.list_liabilities(alice, "home-loan") == []
 
 
+def test_expenses_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_expense(alice, "Groceries", "food", 20000.0, "monthly")
+    db.add_expense(alice, "School fees", "education", 100000.0, "annual", count=2, notes="per kid")
+    db.add_expense(bob, "Rent", "housing", 30000.0, "monthly")
+
+    rows = db.list_expenses(alice)
+    assert [e["name"] for e in rows] == ["Groceries", "School fees"]  # entry order
+    assert rows[1]["count"] == 2 and rows[1]["category"] == "education" and rows[1]["notes"] == "per kid"
+    assert rows[0]["count"] == 1
+
+    db.delete_expense(bob, rows[0]["id"])       # not Bob's -> no-op
+    assert len(db.list_expenses(alice)) == 2
+    db.delete_expense(alice, rows[0]["id"])
+    assert [e["name"] for e in db.list_expenses(alice)] == ["School fees"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

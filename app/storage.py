@@ -313,6 +313,25 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_liabilities_user_leaf "
             "ON liabilities(user_id, leaf_slug)"
         )
+        # Recurring expenses — a spend-planner lens, separate from net worth. Each
+        # entry is an amount at a cadence, optionally × count (per-person scaling).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS expenses (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name       TEXT NOT NULL,
+                category   TEXT NOT NULL,
+                amount     REAL NOT NULL,
+                frequency  TEXT NOT NULL,
+                count      INTEGER NOT NULL DEFAULT 1,
+                notes      TEXT,
+                position   INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -1154,6 +1173,52 @@ def delete_liability(user_id: int, liab_id: int) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM liabilities WHERE id = ? AND user_id = ?", (liab_id, user_id)
+        )
+
+
+# --- Expenses ---------------------------------------------------------------
+
+def add_expense(
+    user_id: int, name: str, category: str, amount: float, frequency: str,
+    count: int = 1, notes: str | None = None,
+) -> None:
+    """Append one recurring expense."""
+    with _connect() as conn:
+        (n,) = conn.execute(
+            "SELECT COUNT(*) FROM expenses WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO expenses
+                (user_id, name, category, amount, frequency, count, notes, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, name, category, amount, frequency, count, notes, n),
+        )
+
+
+def list_expenses(user_id: int) -> list[dict]:
+    """A user's recurring expenses, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM expenses WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "name": r["name"], "category": r["category"],
+            "amount": r["amount"], "frequency": r["frequency"],
+            "count": r["count"], "notes": r["notes"],
+        }
+        for r in rows
+    ]
+
+
+def delete_expense(user_id: int, expense_id: int) -> None:
+    """Delete one expense, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id)
         )
 
 

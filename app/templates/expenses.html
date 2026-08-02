@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Expenses · Networthy{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <h1>Expenses</h1>
+  <p class="muted">
+    Your recurring expenses, normalised to a monthly &amp; annual burn rate — and
+    what it means for your net worth. Loan EMIs live under Liabilities, not here.
+  </p>
+</section>
+
+{% if expenses %}
+<section class="exp-hero">
+  <div class="dash-card exp-burn">
+    <span class="eyebrow">Monthly burn</span>
+    <div class="hero-nw num"><span class="rs">₹</span>{{ "{:,.0f}".format(monthly_total) }}</div>
+    <span class="hero-note">₹{{ "{:,.0f}".format(annual_total) }} a year across {{ expenses|length }} expense(s)</span>
+  </div>
+
+  <div class="dash-card exp-fire">
+    <div class="exp-stat">
+      <span class="eyebrow">Net-worth runway</span>
+      {% if runway_years is not none %}
+      <span class="exp-figure num">{{ "{:.1f}".format(runway_years) }} <span class="exp-unit">yrs</span></span>
+      <span class="hero-note">₹{{ "{:,.0f}".format(net_worth) }} ÷ annual expenses</span>
+      {% else %}
+      <span class="exp-figure">—</span>
+      {% endif %}
+    </div>
+    <div class="exp-stat">
+      <span class="eyebrow">FIRE target · {{ fire_multiple }}×</span>
+      {% if fire_target %}
+      <span class="exp-figure num">₹{{ "{:,.0f}".format(fire_target) }}</span>
+      <div class="fire-bar"><span style="width: {{ '%.1f'|format([fire_pct, 100]|min) }}%"></span></div>
+      <span class="hero-note">{{ "%.0f"|format(fire_pct) }}% there</span>
+      {% else %}
+      <span class="exp-figure">—</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% if breakdown %}
+<section class="dash-card alloc-card">
+  <h2>Where it goes</h2>
+  <div class="alloc-strip">
+    {% for b in breakdown %}
+    <span style="width: {{ '%.2f'|format(b.pct) }}%; background: {{ b.color }}"
+          title="{{ b.label }} · ₹{{ '{:,.0f}'.format(b.value) }}/yr ({{ '%.1f'|format(b.pct) }}%)"></span>
+    {% endfor %}
+  </div>
+  <ul class="alloc-legend">
+    {% for b in breakdown %}
+    <li>
+      <span class="swatch" style="background: {{ b.color }}"></span>
+      <span class="lname">{{ b.label }}</span>
+      <span class="lval">₹{{ "{:,.0f}".format(b.value) }}/yr</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}
+
+<section class="dash-card exp-list">
+  <div class="bh">
+    <h2>Expenses</h2>
+    {% if expenses %}<span class="hint">Annual = amount × count × frequency</span>{% endif %}
+  </div>
+  {% if expenses %}
+  <table class="holdings">
+    <thead>
+      <tr>
+        <th>Expense</th>
+        <th class="num">Amount</th>
+        <th>Frequency</th>
+        <th class="num">Count</th>
+        <th class="num">Monthly</th>
+        <th class="num">Annual</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in expenses %}
+      <tr>
+        <td class="h-name">
+          <span class="dot" style="background: {{ e.category_color }}" title="{{ e.category_label }}"></span>
+          {{ e.name }}
+          {% if e.notes %}<span class="h-isin muted">{{ e.notes }}</span>{% endif %}
+        </td>
+        <td class="num">₹{{ "{:,.0f}".format(e.amount) }}</td>
+        <td>{{ e.frequency_label }}</td>
+        <td class="num">{{ e.count if e.count and e.count > 1 else "—" }}</td>
+        <td class="num">₹{{ "{:,.0f}".format(e.monthly) }}</td>
+        <td class="num">₹{{ "{:,.0f}".format(e.annual) }}</td>
+        <td class="num">
+          <form method="post" action="/expenses/{{ e.id }}/delete"
+                onsubmit="return confirm('Delete this expense?');">
+            <button class="link-danger" type="submit">delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="manual-section{% if expenses %} manual-sep{% endif %}">
+    <h3 class="manual-head">Add expense</h3>
+    <form class="manual-add" method="post" action="/expenses/add">
+      <div class="manual-field col-2">
+        <label for="e-name">Expense</label>
+        <input id="e-name" name="name" placeholder="e.g. Groceries, School fees" required>
+      </div>
+      <div class="manual-field">
+        <label for="e-cat">Category</label>
+        <select id="e-cat" name="category">
+          {% for c in categories %}<option value="{{ c.slug }}">{{ c.label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="manual-field">
+        <label for="e-amt">Amount ₹</label>
+        <input id="e-amt" name="amount" type="number" step="any" min="0" placeholder="0" required>
+      </div>
+      <div class="manual-field">
+        <label for="e-freq">Frequency</label>
+        <select id="e-freq" name="frequency">
+          {% for slug, f in frequencies.items() %}<option value="{{ slug }}"{{ ' selected' if slug == 'monthly' else '' }}>{{ f.label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="manual-field">
+        <label for="e-count">Count <span class="opt">e.g. ×2 kids</span></label>
+        <input id="e-count" name="count" type="number" step="1" min="1" placeholder="1">
+      </div>
+      <div class="manual-field col-2">
+        <label for="e-notes">Notes <span class="opt">optional</span></label>
+        <input id="e-notes" name="notes" placeholder="e.g. per member">
+      </div>
+      <div class="manual-actions">
+        <span class="manual-hint muted">Count multiplies the amount — handy for per-person costs (kids, family members).</span>
+        <button class="btn" type="submit">Add</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% endblock %}

@@ -107,6 +107,17 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 - **`app/models.py`** — dataclasses shared across layers: `Holding`, `ParsedStatement` (parser
   output), `Snapshot` (stored row).
 
+- **`app/expenses.py` + the Expenses tab** (`GET /expenses`, top-level nav between Dashboard and
+  NSDL CAS) — a recurring-expense **planner**, deliberately *separate from net worth* (its own
+  `expenses` table; not in the Assets/Liabilities tree). Each entry is amount × **count** (the
+  per-person family-scaling lever) at a **frequency** (`FREQUENCIES`: monthly/quarterly/half-yearly/
+  annual), normalised to a monthly & annual burn via `annual_amount()`. The page shows the burn,
+  a category breakdown (`CATEGORIES`, fixed list with per-category colours), and the **net-worth
+  connection**: runway (net worth ÷ annual burn) and a **FIRE target** (`FIRE_MULTIPLE` = 25×,
+  the 4% rule) with progress. Loan EMIs are intentionally **not** modelled here — they live under
+  Liabilities, and double-counting would make burn-rate and net-worth views disagree. Routes:
+  `POST /expenses/add` + `/expenses/{id}/delete`.
+
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **full page at `GET /standing`**
   reached from the Dashboard CTA tile; pre-fills with the user's live sum-the-tree net worth. Static net-worth
   distribution data (adults per band for India/Indonesia/Singapore/USA/World, from

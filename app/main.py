@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, networth, prices, storage, wealth
+from . import __version__, auth, expenses, networth, prices, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -1078,6 +1078,91 @@ def standing(request: Request):
             "dataset": wealth.client_dataset(),
         },
     )
+
+
+@app.get("/expenses", response_class=HTMLResponse)
+def expenses_page(request: Request):
+    """Recurring-expense planner: monthly/annual burn, category breakdown, and the
+    net-worth connection (runway + FIRE target)."""
+    user = request.state.user
+    rows = storage.list_expenses(user.id)
+    for r in rows:
+        r["annual"] = expenses.annual_amount(r["amount"], r["count"], r["frequency"])
+        r["monthly"] = r["annual"] / 12.0
+        r["category_label"] = expenses.category_label(r["category"])
+        r["category_color"] = expenses.category_color(r["category"])
+        r["frequency_label"] = expenses.frequency_label(r["frequency"])
+
+    annual_total = sum(r["annual"] for r in rows)
+    monthly_total = annual_total / 12.0
+
+    # Category breakdown (annual), largest first.
+    by_cat: dict[str, float] = {}
+    for r in rows:
+        by_cat[r["category"]] = by_cat.get(r["category"], 0.0) + r["annual"]
+    breakdown = [
+        {
+            "label": expenses.category_label(slug),
+            "color": expenses.category_color(slug),
+            "value": val,
+            "pct": (val / annual_total * 100.0) if annual_total else 0.0,
+        }
+        for slug, val in sorted(by_cat.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+    # The net-worth connection: runway and a FIRE target.
+    net_worth = _dashboard(user)["net_worth"]
+    runway_years = (net_worth / annual_total) if annual_total > 0 else None
+    fire_target = annual_total * expenses.FIRE_MULTIPLE if annual_total > 0 else None
+    fire_pct = (net_worth / fire_target * 100.0) if fire_target else None
+
+    return templates.TemplateResponse(
+        "expenses.html",
+        {
+            "request": request,
+            "user": user,
+            "expenses": rows,
+            "categories": expenses.CATEGORIES,
+            "frequencies": expenses.FREQUENCIES,
+            "monthly_total": monthly_total,
+            "annual_total": annual_total,
+            "breakdown": breakdown,
+            "net_worth": net_worth,
+            "runway_years": runway_years,
+            "fire_target": fire_target,
+            "fire_pct": fire_pct,
+            "fire_multiple": expenses.FIRE_MULTIPLE,
+        },
+    )
+
+
+@app.post("/expenses/add")
+def expense_add(
+    request: Request,
+    name: str = Form(...),
+    category: str = Form(...),
+    amount: float = Form(...),
+    frequency: str = Form(...),
+    count: str = Form(""),
+    notes: str = Form(""),
+):
+    """Add a recurring expense."""
+    if (
+        name.strip()
+        and category in expenses.CATEGORY_BY_SLUG
+        and frequency in expenses.FREQUENCIES
+    ):
+        storage.add_expense(
+            request.state.user.id, name.strip(), category, amount, frequency,
+            count=max(1, _opt_int(count) or 1), notes=notes.strip() or None,
+        )
+    return RedirectResponse(url="/expenses", status_code=303)
+
+
+@app.post("/expenses/{expense_id}/delete")
+def expense_delete(request: Request, expense_id: int):
+    storage.delete_expense(request.state.user.id, expense_id)
+    return RedirectResponse(url="/expenses", status_code=303)
 
 
 @app.get("/upload", response_class=HTMLResponse)
