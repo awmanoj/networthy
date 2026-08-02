@@ -728,6 +728,8 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .hrow .amt { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
 .hrow .chev { color: var(--faint); }
 
+.nw-overview-summary { margin-bottom: 22px; }
+
 /* Expenses page */
 .exp-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
 @media (max-width: 800px) { .exp-hero { grid-template-columns: 1fr; } }

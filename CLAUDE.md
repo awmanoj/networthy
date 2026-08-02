@@ -73,14 +73,16 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `app/parser/_common.py` (`nsdl_cas` keeps `_decrypt`/`_to_float` aliases for its tests). Same
   caveat as NSDL: built to the documented layout, snippet-tested, not yet validated on a real PDF.
 
-- **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. The **home
-  page is a live net-worth Dashboard** (`GET /` → `main.home` + `main._dashboard`, template
-  `networth.html`): a hero total (Assets − Liabilities, summed live from the tree via
-  `_networth_values`), an allocation strip + legend over the funded top-level categories, category
-  tiles, a "Where do you stand?" CTA, and a "where it sits" list. Empty scaffold categories are
-  omitted from the Dashboard. The full nested tree is reached by drilling in: detail pages stay at
-  `/networth/{path}`, and `/networth` 307-redirects to `/`. Leaves are blank scaffolds except the
-  **data-backed** ones in
+- **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. Two views of
+  it: the **Dashboard** (`GET /` → `main.home` + `main._dashboard`, template `networth.html`) is the
+  at-a-glance home — a hero total (Assets − Liabilities, summed live via `_networth_values`), an
+  allocation strip, category tiles, a "Where do you stand?" CTA, and a "where it sits" list (empty
+  categories omitted). The **Net worth hub** (`GET /networth` → `main.networth_overview`, template
+  `networth_overview.html`) is the structured entry point — the net-worth summary plus the **full
+  tree** (every section/subsection/leaf, incl. empty scaffolds) as navigable links with rolled
+  values and "N inside" chips. Leaf/detail pages are at `/networth/{path}`; breadcrumbs root at the
+  Net worth hub. Nav order: Dashboard · Net worth · Expenses · NSDL CAS. Leaves are blank scaffolds
+  except the **data-backed** ones in
   `LEAF_ASSET_CLASSES` (Mutual Funds, Gold & Silver), which render holdings from two sources: an
   uploaded CAMS import and/or the latest NSDL snapshot's classified rows. `POST
   /networth/import/cams` parses a CAMS PDF and stores it via `replace_networth_import`. **Invariant:

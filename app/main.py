@@ -227,10 +227,27 @@ def home(request: Request):
     )
 
 
-@app.get("/networth")
-def networth_home_redirect():
-    """The tree overview lives on the dashboard now; keep the old URL working."""
-    return RedirectResponse(url="/", status_code=307)
+@app.get("/networth", response_class=HTMLResponse)
+def networth_overview(request: Request):
+    """The Net worth hub — the full Assets/Liabilities tree as navigable entry
+    points with rolled-up values, plus the net-worth summary. (The Dashboard at /
+    is the at-a-glance view; this is the structured one.)"""
+    user = request.state.user
+    values = _networth_values(user)
+    assets = values.get("assets", 0.0)
+    liabilities = values.get("liabilities", 0.0)
+    return templates.TemplateResponse(
+        "networth_overview.html",
+        {
+            "request": request,
+            "user": user,
+            "sections": networth.SECTIONS,
+            "values": values,
+            "assets": assets,
+            "liabilities": liabilities,
+            "net_worth": assets - liabilities,
+        },
+    )
 
 
 CAMS_IMPORT_URL = "/networth/import/cams"
@@ -1013,7 +1030,7 @@ def networth_node(request: Request, path: str):
     render a holdings table; other leaves stay blank scaffolds.
     """
     if not path.strip("/"):
-        return RedirectResponse(url="/", status_code=303)
+        return RedirectResponse(url="/networth", status_code=303)
 
     chain = networth.resolve(path)
     if chain is None:

@@ -204,7 +204,7 @@ def resolve(path: str) -> list[Node] | None:
 
 def breadcrumbs(chain: list[Node]) -> list[tuple[str, str]]:
     """(title, url) pairs from the root down to and including the current node."""
-    crumbs = [("Dashboard", "/")]
+    crumbs = [("Net worth", "/networth")]
     parts: list[str] = []
     for node in chain:
         parts.append(node.slug)
