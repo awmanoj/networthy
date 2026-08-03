@@ -798,9 +798,16 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
   display: flex; align-items: center; justify-content: space-between;
   max-width: 1120px; margin: 0 auto; padding: 20px 28px;
 }
-.mkt-nav { display: flex; align-items: center; gap: 20px; }
-.mkt-login { color: var(--muted); text-decoration: none; font-size: 0.92rem; font-weight: 500; }
-.mkt-login:hover { color: var(--text); }
+.mkt-nav { display: flex; align-items: center; gap: 12px; }
+/* Outlined secondary button — clearly visible next to the solid "Get started". */
+.mkt-login {
+  color: var(--text); text-decoration: none; font-size: 0.92rem; font-weight: 600;
+  padding: 7px 15px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface);
+}
+.mkt-login:hover { border-color: var(--brand); color: var(--brand); }
+/* Guard the primary's label to white regardless of any link-color cascade. */
+.mkt-nav a.btn, .mkt-nav a.btn:hover { color: var(--btn-fg); }
 
 .mkt-eyebrow {
   display: inline-block; text-transform: uppercase; letter-spacing: 0.14em;
