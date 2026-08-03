@@ -44,7 +44,10 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `/terms` are content pages. All four, plus `/`, are in `auth._PUBLIC_PATHS`; every other route stays
   gated (anonymous → `/login`). Sign-up == login (open signup via email OTP), so all landing CTAs point
   at `/login`. The landing's "screenshots" are on-brand HTML/CSS mockups (`.shot` frames) built from the
-  design tokens — swap for real captures if desired.
+  design tokens — swap for real captures if desired. **Both** the app base (`base.html`) and
+  `marketing_base.html` include the shared `_footer.html` (About/Privacy/Terms) — edit the footer in one
+  place. The **display brand is "Networthy HQ"** across templates and emails (the project/module name
+  stays `networthy`).
 - **`app/main.py`** — FastAPI routes. The in-app nav is just **Dashboard** + **NSDL CAS**. **Home `/` is
   the Dashboard** (`main.home`). **`GET /nsdl-cas`** (`main.nsdl_cas`, template `index.html`) holds
   the net-worth-over-time **chart + snapshots table**, an **Upload CAS** button, *and* the latest

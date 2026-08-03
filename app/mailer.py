@@ -25,7 +25,7 @@ def _api_key() -> str | None:
 
 def _from_address() -> str:
     # Resend requires a verified sender; default is a placeholder for dev only.
-    return os.environ.get("EMAIL_FROM", "Networthy <onboarding@resend.dev>")
+    return os.environ.get("EMAIL_FROM", "Networthy HQ <onboarding@resend.dev>")
 
 
 def send_email(to: str, subject: str, html: str) -> None:

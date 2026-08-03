@@ -82,7 +82,7 @@ def send_login_code(email: str) -> None:
 
     mailer.send_email(
         to=email,
-        subject=f"{code} is your Networthy login code",
+        subject=f"{code} is your Networthy HQ login code",
         html=_login_code_email_html(code),
     )
 
@@ -109,7 +109,7 @@ def _login_code_email_html(code: str) -> str:
             <tr>
               <td style="padding:24px 28px 8px;">
                 <div style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#1a1d24;">
-                  Networthy
+                  Networthy HQ
                 </div>
               </td>
             </tr>
@@ -142,7 +142,7 @@ def _login_code_email_html(code: str) -> str:
             <tr>
               <td style="padding:16px 28px;background:#f7f8fa;border-top:1px solid #e2e5ea;">
                 <p style="margin:0;font-size:12px;line-height:1.5;color:#8b93a3;">
-                  Networthy · Your data is private to your account.
+                  Networthy HQ · Your data is private to your account.
                 </p>
               </td>
             </tr>

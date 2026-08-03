@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Networthy — see where you stand{% endblock %}</title>
+  <title>{% block title %}Networthy HQ — see where you stand{% endblock %}</title>
   <meta name="description" content="{% block description %}Track your complete net worth — Indian & US stocks, mutual funds, crypto, gold, real estate, bank balances and loans — priced live. Private by design.{% endblock %}" />
   <link rel="stylesheet" href="/static/style.css?v={{ version }}" />
   <script>
@@ -17,7 +17,7 @@
 </head>
 <body class="mkt">
   <header class="mkt-header">
-    <a class="brand" href="/"><span class="mark">₹</span>Networthy</a>
+    <a class="brand" href="/"><span class="mark">₹</span>Networthy HQ</a>
     <nav class="mkt-nav">
       {% block header_cta %}
       <a href="/login" class="mkt-login">Log in</a>
@@ -28,23 +28,6 @@
 
   {% block content %}{% endblock %}
 
-  <footer class="mkt-footer">
-    <div class="mkt-foot-inner">
-      <div class="mkt-foot-brand">
-        <span class="brand"><span class="mark">₹</span>Networthy</span>
-        <span class="muted">See where you stand.</span>
-      </div>
-      <nav class="mkt-foot-links">
-        <a href="/about">About</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
-        <a href="/login">Log in</a>
-      </nav>
-    </div>
-    <p class="mkt-foot-note muted">
-      Your data is private to your account. Statements are parsed on the server and never
-      sent to third parties. © 2026 Networthy.
-    </p>
-  </footer>
+  {% include "_footer.html" %}
 </body>
 </html>

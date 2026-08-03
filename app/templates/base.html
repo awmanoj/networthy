@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Networthy{% endblock %}</title>
+  <title>{% block title %}Networthy HQ{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css?v={{ version }}" />
   <script>
     // Apply the saved theme before first paint to avoid a flash.
@@ -17,7 +17,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/"><span class="mark">₹</span>Networthy</a>
+    <a class="brand" href="/"><span class="mark">₹</span>Networthy HQ</a>
     <nav>
       {% if user %}
       <a href="/">Dashboard</a>
@@ -36,9 +36,7 @@
   <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
-  <footer>
-    <span>Your data is private to your account. Statements are parsed on this server and never sent to third parties.</span>
-  </footer>
+  {% include "_footer.html" %}
   <script>
     (function () {
       var root = document.documentElement, btn = document.getElementById('theme-toggle');

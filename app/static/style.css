@@ -653,13 +653,8 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .nw-blank h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; color: var(--text); }
 .nw-blank p { margin: 0 auto 16px; max-width: 420px; }
 
-footer {
-  text-align: center;
-  padding: 24px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  border-top: 1px solid var(--border);
-}
+/* (The old bare `footer` rule was removed — all pages now use the shared
+   `.mkt-footer` partial, which brings its own styling.) */
 
 /* ===========================================================================
    Dashboard (home) — hero net worth, allocation, tiles, live holdings
