@@ -1,17 +1,21 @@
-{% extends "base.html" %}
+{% extends "marketing_base.html" %}
 {% block title %}Log in · Networthy{% endblock %}
+{% block header_cta %}{% endblock %}
 {% block content %}
 
-<section class="card narrow">
-  <h1 class="auth-title">Log in</h1>
-  <p class="muted auth-sub">Enter your email and we'll send you a one-time code.</p>
-  <form method="post" action="/login">
-    <label>
-      Email
-      <input type="email" name="email" placeholder="you@example.com" required autofocus />
-    </label>
-    <button class="btn btn-lg" type="submit">Send code</button>
-  </form>
+<section class="mkt-auth">
+  <div class="card narrow auth-card">
+    <h1 class="auth-title">Log in or sign up</h1>
+    <p class="muted auth-sub">Enter your email and we'll send you a 6-digit code — no passwords.</p>
+    <form method="post" action="/login">
+      <label>
+        Email
+        <input type="email" name="email" placeholder="you@example.com" required autofocus />
+      </label>
+      <button class="btn btn-lg" type="submit">Send code</button>
+    </form>
+  </div>
+  <p class="mkt-auth-note muted">New here? Signing in with your email creates your account.</p>
 </section>
 
 {% endblock %}

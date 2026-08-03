@@ -19,8 +19,10 @@
   <header class="mkt-header">
     <a class="brand" href="/"><span class="mark">₹</span>Networthy</a>
     <nav class="mkt-nav">
+      {% block header_cta %}
       <a href="/login" class="mkt-login">Log in</a>
       <a href="/login" class="btn">Get started</a>
+      {% endblock %}
     </nav>
   </header>
 

@@ -931,3 +931,11 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
    context link-colour rule (e.g. .mkt-doc a) can never repaint it into its own
    background. Placed last so it wins on equal specificity. */
 a.btn { color: var(--btn-fg); }
+
+/* Auth pages (login / verify) inside the marketing chrome */
+.mkt-auth {
+  max-width: 460px; margin: 0 auto; padding: 40px 28px 60px;
+  min-height: 56vh; display: flex; flex-direction: column; justify-content: center;
+}
+.mkt-auth .card.narrow { margin: 0; width: 100%; }
+.mkt-auth-note { text-align: center; font-size: 0.85rem; margin: 18px 0 0; }
