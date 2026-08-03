@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import date
 from pathlib import Path
@@ -29,6 +30,9 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # Cache-bust token for static assets. Bound to process start, so every server
 # restart (including --reload on edit, and every deploy) serves fresh CSS/JS.
 templates.env.globals["version"] = str(int(time.time()))
+# Absolute base URL for social-share tags (og:image must be absolute). Override
+# with SITE_URL if the app runs on a different domain.
+templates.env.globals["site_url"] = os.environ.get("SITE_URL", "https://networthyhq.com")
 
 app = FastAPI(title="Networthy", version=__version__)
 app.add_middleware(SessionMiddleware)
