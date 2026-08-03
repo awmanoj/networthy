@@ -922,7 +922,12 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .mkt-doc h2 { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; margin: 34px 0 0; }
 .mkt-doc-lead { font-size: 1.12rem; color: var(--muted); line-height: 1.55; margin: 16px 0 0; }
 .mkt-doc p { color: var(--text); line-height: 1.65; margin: 12px 0 0; }
-.mkt-doc a { color: var(--brand); }
+.mkt-doc a:not(.btn) { color: var(--brand); }
 .mkt-doc code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 0.9em; }
 .mkt-doc-cta { margin-top: 32px; }
 .mkt-doc-note { margin-top: 30px; font-size: 0.85rem; }
+
+/* Guard: a link styled as a button always keeps its button label colour, so a
+   context link-colour rule (e.g. .mkt-doc a) can never repaint it into its own
+   background. Placed last so it wins on equal specificity. */
+a.btn { color: var(--btn-fg); }
