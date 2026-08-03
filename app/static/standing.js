@@ -74,11 +74,22 @@
     var n = Math.max(0, Math.min(pop, headCount(inr, anchors(geo), pop)));
     var topPct = (n / pop) * 100;
     var bi = bandIndex(inr);
+
+    // Split your band around you (mirror of app/wealth.py): richer-than-you inside
+    // the band = rank minus the tail above the whole band; the rest is below you.
+    var counts = DATA.bandCounts[geo];
+    var tailAboveBand = 0;
+    for (var k = bi + 1; k < counts.length; k++) tailAboveBand += counts[k];
+    var bandTotal = counts[bi];
+    var bandAbove = Math.max(0, Math.min(bandTotal, n - tailAboveBand));
+    var bandBelow = Math.max(0, bandTotal - bandAbove);
+
     return {
       geo: geo, name: meta.name, flag: meta.flag, adults: pop,
       topPct: topPct, richerThanPct: 100 - topPct, rank: n,
       oneIn: n > 0 ? pop / n : null,
       bandIndex: bi, bandLabel: DATA.bandLabels[bi],
+      bandTotal: bandTotal, bandAbove: bandAbove, bandBelow: bandBelow,
     };
   }
 
@@ -276,6 +287,10 @@
       function (b) { b.classList.toggle("active", b.dataset.geo === geo); }
     );
 
+    // Placement for the selected geo, so the user's band can show where they sit
+    // within it (a band is wide; its total isn't "people at your level").
+    var here = place(inr, geo);
+
     // Log-scaled widths so the tiny top bands stay visible.
     var maxLog = Math.log10(Math.max.apply(null, counts) + 1);
     var host = document.getElementById("pyramid");
@@ -302,10 +317,19 @@
 
       var meta2 = document.createElement("div");
       meta2.className = "pyr-meta";
+      var split = "";
+      if (isUser) {
+        // Of this band, how many are above vs below you — so the band total isn't
+        // misread as peers at your level.
+        split =
+          '<span class="pyr-you">◀ you\'re here</span>' +
+          '<span class="pyr-split muted">≈' + humanIN(here.bandAbove) +
+          " above you · ≈" + humanIN(here.bandBelow) + " below</span>";
+      }
       meta2.innerHTML =
         '<span class="pyr-count">' + humanIN(c) + " adults</span>" +
         '<span class="pyr-share muted">' + fmtPct(share) + "%</span>" +
-        (isUser ? '<span class="pyr-you">◀ you\'re here</span>' : "");
+        split;
 
       rowWrap.appendChild(bar);
       rowWrap.appendChild(meta2);

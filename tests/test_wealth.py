@@ -79,6 +79,32 @@ def test_richer_than_and_one_in_are_consistent():
     assert p.one_in == pytest.approx(p.adults / p.rank, rel=1e-9)
 
 
+def test_band_split_partitions_the_band_around_you():
+    # ₹21 cr sits in the ₹10-25 cr band; that band's total must split into the
+    # adults above you and below you, and match the tabulated band population.
+    p = place_one(21 * CRORE, "india")
+    assert p.band_label == "₹10–25 cr"
+    assert p.band_total == BAND_COUNTS["india"][3]                 # 581,000
+    assert p.band_above + p.band_below == pytest.approx(p.band_total)
+    # richer-than-you within the band = rank minus the tail above the whole band.
+    tail_above = sum(BAND_COUNTS["india"][4:])
+    assert p.band_above == pytest.approx(p.rank - tail_above)
+    # Near the top of a wide band, most of the band is below you.
+    assert p.band_below > p.band_above
+
+
+def test_band_split_edges_are_bounded():
+    # At a band's lower edge you're at the bottom: (almost) all of the band is above.
+    lo = place_one(10 * CRORE, "india")   # exactly the ₹10-25 cr floor
+    assert lo.band_below == pytest.approx(0.0, abs=1.0)
+    assert lo.band_above == pytest.approx(lo.band_total, rel=1e-6)
+    # Never negative, never exceeds the band.
+    for cr in (0.5, 3, 12, 40, 800, 20_000):
+        p = place_one(cr * CRORE, "india")
+        assert 0.0 <= p.band_above <= p.band_total + 1
+        assert 0.0 <= p.band_below <= p.band_total + 1
+
+
 def test_zero_and_negative_place_at_the_bottom():
     for nw in (0, -5):
         p = place_one(nw, "india")

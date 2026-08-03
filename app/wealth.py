@@ -117,6 +117,12 @@ class Placement:
     one_in: float | None    # 1 in N adults is at least this wealthy (None if you'd top everyone)
     band_index: int
     band_label: str
+    # Your position *within* your band. A band is a wide range (e.g. ₹10-25 cr),
+    # and its population clusters near the floor — so most of the band is usually
+    # below you. Splitting it avoids reading the band total as "peers at my level".
+    band_total: int         # adults in your band
+    band_above: float       # of them, adults wealthier than you (still in your band)
+    band_below: float       # of them, adults less wealthy than you (still in your band)
 
 
 def _alpha(w1: float, n1: float, w2: float, n2: float) -> float:
@@ -189,6 +195,16 @@ def place_one(net_worth: float, geo: str) -> Placement:
     n = max(0.0, min(float(pop), n))
     top_pct = n / pop * 100.0
     band_index = _band_index(net_worth)
+
+    # Split your band around you. N(>= your band's upper edge) is the tail above the
+    # whole band; everyone in the band who's richer than you is (your rank) minus
+    # that tail, and the rest of the band is below you.
+    counts = BAND_COUNTS[geo]
+    band_total = counts[band_index]
+    tail_above_band = float(sum(counts[band_index + 1:]))
+    band_above = max(0.0, min(float(band_total), n - tail_above_band))
+    band_below = max(0.0, float(band_total) - band_above)
+
     return Placement(
         geo=geo,
         name=meta["name"],
@@ -201,6 +217,9 @@ def place_one(net_worth: float, geo: str) -> Placement:
         one_in=(pop / n) if n > 0 else None,
         band_index=band_index,
         band_label=BAND_LABELS[band_index],
+        band_total=band_total,
+        band_above=band_above,
+        band_below=band_below,
     )
 
 

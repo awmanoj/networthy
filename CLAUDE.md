@@ -129,9 +129,12 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   beyond the ends; clamp head-count to [top-band size, adult population]). This is the canonical,
   tested source. `client_dataset()` ships the raw constants to `static/standing.js`, which
   **re-implements the same algorithm** for live client-side ranking (verified identical to the
-  Python) — so the interactive page never sends what a visitor types anywhere. Keep the two in
-  sync if either changes; `test_wealth.py` pins the contract (band sums, monotonicity, anchor
-  reproduction, the India-vs-USA contrast).
+  Python) — so the interactive page never sends what a visitor types anywhere. Each `Placement`
+  also carries a **within-band split** (`band_total`/`band_above`/`band_below`): a band is a wide
+  range whose population clusters near its floor, so the raw band total must **not** be read as
+  "peers at your level" — the pyramid's "you're here" band shows ≈above-you / ≈below-you instead.
+  Keep the two in sync if either changes; `test_wealth.py` pins the contract (band sums,
+  monotonicity, anchor reproduction, the band split partition, the India-vs-USA contrast).
 
 ## Testing approach
 

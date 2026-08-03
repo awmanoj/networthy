@@ -580,6 +580,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .pyr-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .pyr-share { font-size: 0.75rem; }
 .pyr-you { color: var(--accent); font-weight: 700; font-size: 0.78rem; }
+.pyr-split { font-size: 0.75rem; margin-top: 1px; font-variant-numeric: tabular-nums; }
 .pyramid-note { margin: 16px 0 0; font-size: 0.8rem; }
 
 @media (max-width: 640px) {
