@@ -153,6 +153,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
 - The SQLite DB persists in the `networthy_data` Docker volume mounted at `/app/data`.
 - `deploy.sh` requires a prior `docker login` (or `DOCKERHUB_TOKEN`) and tags each image with
   both the given tag and the short git SHA.
+- `backup.sh` snapshots the DB via SQLite's **online backup** (run inside the app container's
+  Python, so it's consistent under concurrent writes — not a raw file copy), gzips it into
+  `$BACKUP_DIR`, and prunes beyond `$KEEP` (default 42 ≈ 7 days at every 4h). Cron it every 4h:
+  `0 */4 * * * /path/to/backup.sh >> /var/log/networthy-backup.log 2>&1`. Backups land on the
+  same host — copy them off-box (rclone/S3) to survive server loss.
 
 ## Conventions
 
