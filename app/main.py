@@ -217,14 +217,30 @@ def _dashboard(user) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    """Dashboard (home) — the live net-worth summary: hero total, allocation,
-    category tiles, funded holdings, and a CTA into the 'Where do you stand?' page."""
+    """Public landing when logged out; the live net-worth Dashboard when logged in."""
     user = request.state.user
+    if user is None:
+        return templates.TemplateResponse("landing.html", {"request": request})
     dash = _dashboard(user)
     return templates.TemplateResponse(
         "networth.html",
         {"request": request, "user": user, "dash": dash},
     )
+
+
+@app.get("/about", response_class=HTMLResponse)
+def about(request: Request):
+    return templates.TemplateResponse("about.html", {"request": request})
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms(request: Request):
+    return templates.TemplateResponse("terms.html", {"request": request})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy(request: Request):
+    return templates.TemplateResponse("privacy.html", {"request": request})
 
 
 @app.get("/networth", response_class=HTMLResponse)

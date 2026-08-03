@@ -66,7 +66,7 @@
   --btn-bg: #2f5f8c; --btn-fg: #ffffff;
   --c-equity: #5b8fc9; --c-mf: #5aa6c6; --c-us: #8a9dcb; --c-fixed: #d0895a;
   --c-gold: #dcb166; --c-bank: #93a1b2; --c-realty: #c08a6f; --c-alt: #b096cf;
-  --c-other: #93a1b2;
+  --c-forex: #5fb5b5; --c-crypto: #e8a556; --c-other: #93a1b2;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .38);
 }
 
@@ -789,3 +789,133 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 }
 .dash-empty-alt a { color: var(--accent); text-decoration: none; }
 .dash-empty-alt a:hover { text-decoration: underline; }
+
+/* ===========================================================================
+   Marketing / landing pages (public) — Ink Navy & Copper, theme-aware
+   =========================================================================== */
+.mkt { background: var(--bg); }
+.mkt-header {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1120px; margin: 0 auto; padding: 20px 28px;
+}
+.mkt-nav { display: flex; align-items: center; gap: 20px; }
+.mkt-login { color: var(--muted); text-decoration: none; font-size: 0.92rem; font-weight: 500; }
+.mkt-login:hover { color: var(--text); }
+
+.mkt-eyebrow {
+  display: inline-block; text-transform: uppercase; letter-spacing: 0.14em;
+  font-size: 0.72rem; font-weight: 700; color: var(--copper);
+}
+.mkt h1 {
+  font-family: var(--serif); font-weight: 600; letter-spacing: -0.02em;
+  font-size: 3.1rem; line-height: 1.05; margin: 14px 0 0; text-wrap: balance;
+}
+.mkt h2 {
+  font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em;
+  font-size: 1.9rem; margin: 12px 0 0; text-wrap: balance;
+}
+
+/* Hero */
+.mkt-hero {
+  max-width: 1120px; margin: 0 auto; padding: 40px 28px 60px;
+  display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center;
+}
+@media (max-width: 860px) { .mkt-hero { grid-template-columns: 1fr; gap: 36px; padding-top: 20px; } }
+.mkt-sub { font-size: 1.1rem; color: var(--muted); margin: 18px 0 0; max-width: 34em; line-height: 1.55; }
+.mkt-cta { display: flex; align-items: center; gap: 20px; margin-top: 28px; flex-wrap: wrap; }
+.mkt-cta-alt { color: var(--brand); font-weight: 600; text-decoration: none; }
+.mkt-cta-alt:hover { text-decoration: underline; }
+.mkt-cta-note { font-size: 0.85rem; margin: 12px 0 0; }
+
+/* Framed "screenshot" with drop shadow */
+.shot {
+  border: 1px solid var(--border); border-radius: 14px; background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 28px 64px -16px rgba(16, 24, 38, 0.30), 0 10px 24px -10px rgba(16, 24, 38, 0.18);
+}
+.shot-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+}
+.shot-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--faint); opacity: 0.5; }
+.shot-url { margin-left: 10px; font-size: 0.72rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.shot-body { padding: 22px 24px; }
+
+/* Mockup internals */
+.ms-eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.66rem; font-weight: 700; color: var(--faint); }
+.ms-nw { font-family: var(--serif); font-weight: 600; font-size: 2.3rem; letter-spacing: -0.02em; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+.ms-nw.sm { font-size: 1.7rem; }
+.ms-split { display: flex; gap: 20px; font-size: 0.8rem; color: var(--muted); margin-bottom: 16px; flex-wrap: wrap; }
+.ms-split i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.ms-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--surface-2); margin-bottom: 14px; }
+.ms-bar span { height: 100%; }
+.ms-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 16px; font-size: 0.82rem; color: var(--muted); }
+.ms-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
+
+.ms-rows { display: flex; flex-direction: column; }
+.ms-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.ms-row:last-child { border-bottom: none; }
+.ms-row i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.ms-row b { font-weight: 600; }
+.ms-row em { margin-left: auto; font-style: normal; font-size: 0.82rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ms-row span { width: 108px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.ms-row em.up { color: var(--gain); } .ms-row em.down { color: var(--loss); } .ms-row em.flat { color: var(--faint); }
+
+.ms-pyr { display: flex; flex-direction: column; gap: 7px; }
+.ms-pyr-row { display: flex; align-items: center; gap: 12px; }
+.ms-pyr-bar { height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); flex: none; }
+.ms-pyr-row em { font-style: normal; font-size: 0.8rem; color: var(--muted); }
+.ms-pyr-row.you .ms-pyr-bar { background: var(--brand); border-color: var(--brand); }
+.ms-pyr-row.you em { color: var(--brand); font-weight: 700; }
+.ms-pyr-note { margin: 10px 0 0; font-size: 0.76rem; color: var(--faint); }
+
+.ms-fire { margin-top: 4px; }
+.ms-fire-head { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
+.ms-fire-head b { color: var(--text); font-variant-numeric: tabular-nums; }
+.ms-fire-bar { height: 9px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 8px 0 6px; }
+.ms-fire-bar span { display: block; height: 100%; background: var(--gain); border-radius: 999px; }
+.ms-fire-foot { display: flex; justify-content: space-between; font-size: 0.82rem; }
+.ms-fire-foot em { font-style: normal; font-weight: 600; }
+.ms-fire-foot em.up { color: var(--gain); }
+
+/* Feature rows */
+.mkt-feature {
+  max-width: 1120px; margin: 0 auto; padding: 46px 28px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+}
+@media (max-width: 860px) { .mkt-feature { grid-template-columns: 1fr; gap: 28px; } }
+.mkt-feature.reverse .mkt-feature-copy { order: 2; }
+@media (max-width: 860px) { .mkt-feature.reverse .mkt-feature-copy { order: 0; } }
+.mkt-feature p { color: var(--muted); font-size: 1.02rem; line-height: 1.6; margin: 16px 0 0; max-width: 32em; }
+
+/* Privacy band */
+.mkt-privacy { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 30px; }
+.mkt-privacy-inner { max-width: 720px; margin: 0 auto; padding: 60px 28px; text-align: center; }
+.mkt-privacy p { color: var(--muted); font-size: 1.05rem; line-height: 1.6; margin: 16px auto 0; max-width: 40em; }
+
+/* Final CTA */
+.mkt-final { max-width: 720px; margin: 0 auto; padding: 66px 28px; text-align: center; }
+.mkt-final p { margin: 10px 0 24px; }
+
+/* Footer */
+.mkt-footer { border-top: 1px solid var(--border); background: var(--surface); }
+.mkt-foot-inner {
+  max-width: 1120px; margin: 0 auto; padding: 26px 28px 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.mkt-foot-brand { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+.mkt-foot-links { display: flex; gap: 22px; }
+.mkt-foot-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+.mkt-foot-links a:hover { color: var(--text); }
+.mkt-foot-note { max-width: 1120px; margin: 0 auto; padding: 6px 28px 26px; font-size: 0.78rem; }
+
+/* Doc pages (About / Terms / Privacy) */
+.mkt-doc { max-width: 680px; margin: 0 auto; padding: 20px 28px 70px; }
+.mkt-doc h1 { font-family: var(--serif); font-weight: 600; font-size: 2.2rem; letter-spacing: -0.02em; margin: 24px 0 0; }
+.mkt-doc h2 { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; margin: 34px 0 0; }
+.mkt-doc-lead { font-size: 1.12rem; color: var(--muted); line-height: 1.55; margin: 16px 0 0; }
+.mkt-doc p { color: var(--text); line-height: 1.65; margin: 12px 0 0; }
+.mkt-doc a { color: var(--brand); }
+.mkt-doc code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 0.9em; }
+.mkt-doc-cta { margin-top: 32px; }
+.mkt-doc-note { margin-top: 30px; font-size: 0.85rem; }

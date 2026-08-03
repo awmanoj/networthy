@@ -1,0 +1,45 @@
+{% extends "marketing_base.html" %}
+{% block title %}About · Networthy{% endblock %}
+{% block content %}
+<article class="mkt-doc">
+  <h1>About Networthy</h1>
+  <p class="mkt-doc-lead">
+    Networthy is a personal net-worth tracker built for people who want one honest,
+    up-to-date answer to a simple question: <em>what am I actually worth?</em>
+  </p>
+
+  <p>
+    Most of us hold wealth in a dozen scattered places — a demat account, a couple of
+    mutual-fund folios, some US stocks, a bit of crypto, gold in a locker, a flat, a PPF,
+    a home loan. No single app adds it all up. Networthy does: it imports your NSDL CAS,
+    lets you add everything else by hand, prices what it can live, and rolls it into a
+    single number — assets minus liabilities.
+  </p>
+
+  <h2>What it covers</h2>
+  <p>
+    Indian and US equities, mutual funds, crypto, gold &amp; silver, bonds and other
+    fixed income (PPF, EPF, NPS, FDs), real estate, private business, foreign currency,
+    bank balances and cash — and, on the other side of the ledger, every kind of loan.
+    It also helps you look ahead: your recurring expenses, your monthly burn, and how
+    close you are to a FIRE (financially independent) number.
+  </p>
+
+  <h2>Built India-first</h2>
+  <p>
+    Amounts are in rupees with lakh/crore grouping, holdings import straight from an NSDL
+    CAS, and the "where do you stand" view is modelled on Indian wealth data (alongside a
+    few other geographies) so the comparison actually means something.
+  </p>
+
+  <h2>Private by principle</h2>
+  <p>
+    Your financial data never leaves the server it runs on. The one deliberate exception
+    is fetching live prices, where the <em>only</em> thing sent out is a public ticker or
+    currency symbol — never your holdings, amounts, or identity. See our
+    <a href="/privacy">Privacy</a> page for the details.
+  </p>
+
+  <p class="mkt-doc-cta"><a href="/login" class="btn">Get started</a></p>
+</article>
+{% endblock %}

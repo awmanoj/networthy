@@ -29,8 +29,11 @@ SESSION_TTL = timedelta(days=30)
 SESSION_COOKIE = "session"
 
 # Paths reachable without a session. Everything else redirects to /login.
+# "/" serves the public marketing landing when logged out (the dashboard when in);
+# the footer pages are public too.
 _PUBLIC_PREFIXES = ("/static/",)
-_PUBLIC_PATHS = {"/login", "/verify", "/logout", "/health"}
+_PUBLIC_PATHS = {"/", "/login", "/verify", "/logout", "/health",
+                 "/about", "/terms", "/privacy"}
 
 _DB_TIME_FMT = "%Y-%m-%d %H:%M:%S"  # matches SQLite's datetime('now') (UTC)
 

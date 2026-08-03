@@ -1,0 +1,53 @@
+{% extends "marketing_base.html" %}
+{% block title %}Privacy · Networthy{% endblock %}
+{% block content %}
+<article class="mkt-doc">
+  <h1>Privacy</h1>
+  <p class="mkt-doc-lead">
+    Networthy is built so your financial data stays yours. This page describes, in plain
+    terms, what we do and don't do with it.
+  </p>
+
+  <h2>Where your data lives</h2>
+  <p>
+    Everything you enter or import — parsed holdings, manual entries, expenses — is stored
+    in a database on the server that runs Networthy, scoped to your account. It is not
+    sold, shared, or sent to third-party analytics or advertising services.
+  </p>
+
+  <h2>Your statements</h2>
+  <p>
+    When you upload an NSDL CAS or CAMS statement, it is decrypted and parsed <em>in
+    memory</em> on the server. The password (your PAN) is used only to open the PDF and is
+    never stored. We keep the parsed figures; we do not keep the PDF.
+  </p>
+
+  <h2>The one thing that leaves the machine</h2>
+  <p>
+    To show live prices, Networthy fetches quotes from public market data — Yahoo Finance
+    for stocks, crypto and FX, and AMFI's public bulk feed for mutual-fund NAVs. In doing
+    so the <strong>only</strong> information that ever leaves the server is a public symbol:
+    a stock ticker (e.g. <code>E2E</code>), a currency pair, or a coin symbol. We never send
+    your units, values, holding sizes, PAN, or identity. Mutual-fund NAVs are looked up
+    locally from a downloaded file, so nothing about those holdings is sent at all. Every
+    such request is best-effort: if it fails, the app simply falls back to your statement
+    values.
+  </p>
+
+  <h2>Accounts &amp; sign-in</h2>
+  <p>
+    Sign-in uses your email and a one-time code — no passwords to store or leak. We keep
+    your email address to identify your account and send login codes. Sessions are held
+    server-side; the cookie in your browser is just a random token.
+  </p>
+
+  <h2>Your control</h2>
+  <p>
+    You can delete individual entries, clear your snapshots, or remove imported data at any
+    time from within the app. If you'd like your account and all its data deleted entirely,
+    contact the operator of your Networthy instance.
+  </p>
+
+  <p class="mkt-doc-cta"><a href="/login" class="btn">Get started</a></p>
+</article>
+{% endblock %}

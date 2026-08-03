@@ -38,7 +38,14 @@ The core data flow is one pipeline, worth understanding before touching any piec
 upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite  →  NSDL CAS page (chart + holdings)
 ```
 
-- **`app/main.py`** — FastAPI routes. The nav is just **Dashboard** + **NSDL CAS**. **Home `/` is
+- **Public marketing surface**: `GET /` serves a **landing page** (`landing.html` on `marketing_base.html`
+  — its own header with Log in / Get started and a footer of About/Privacy/Terms) when logged out, and
+  the **Dashboard** when logged in (`main.home` branches on `request.state.user`). `/about`, `/privacy`,
+  `/terms` are content pages. All four, plus `/`, are in `auth._PUBLIC_PATHS`; every other route stays
+  gated (anonymous → `/login`). Sign-up == login (open signup via email OTP), so all landing CTAs point
+  at `/login`. The landing's "screenshots" are on-brand HTML/CSS mockups (`.shot` frames) built from the
+  design tokens — swap for real captures if desired.
+- **`app/main.py`** — FastAPI routes. The in-app nav is just **Dashboard** + **NSDL CAS**. **Home `/` is
   the Dashboard** (`main.home`). **`GET /nsdl-cas`** (`main.nsdl_cas`, template `index.html`) holds
   the net-worth-over-time **chart + snapshots table**, an **Upload CAS** button, *and* the latest
   statement's **detailed per-account holdings** (the former Portfolio page, folded in here — colour-
