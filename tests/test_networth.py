@@ -28,7 +28,7 @@ def test_assets_split_into_financial_and_non_financial():
 def test_financial_assets_children_in_order():
     fin = resolve("assets/financial-assets")[-1]
     assert [c.slug for c in fin.children] == [
-        "mutual-funds", "equity", "foreign-equity", "fixed-income",
+        "mutual-funds", "equity", "foreign-equity", "crypto", "fixed-income",
         "gold-silver", "bank-cash", "foreign-exchange", "alternate-investments",
         "others",
     ]

@@ -91,6 +91,19 @@ def gold_inr_per_gram() -> float | None:
     return spot / _TROY_OZ_G * fx
 
 
+def crypto_inr(symbol: str | None) -> float | None:
+    """Live INR price of one coin, via Yahoo's `<SYM>-USD` pair × USD→INR. Cached.
+    None on failure. Only the coin symbol egresses (never holdings)."""
+    sym = (symbol or "").strip().upper()
+    if not sym:
+        return None
+    usd = get_quote(f"{sym}-USD")
+    fx = usd_inr()
+    if usd is None or fx is None:
+        return None
+    return usd * fx
+
+
 def fx_to_inr(currency: str | None) -> float | None:
     """Live rate to convert one unit of `currency` into INR, via Yahoo's
     `<CUR>INR=X` pair (e.g. EURINR=X). Cached ~15 min; None on failure."""

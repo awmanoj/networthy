@@ -165,8 +165,8 @@ def portfolio_redirect():
 _CAT_COLOR = {
     "equity": "--c-equity", "mutual-funds": "--c-mf", "foreign-equity": "--c-us",
     "fixed-income": "--c-fixed", "gold-silver": "--c-gold", "bank-cash": "--c-bank",
-    "foreign-exchange": "--c-forex", "alternate-investments": "--c-alt",
-    "others": "--c-other", "real-estate": "--c-realty",
+    "foreign-exchange": "--c-forex", "crypto": "--c-crypto",
+    "alternate-investments": "--c-alt", "others": "--c-other", "real-estate": "--c-realty",
     "physical-gold": "--c-gold", "private-business": "--c-realty",
 }
 # The category level the dashboard summarises: the children of these parents.
@@ -356,6 +356,27 @@ FOREIGN_LEAF = "foreign-equity"
 # Foreign Exchange leaf: money held in a foreign currency (account or cash),
 # valued live in INR at the currency's FX rate.
 FOREX_LEAF = "foreign-exchange"
+# Crypto leaf: coin + quantity, priced live in USD → INR.
+CRYPTO_LEAF = "crypto"
+
+
+def _price_crypto(rows: list[dict]) -> float | None:
+    """Value crypto holdings: quantity × live INR price. Gain% vs invested (if set).
+    Returns the USD→INR rate used (None if unavailable)."""
+    fx = prices.usd_inr()
+    for h in rows:
+        price_inr = prices.crypto_inr(h["symbol"])
+        h["price_inr"] = price_inr
+        h["value"] = (h["quantity"] * price_inr) if price_inr is not None else None
+        inv = h.get("invested_inr")
+        if h["value"] is not None and inv:
+            pct = (h["value"] / inv - 1.0) * 100.0
+            h["gain_pct"] = pct
+            h["signal"] = "up" if pct > 0.05 else "down" if pct < -0.05 else "flat"
+        else:
+            h["gain_pct"] = None
+            h["signal"] = None
+    return fx
 
 
 def _price_forex(rows: list[dict]) -> None:
@@ -477,6 +498,11 @@ def _leaf_value(user, slug: str) -> float | None:
         _price_forex(rows)
         return sum(r["value"] or 0.0 for r in rows)
 
+    if slug == CRYPTO_LEAF:
+        rows = storage.list_crypto_holdings(user.id)
+        _price_crypto(rows)
+        return sum(r["value"] or 0.0 for r in rows)
+
     if slug == ALT_LEAF:
         return sum(r["current_value"] or 0.0 for r in storage.list_alt_investments(user.id))
 
@@ -550,6 +576,20 @@ def _leaf_holdings(user, slug: str) -> dict | None:
             "holdings": rows,
             "live_total": sum(r["value"] or 0.0 for r in rows),
             "has_priced": any(r["value"] is not None for r in rows),
+            "leaf_slug": slug,
+        }
+
+    if slug == CRYPTO_LEAF:
+        rows = storage.list_crypto_holdings(user.id)
+        fx = _price_crypto(rows)
+        return {
+            "is_crypto": True,
+            "holdings": rows,
+            "live_total": sum(r["value"] or 0.0 for r in rows),
+            "invested_total": sum(
+                r["invested_inr"] or 0.0 for r in rows if r.get("invested_inr")
+            ),
+            "fx": fx,
             "leaf_slug": slug,
         }
 
@@ -860,6 +900,31 @@ def forex_add(
 @app.post("/networth/forex/{holding_id}/delete")
 def forex_delete(request: Request, holding_id: int, redirect: str = Form(...)):
     storage.delete_forex_holding(request.state.user.id, holding_id)
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/crypto/add")
+def crypto_add(
+    request: Request,
+    redirect: str = Form(...),
+    symbol: str = Form(...),
+    quantity: float = Form(...),
+    invested_inr: str = Form(""),
+    label: str = Form(""),
+):
+    """Add a crypto holding (coin + quantity)."""
+    sym = symbol.strip().upper()
+    if sym:
+        storage.add_crypto_holding(
+            request.state.user.id, sym, quantity,
+            invested_inr=_opt_float(invested_inr), label=label.strip() or None,
+        )
+    return _networth_redirect(redirect)
+
+
+@app.post("/networth/crypto/{holding_id}/delete")
+def crypto_delete(request: Request, holding_id: int, redirect: str = Form(...)):
+    storage.delete_crypto_holding(request.state.user.id, holding_id)
     return _networth_redirect(redirect)
 
 

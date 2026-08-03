@@ -332,6 +332,23 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
+        # Hand-entered crypto: coin + quantity, priced live in USD and converted to
+        # INR. invested_inr (total put in) is optional and drives gain%.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS crypto_holdings (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                symbol       TEXT NOT NULL,
+                quantity     REAL NOT NULL,
+                invested_inr REAL,
+                label        TEXT,
+                position     INTEGER NOT NULL DEFAULT 0,
+                created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_crypto_user ON crypto_holdings(user_id)")
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -1219,6 +1236,51 @@ def delete_expense(user_id: int, expense_id: int) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id)
+        )
+
+
+# --- Crypto -----------------------------------------------------------------
+
+def add_crypto_holding(
+    user_id: int, symbol: str, quantity: float,
+    invested_inr: float | None = None, label: str | None = None,
+) -> None:
+    """Append one crypto holding (coin + quantity)."""
+    with _connect() as conn:
+        (n,) = conn.execute(
+            "SELECT COUNT(*) FROM crypto_holdings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO crypto_holdings
+                (user_id, symbol, quantity, invested_inr, label, position)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, symbol, quantity, invested_inr, label, n),
+        )
+
+
+def list_crypto_holdings(user_id: int) -> list[dict]:
+    """A user's crypto holdings, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM crypto_holdings WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "symbol": r["symbol"], "quantity": r["quantity"],
+            "invested_inr": r["invested_inr"], "label": r["label"],
+        }
+        for r in rows
+    ]
+
+
+def delete_crypto_holding(user_id: int, holding_id: int) -> None:
+    """Delete one crypto holding, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM crypto_holdings WHERE id = ? AND user_id = ?", (holding_id, user_id)
         )
 
 

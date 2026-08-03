@@ -23,7 +23,7 @@
   /* Asset-class hues (allocation bar, category dots) — light */
   --c-equity: #2f5f8c; --c-mf: #3a86a8; --c-us: #6a7fb0; --c-fixed: #b06a3c;
   --c-gold: #c79a52; --c-bank: #7a8794; --c-realty: #9c6a54; --c-alt: #8a6ea8;
-  --c-forex: #4a9d9d; --c-other: #8792a0;
+  --c-forex: #4a9d9d; --c-crypto: #e0913a; --c-other: #8792a0;
 
   /* Aliases for legacy component CSS */
   --text: var(--ink);
@@ -44,7 +44,7 @@
     --btn-bg: #2f5f8c; --btn-fg: #ffffff;
     --c-equity: #5b8fc9; --c-mf: #5aa6c6; --c-us: #8a9dcb; --c-fixed: #d0895a;
     --c-gold: #dcb166; --c-bank: #93a1b2; --c-realty: #c08a6f; --c-alt: #b096cf;
-    --c-forex: #5fb5b5; --c-other: #93a1b2;
+    --c-forex: #5fb5b5; --c-crypto: #e8a556; --c-other: #93a1b2;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .38);
   }
 }
@@ -56,7 +56,7 @@
   --btn-bg: #1f3a5f; --btn-fg: #ffffff;
   --c-equity: #2f5f8c; --c-mf: #3a86a8; --c-us: #6a7fb0; --c-fixed: #b06a3c;
   --c-gold: #c79a52; --c-bank: #7a8794; --c-realty: #9c6a54; --c-alt: #8a6ea8;
-  --c-forex: #4a9d9d; --c-other: #8792a0;
+  --c-forex: #4a9d9d; --c-crypto: #e0913a; --c-other: #8792a0;
   --shadow: 0 1px 2px rgba(20, 28, 40, .05), 0 8px 24px rgba(20, 28, 40, .07);
 }
 :root[data-theme="dark"] {

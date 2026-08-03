@@ -213,6 +213,11 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   `foreign-exchange`) — money in a foreign currency held in an account or as cash, in the
   `forex_holdings` table (currency, amount, kind, label), valued live via `prices.fx_to_inr(cur)`
   (Yahoo `<CUR>INR=X`) in `main._price_forex`; routes `POST /networth/forex/add` + `/forex/{id}/delete`.
+  *Crypto* (`CRYPTO_LEAF` = `crypto`, a leaf under Financial Assets) — coin + quantity in the
+  `crypto_holdings` table (symbol, quantity, invested_inr, label), priced live via
+  `prices.crypto_inr(sym)` = Yahoo `<SYM>-USD` × USD→INR in `main._price_crypto`; optional
+  `invested_inr` drives gain%; routes `POST /networth/crypto/add` + `/crypto/{id}/delete`.
+  (Crypto is *also* a hand-valued Type under Alternate Investments, for illiquid/locked positions.)
   *Alternate Investments* (`ALT_LEAF` = `alternate-investments`) — illiquid hand-valued bets
   (startups/angel, ESOPs, unlisted, PE/VC, crypto) in the `alt_investments` table (name, category,
   cost, current_value, invested_date); `current_value` rolls into net worth, `cost` drives a

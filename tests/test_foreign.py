@@ -61,3 +61,34 @@ def test_price_forex_values_amount_times_rate(monkeypatch):
     assert rows[0]["value"] == pytest.approx(5000 * 95.0)
     assert rows[1]["value"] == pytest.approx(1000 * 110.0)
     assert rows[2]["rate"] is None and rows[2]["value"] is None
+
+
+# --- Crypto -----------------------------------------------------------------
+
+def test_price_crypto_value_and_gain(monkeypatch):
+    monkeypatch.setattr(prices, "crypto_inr", lambda s: {"BTC": 6000000.0, "ETH": 180000.0}.get(s))
+    monkeypatch.setattr(prices, "usd_inr", lambda: 95.0)
+    rows = [
+        {"symbol": "BTC", "quantity": 0.5, "invested_inr": 2000000.0},  # value 3,000,000
+        {"symbol": "ETH", "quantity": 2.0, "invested_inr": None},       # value 360,000, no gain
+        {"symbol": "XYZ", "quantity": 1.0, "invested_inr": 100.0},      # unpriced
+    ]
+    main._price_crypto(rows)
+    assert rows[0]["value"] == pytest.approx(3000000.0)
+    assert rows[0]["gain_pct"] == pytest.approx(50.0) and rows[0]["signal"] == "up"
+    assert rows[1]["value"] == pytest.approx(360000.0) and rows[1]["gain_pct"] is None
+    assert rows[2]["value"] is None
+
+
+def test_crypto_inr_symbol(monkeypatch):
+    seen = {}
+
+    def fake_quote(s):
+        seen["sym"] = s
+        return 60000.0
+
+    monkeypatch.setattr(prices, "get_quote", fake_quote)
+    monkeypatch.setattr(prices, "usd_inr", lambda: 95.0)
+    assert prices.crypto_inr("btc") == pytest.approx(60000.0 * 95.0)
+    assert seen["sym"] == "BTC-USD"   # uppercased, -USD suffix
+    assert prices.crypto_inr("") is None

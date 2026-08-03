@@ -434,6 +434,24 @@ def test_expenses_crud(db):
     assert [e["name"] for e in db.list_expenses(alice)] == ["School fees"]
 
 
+def test_crypto_holdings_crud(db):
+    alice = db.get_or_create_user("alice@example.com").id
+    bob = db.get_or_create_user("bob@example.com").id
+    db.add_crypto_holding(alice, "BTC", 0.5, invested_inr=2000000.0, label="cold wallet")
+    db.add_crypto_holding(alice, "ETH", 3.0)
+    db.add_crypto_holding(bob, "SOL", 10.0)
+
+    rows = db.list_crypto_holdings(alice)
+    assert [r["symbol"] for r in rows] == ["BTC", "ETH"]
+    assert rows[0]["quantity"] == 0.5 and rows[0]["invested_inr"] == 2000000.0
+    assert rows[0]["label"] == "cold wallet" and rows[1]["invested_inr"] is None
+
+    db.delete_crypto_holding(bob, rows[0]["id"])      # not Bob's -> no-op
+    assert len(db.list_crypto_holdings(alice)) == 2
+    db.delete_crypto_holding(alice, rows[0]["id"])
+    assert [r["symbol"] for r in db.list_crypto_holdings(alice)] == ["ETH"]
+
+
 def test_get_or_create_user_is_idempotent_and_normalizes(db):
     a = db.get_or_create_user("Alice@Example.com ")
     b = db.get_or_create_user("alice@example.com")

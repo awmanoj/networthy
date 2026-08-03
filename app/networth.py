@@ -34,6 +34,7 @@ SECTIONS: list[Node] = [
             Node("equity", "Equity", note="Direct stocks — IN"),
             Node("foreign-equity", "Foreign / US Equity",
                  note="US & international stocks"),
+            Node("crypto", "Crypto", note="Bitcoin, Ethereum & other coins"),
             Node("fixed-income", "Fixed Income",
                  note="Bonds, FDs/RDs, PPF, EPF, NPS, SSA, NSC", children=[
                 Node("corporate-bonds", "Corporate Bonds"),
