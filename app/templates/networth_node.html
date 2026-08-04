@@ -1,5 +1,20 @@
 {% extends "base.html" %}
 {% block title %}{{ (node.title if not not_found else "Not found") }} · Networth{% endblock %}
+
+{# --- Edit helpers: a row's "edit" link and the add-form's edit extras. ------
+   Editing works by reloading the page with ?edit={id}; the matching add-form
+   pre-fills from that row and its Add button becomes Save. One #editform anchor
+   is fine because only one leaf branch renders per page. #}
+{% macro edit_link(hid) %}<a class="link-edit" href="?edit={{ hid }}#editform">edit</a>{% endmacro %}
+{% macro id_field(ed) %}{% if ed %}<input type="hidden" name="id" value="{{ ed.id }}">{% endif %}{% endmacro %}
+{% macro form_actions(ed, add_label, hint) %}
+        <div class="manual-actions">
+          <span class="manual-hint muted">{{ hint }}</span>
+          {% if ed %}<a class="link-muted cancel-edit" href="?">Cancel</a>{% endif %}
+          <button class="btn" type="submit">{{ "Save changes" if ed else add_label }}</button>
+        </div>
+{% endmacro %}
+
 {% block content %}
 
 <nav class="crumbs" aria-label="Breadcrumb">
@@ -52,6 +67,7 @@
 
 {% elif leaf_data is not none %}
   {% if leaf_data.is_foreign %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -74,7 +90,7 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.ticker }}</td>
           <td class="num">{{ "{:,.3f}".format(h.units).rstrip('0').rstrip('.') }}</td>
           <td class="num">{{ "${:,.2f}".format(h.price_usd) if h.price_usd is not none else "—" }}</td>
@@ -85,7 +101,8 @@
             {% else %}—{% endif %}
           </td>
           <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/foreign/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this entry?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -98,29 +115,29 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add US holding</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit US holding" if ed else "Add US holding" }}</h3>
       <form class="manual-add" method="post" action="/networth/foreign/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="fe-tkr">Ticker</label>
-          <input id="fe-tkr" name="ticker" placeholder="e.g. AAPL" required>
+          <input id="fe-tkr" name="ticker" placeholder="e.g. AAPL" value="{{ ed.ticker if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="fe-sh">Shares</label>
-          <input id="fe-sh" name="units" type="number" step="any" min="0" placeholder="0" required>
+          <input id="fe-sh" name="units" type="number" step="any" min="0" placeholder="0" value="{{ ed.units if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="fe-cost">Avg cost $/sh <span class="opt">optional</span></label>
-          <input id="fe-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+          <input id="fe-cost" name="cost" type="number" step="any" min="0" placeholder="0" value="{{ ed.cost_usd if ed and ed.cost_usd is not none else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Live USD prices from Yahoo, converted to INR{% if leaf_data.fx %} at ₹{{ "{:,.2f}".format(leaf_data.fx) }}/${% endif %} · only the ticker symbol is sent externally.</span>
-          <button class="btn" type="submit">Add holding</button>
-        </div>
+        {{ form_actions(ed, "Add holding", "Live USD prices from Yahoo, converted to INR" ~ (" at ₹%.2f/$" | format(leaf_data.fx) if leaf_data.fx else "") ~ " · only the ticker symbol is sent externally.") }}
       </form>
     </div>
   </section>
+
   {% elif leaf_data.is_bank_cash %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -141,12 +158,13 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           {% if leaf_data.is_bank %}<td class="h-name">{{ h.bank_name or "—" }}</td>{% endif %}
           <td>{{ h.label or "—" }}</td>
           {% if leaf_data.is_bank %}<td>{{ h.account_type or "—" }}</td>{% endif %}
           <td class="num">₹{{ "{:,.0f}".format(h.balance) }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/bank/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this entry?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -159,49 +177,49 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">{{ "Add bank account" if leaf_data.is_bank else "Add cash" }}</h3>
+      <h3 class="manual-head" id="editform">{{ ("Edit " if ed else "Add ") ~ ("bank account" if leaf_data.is_bank else "cash") }}</h3>
       <form class="manual-add" method="post" action="/networth/bank/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         {% if leaf_data.is_bank %}
         <div class="manual-field col-2">
           <label for="bc-bank">Bank name</label>
-          <input id="bc-bank" name="bank_name" placeholder="e.g. HDFC Bank" required>
+          <input id="bc-bank" name="bank_name" placeholder="e.g. HDFC Bank" value="{{ ed.bank_name if ed and ed.bank_name else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="bc-nick">Nickname <span class="opt">optional</span></label>
-          <input id="bc-nick" name="label" placeholder="e.g. Salary">
+          <input id="bc-nick" name="label" placeholder="e.g. Salary" value="{{ ed.label if ed and ed.label else '' }}">
         </div>
         <div class="manual-field">
           <label for="bc-type">Type</label>
           <select id="bc-type" name="account_type">
-            <option value="Savings">Savings</option>
-            <option value="Current">Current</option>
+            {% for t in ["Savings","Current"] %}
+            <option value="{{ t }}"{{ ' selected' if ed and ed.account_type == t else '' }}>{{ t }}</option>
+            {% endfor %}
           </select>
         </div>
         <div class="manual-field">
           <label for="bc-bal">Balance ₹</label>
-          <input id="bc-bal" name="balance" type="number" step="any" min="0" placeholder="0" required>
+          <input id="bc-bal" name="balance" type="number" step="any" min="0" placeholder="0" value="{{ ed.balance if ed else '' }}" required>
         </div>
         {% else %}
         <div class="manual-field col-2">
           <label for="bc-nick">Label <span class="opt">optional</span></label>
-          <input id="bc-nick" name="label" placeholder="e.g. Cash at home">
+          <input id="bc-nick" name="label" placeholder="e.g. Cash at home" value="{{ ed.label if ed and ed.label else '' }}">
         </div>
         <div class="manual-field col-2">
           <label for="bc-bal">Balance ₹</label>
-          <input id="bc-bal" name="balance" type="number" step="any" min="0" placeholder="0" required>
+          <input id="bc-bal" name="balance" type="number" step="any" min="0" placeholder="0" value="{{ ed.balance if ed else '' }}" required>
         </div>
         {% endif %}
-        <div class="manual-actions">
-          <span class="manual-hint muted">Balance counts toward your net worth.</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Balance counts toward your net worth.") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_forex %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -223,13 +241,14 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.currency }}{% if h.label %} <span class="h-isin muted">{{ h.label }}</span>{% endif %}</td>
           <td class="num">{{ "{:,.2f}".format(h.amount) }}</td>
           <td>{{ h.kind or "—" }}</td>
           <td class="num">{{ "{:,.4f}".format(h.rate) if h.rate is not none else "—" }}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/forex/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this entry?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -242,41 +261,41 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add foreign currency</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit foreign currency" if ed else "Add foreign currency" }}</h3>
       <form class="manual-add" method="post" action="/networth/forex/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field">
           <label for="fx-cur">Currency</label>
           <select id="fx-cur" name="currency">
             {% for c in ["USD","EUR","GBP","AED","SGD","JPY","AUD","CAD","CHF","HKD"] %}
-            <option value="{{ c }}">{{ c }}</option>
+            <option value="{{ c }}"{{ ' selected' if ed and ed.currency == c else '' }}>{{ c }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="manual-field">
           <label for="fx-amt">Amount</label>
-          <input id="fx-amt" name="amount" type="number" step="any" min="0" placeholder="0" required>
+          <input id="fx-amt" name="amount" type="number" step="any" min="0" placeholder="0" value="{{ ed.amount if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="fx-kind">Held as</label>
           <select id="fx-kind" name="kind">
-            <option value="Account">Account</option>
-            <option value="Cash">Cash</option>
+            {% for k in ["Account","Cash"] %}
+            <option value="{{ k }}"{{ ' selected' if ed and ed.kind == k else '' }}>{{ k }}</option>
+            {% endfor %}
           </select>
         </div>
         <div class="manual-field">
           <label for="fx-label">Label <span class="opt">optional</span></label>
-          <input id="fx-label" name="label" placeholder="e.g. Wise USD">
+          <input id="fx-label" name="label" placeholder="e.g. Wise USD" value="{{ ed.label if ed and ed.label else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Valued live at the currency's INR rate · only the currency pair is sent externally.</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Valued live at the currency's INR rate · only the currency pair is sent externally.") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_crypto %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -299,7 +318,7 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.symbol }}{% if h.label %} <span class="h-isin muted">{{ h.label }}</span>{% endif %}</td>
           <td class="num">{{ "{:,.6f}".format(h.quantity).rstrip('0').rstrip('.') }}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.price_inr) if h.price_inr is not none else "—" }}</td>
@@ -310,7 +329,8 @@
             {% else %}—{% endif %}
           </td>
           <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/crypto/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this holding?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -323,38 +343,37 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add crypto</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit crypto" if ed else "Add crypto" }}</h3>
       <form class="manual-add" method="post" action="/networth/crypto/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field">
           <label for="cr-sym">Coin</label>
           <select id="cr-sym" name="symbol">
             {% for c in ["BTC","ETH","SOL","BNB","XRP","ADA","DOGE","DOT","MATIC","AVAX","LINK","LTC","TRX","USDT","USDC"] %}
-            <option value="{{ c }}">{{ c }}</option>
+            <option value="{{ c }}"{{ ' selected' if ed and ed.symbol == c else '' }}>{{ c }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="manual-field">
           <label for="cr-qty">Quantity</label>
-          <input id="cr-qty" name="quantity" type="number" step="any" min="0" placeholder="0" required>
+          <input id="cr-qty" name="quantity" type="number" step="any" min="0" placeholder="0" value="{{ ed.quantity if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="cr-inv">Invested ₹ <span class="opt">optional</span></label>
-          <input id="cr-inv" name="invested_inr" type="number" step="any" min="0" placeholder="0">
+          <input id="cr-inv" name="invested_inr" type="number" step="any" min="0" placeholder="0" value="{{ ed.invested_inr if ed and ed.invested_inr is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="cr-label">Label <span class="opt">optional</span></label>
-          <input id="cr-label" name="label" placeholder="e.g. cold wallet">
+          <input id="cr-label" name="label" placeholder="e.g. cold wallet" value="{{ ed.label if ed and ed.label else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Priced live in USD → INR · only the coin symbol is sent externally.</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Priced live in USD → INR · only the coin symbol is sent externally.") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_alt %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -377,7 +396,7 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.name }}</td>
           <td>{{ h.category or "—" }}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
@@ -388,7 +407,8 @@
             {% else %}—{% endif %}
           </td>
           <td>{{ h.invested_fmt or "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/alt/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this entry?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -401,42 +421,41 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add alternate investment</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit alternate investment" if ed else "Add alternate investment" }}</h3>
       <form class="manual-add" method="post" action="/networth/alt/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="alt-name">Investment</label>
-          <input id="alt-name" name="name" placeholder="e.g. Acme Robotics (angel)" required>
+          <input id="alt-name" name="name" placeholder="e.g. Acme Robotics (angel)" value="{{ ed.name if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="alt-type">Type</label>
           <select id="alt-type" name="category">
             {% for t in ["Startup / Angel","ESOP","Unlisted Equity","PE / VC Fund","Crypto","Other"] %}
-            <option value="{{ t }}">{{ t }}</option>
+            <option value="{{ t }}"{{ ' selected' if ed and ed.category == t else '' }}>{{ t }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="manual-field">
           <label for="alt-cost">Invested ₹ <span class="opt">optional</span></label>
-          <input id="alt-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+          <input id="alt-cost" name="cost" type="number" step="any" min="0" placeholder="0" value="{{ ed.cost if ed and ed.cost is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="alt-cur">Current value ₹</label>
-          <input id="alt-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+          <input id="alt-cur" name="current_value" type="number" step="any" min="0" placeholder="0" value="{{ ed.current_value if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="alt-date">Invested on <span class="opt">optional</span></label>
-          <input id="alt-date" name="invested_date" type="date">
+          <input id="alt-date" name="invested_date" type="date" value="{{ ed.invested_date if ed and ed.invested_date else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Current value counts toward net worth; invested amount &amp; date are optional (gain is shown vs cost).</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Current value counts toward net worth; invested amount & date are optional (gain is shown vs cost).") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_property %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -462,7 +481,7 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.label }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
           <td class="num">₹{{ "{:,.0f}".format(h.current_value) }}</td>
@@ -476,7 +495,8 @@
             {% else %}—{% endif %}
           </td>
           <td>{{ h.invested_fmt or "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/property/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this property?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -489,43 +509,42 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add property</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit property" if ed else "Add property" }}</h3>
       <form class="manual-add" method="post" action="/networth/property/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="pr-label">Name</label>
-          <input id="pr-label" name="label" placeholder="e.g. 3BHK, Whitefield" required>
+          <input id="pr-label" name="label" placeholder="e.g. 3BHK, Whitefield" value="{{ ed.label if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="pr-cur">Full value ₹</label>
-          <input id="pr-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+          <input id="pr-cur" name="current_value" type="number" step="any" min="0" placeholder="0" value="{{ ed.current_value if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="pr-share">Your share % <span class="opt">optional</span></label>
-          <input id="pr-share" name="share_pct" type="number" step="any" min="0" max="100" placeholder="100">
+          <input id="pr-share" name="share_pct" type="number" step="any" min="0" max="100" placeholder="100" value="{{ ed.share_pct if ed and ed.share_pct is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="pr-cost">Bought for ₹ <span class="opt">optional</span></label>
-          <input id="pr-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+          <input id="pr-cost" name="cost" type="number" step="any" min="0" placeholder="0" value="{{ ed.cost if ed and ed.cost is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="pr-date">Purchased on <span class="opt">optional</span></label>
-          <input id="pr-date" name="purchase_date" type="date">
+          <input id="pr-date" name="purchase_date" type="date" value="{{ ed.invested_date if ed and ed.invested_date else '' }}">
         </div>
         <div class="manual-field col-2">
           <label for="pr-notes">Location / size <span class="opt">optional</span></label>
-          <input id="pr-notes" name="notes" placeholder="e.g. Whitefield · 1,200 sq ft">
+          <input id="pr-notes" name="notes" placeholder="e.g. Whitefield · 1,200 sq ft" value="{{ ed.notes if ed and ed.notes else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Only your share of the full value counts toward net worth (gross — any home loan is tracked under Liabilities).</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Only your share of the full value counts toward net worth (gross — any home loan is tracked under Liabilities).") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_gold %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -547,13 +566,14 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.description }}{% if h.basis == "flat" %} <span class="h-isin muted">flat</span>{% endif %}</td>
           <td class="num">{{ "{:g} g".format(h.weight_g) if h.weight_g is not none else "—" }}</td>
           <td class="num">{{ (h.karat ~ "k") if h.karat is not none else "—" }}</td>
           <td class="num">{{ "{:,.0f}".format(h.rate) if h.rate is not none else "—" }}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.value) if h.value is not none else "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/gold/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this item?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -566,36 +586,35 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add gold item</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit gold item" if ed else "Add gold item" }}</h3>
       <form class="manual-add" method="post" action="/networth/gold/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="g-desc">Item</label>
-          <input id="g-desc" name="description" placeholder="e.g. Coins, bangles" required>
+          <input id="g-desc" name="description" placeholder="e.g. Coins, bangles" value="{{ ed.description if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="g-wt">Weight (g) <span class="opt">for live value</span></label>
-          <input id="g-wt" name="weight_g" type="number" step="any" min="0" placeholder="0">
+          <input id="g-wt" name="weight_g" type="number" step="any" min="0" placeholder="0" value="{{ ed.weight_g if ed and ed.weight_g is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="g-k">Karat</label>
           <select id="g-k" name="karat">
-            {% for k in [24, 22, 18, 14] %}<option value="{{ k }}"{{ ' selected' if k == 22 else '' }}>{{ k }}k</option>{% endfor %}
+            {% for k in [24, 22, 18, 14] %}<option value="{{ k }}"{{ ' selected' if (ed.karat == k if ed else k == 22) else '' }}>{{ k }}k</option>{% endfor %}
           </select>
         </div>
         <div class="manual-field">
           <label for="g-flat">or Value ₹ <span class="opt">flat</span></label>
-          <input id="g-flat" name="flat_value" type="number" step="any" min="0" placeholder="0">
+          <input id="g-flat" name="flat_value" type="number" step="any" min="0" placeholder="0" value="{{ ed.flat_value if ed and ed.flat_value is not none else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Enter weight + karat to value it live at the gold rate, or a flat value for stone-set jewellery.</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Enter weight + karat to value it live at the gold rate, or a flat value for stone-set jewellery.") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_business %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -618,7 +637,7 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.name }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
           <td class="num">{{ "{:g}%".format(h.ownership_pct) if h.ownership_pct is not none else "—" }}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.cost) if h.cost is not none else "—" }}</td>
@@ -629,7 +648,8 @@
             {% else %}—{% endif %}
           </td>
           <td>{{ h.invested_fmt or "—" }}</td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/business/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this entry?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -642,42 +662,41 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add business stake</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit business stake" if ed else "Add business stake" }}</h3>
       <form class="manual-add" method="post" action="/networth/business/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="b-name">Business</label>
-          <input id="b-name" name="name" placeholder="e.g. Acme Trading LLP" required>
+          <input id="b-name" name="name" placeholder="e.g. Acme Trading LLP" value="{{ ed.name if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="b-pct">Stake % <span class="opt">optional</span></label>
-          <input id="b-pct" name="ownership_pct" type="number" step="any" min="0" max="100" placeholder="0">
+          <input id="b-pct" name="ownership_pct" type="number" step="any" min="0" max="100" placeholder="0" value="{{ ed.ownership_pct if ed and ed.ownership_pct is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="b-cost">Invested ₹ <span class="opt">optional</span></label>
-          <input id="b-cost" name="cost" type="number" step="any" min="0" placeholder="0">
+          <input id="b-cost" name="cost" type="number" step="any" min="0" placeholder="0" value="{{ ed.cost if ed and ed.cost is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="b-cur">Current value ₹</label>
-          <input id="b-cur" name="current_value" type="number" step="any" min="0" placeholder="0" required>
+          <input id="b-cur" name="current_value" type="number" step="any" min="0" placeholder="0" value="{{ ed.current_value if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="b-date">Since <span class="opt">optional</span></label>
-          <input id="b-date" name="invested_date" type="date">
+          <input id="b-date" name="invested_date" type="date" value="{{ ed.invested_date if ed and ed.invested_date else '' }}">
         </div>
         <div class="manual-field col-2">
           <label for="b-notes">Notes <span class="opt">optional</span></label>
-          <input id="b-notes" name="notes" placeholder="e.g. co-founder stake">
+          <input id="b-notes" name="notes" placeholder="e.g. co-founder stake" value="{{ ed.notes if ed and ed.notes else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Current value of your stake counts toward net worth; gain is shown vs invested.</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Current value of your stake counts toward net worth; gain is shown vs invested.") }}
       </form>
     </div>
   </section>
 
   {% elif leaf_data.is_liability %}
+  {% set ed = (leaf_data.holdings | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -700,7 +719,7 @@
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
-        <tr>
+        <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.lender }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
           <td class="num">₹{{ "{:,.0f}".format(h.outstanding) }}</td>
           <td class="num">{{ "{:g}%".format(h.rate) if h.rate is not none else "—" }}</td>
@@ -710,7 +729,8 @@
             {{ h.end_fmt or "—" }}
             {% if h.remaining %}<span class="matures-in muted">{{ h.remaining }}</span>{% endif %}
           </td>
-          <td class="num">
+          <td class="num nw-actions">
+            {{ edit_link(h.id) }}
             <form method="post" action="/networth/liability/{{ h.id }}/delete"
                   onsubmit="return confirm('Delete this liability?');">
               <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -723,42 +743,40 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head">Add liability</h3>
+      <h3 class="manual-head" id="editform">{{ "Edit liability" if ed else "Add liability" }}</h3>
       <form class="manual-add" method="post" action="/networth/liability/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="l-lender">Lender</label>
-          <input id="l-lender" name="lender" placeholder="e.g. HDFC Home Loan" required>
+          <input id="l-lender" name="lender" placeholder="e.g. HDFC Home Loan" value="{{ ed.lender if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="l-out">Outstanding ₹</label>
-          <input id="l-out" name="outstanding" type="number" step="any" min="0" placeholder="0" required>
+          <input id="l-out" name="outstanding" type="number" step="any" min="0" placeholder="0" value="{{ ed.outstanding if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="l-prin">Borrowed ₹ <span class="opt">optional</span></label>
-          <input id="l-prin" name="principal" type="number" step="any" min="0" placeholder="0">
+          <input id="l-prin" name="principal" type="number" step="any" min="0" placeholder="0" value="{{ ed.principal if ed and ed.principal is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="l-rate">Rate % <span class="opt">optional</span></label>
-          <input id="l-rate" name="rate" type="number" step="any" min="0" placeholder="0">
+          <input id="l-rate" name="rate" type="number" step="any" min="0" placeholder="0" value="{{ ed.rate if ed and ed.rate is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="l-emi">Monthly EMI ₹ <span class="opt">optional</span></label>
-          <input id="l-emi" name="emi" type="number" step="any" min="0" placeholder="0">
+          <input id="l-emi" name="emi" type="number" step="any" min="0" placeholder="0" value="{{ ed.emi if ed and ed.emi is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="l-end">Ends on <span class="opt">optional</span></label>
-          <input id="l-end" name="end_date" type="date">
+          <input id="l-end" name="end_date" type="date" value="{{ ed.end_date if ed and ed.end_date else '' }}">
         </div>
         <div class="manual-field col-2">
           <label for="l-notes">Notes <span class="opt">optional</span></label>
-          <input id="l-notes" name="notes" placeholder="e.g. floating rate">
+          <input id="l-notes" name="notes" placeholder="e.g. floating rate" value="{{ ed.notes if ed and ed.notes else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Outstanding balance is what net worth subtracts; principal shows how much you've paid off.</span>
-          <button class="btn" type="submit">Add</button>
-        </div>
+        {{ form_actions(ed, "Add", "Outstanding balance is what net worth subtracts; principal shows how much you've paid off.") }}
       </form>
     </div>
   </section>
@@ -774,6 +792,7 @@
     <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
   </section>
   {% else %}
+  {% set ed = (leaf_data.manual | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
   <section class="card">
     <div class="card-head">
       <div class="stat">
@@ -842,8 +861,8 @@
 
     {% if leaf_data.manual_enabled %}
     <div class="manual-section{% if leaf_data.has_cas %} manual-sep{% endif %}">
-      <h3 class="manual-head">
-        Manual entries{% if leaf_data.manual %} <span class="muted">· ₹{{ "{:,.0f}".format(leaf_data.manual_total) }}</span>{% endif %}
+      <h3 class="manual-head" id="editform">
+        {{ "Edit entry" if ed else "Manual entries" }}{% if not ed and leaf_data.manual %} <span class="muted">· ₹{{ "{:,.0f}".format(leaf_data.manual_total) }}</span>{% endif %}
       </h3>
       {% if leaf_data.manual %}
       <table class="holdings manual-table">
@@ -861,7 +880,7 @@
         </thead>
         <tbody>
           {% for m in leaf_data.manual %}
-          <tr>
+          <tr{% if ed and ed.id == m.id %} class="row-editing"{% endif %}>
             <td class="h-name">{{ m.scheme }}</td>
             <td class="num">₹{{ "{:,.0f}".format(m.investment_amount) }}</td>
             <td class="num">{{ m.invested_fmt or "—" }}</td>
@@ -872,7 +891,8 @@
             <td class="num">{{ m.tenure or "—" }}</td>
             <td class="num">{{ "₹{:,.0f}".format(m.maturity_amount) if m.maturity_amount is not none else "—" }}</td>
             <td class="num">{{ "{:g}%".format(m.rate) if m.rate is not none else "—" }}</td>
-            <td class="num">
+            <td class="num nw-actions">
+              {{ edit_link(m.id) }}
               <form method="post" action="/networth/manual/{{ m.id }}/delete"
                     onsubmit="return confirm('Delete this entry?');">
                 <input type="hidden" name="redirect" value="{{ node_path }}">
@@ -887,34 +907,32 @@
       <form class="manual-add" method="post" action="/networth/manual/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
+        {{ id_field(ed) }}
         <div class="manual-field col-2">
           <label for="mf-scheme">Scheme</label>
-          <input id="mf-scheme" name="scheme" placeholder="e.g. SBI PPF" required>
+          <input id="mf-scheme" name="scheme" placeholder="e.g. SBI PPF" value="{{ ed.scheme if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="mf-inv">Investment ₹</label>
-          <input id="mf-inv" name="investment_amount" type="number" step="any" min="0" placeholder="0" required>
+          <input id="mf-inv" name="investment_amount" type="number" step="any" min="0" placeholder="0" value="{{ ed.investment_amount if ed else '' }}" required>
         </div>
         <div class="manual-field">
           <label for="mf-mat">Maturity ₹ <span class="opt">optional</span></label>
-          <input id="mf-mat" name="maturity_amount" type="number" step="any" min="0" placeholder="0">
+          <input id="mf-mat" name="maturity_amount" type="number" step="any" min="0" placeholder="0" value="{{ ed.maturity_amount if ed and ed.maturity_amount is not none else '' }}">
         </div>
         <div class="manual-field">
           <label for="mf-invd">Invested <span class="opt">optional</span></label>
-          <input id="mf-invd" name="investment_date" type="date">
+          <input id="mf-invd" name="investment_date" type="date" value="{{ ed.investment_date if ed and ed.investment_date else '' }}">
         </div>
         <div class="manual-field">
           <label for="mf-matd">Matures <span class="opt">optional</span></label>
-          <input id="mf-matd" name="maturity_date" type="date">
+          <input id="mf-matd" name="maturity_date" type="date" value="{{ ed.maturity_date if ed and ed.maturity_date else '' }}">
         </div>
         <div class="manual-field">
           <label for="mf-rate">Rate % <span class="opt">optional</span></label>
-          <input id="mf-rate" name="rate" type="number" step="any" min="0" placeholder="0">
+          <input id="mf-rate" name="rate" type="number" step="any" min="0" placeholder="0" value="{{ ed.rate if ed and ed.rate is not none else '' }}">
         </div>
-        <div class="manual-actions">
-          <span class="manual-hint muted">Investment Amount counts toward net worth · tenure is worked out from the dates.</span>
-          <button class="btn" type="submit">Add entry</button>
-        </div>
+        {{ form_actions(ed, "Add entry", "Investment Amount counts toward net worth · tenure is worked out from the dates.") }}
       </form>
     </div>
     {% endif %}

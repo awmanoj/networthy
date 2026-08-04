@@ -188,6 +188,17 @@ table.snapshots .num { text-align: right; font-variant-numeric: tabular-nums; }
   cursor: pointer; font: inherit; padding: 0;
 }
 .link-danger:hover { text-decoration: underline; }
+
+/* Row edit link + the edit/delete action pair in a holdings row. */
+.link-edit {
+  color: var(--muted); font-size: inherit; text-decoration: none;
+}
+.link-edit:hover { color: var(--brand); text-decoration: underline; }
+.nw-actions { display: flex; gap: 0.7rem; justify-content: flex-end; align-items: baseline; }
+.row-editing { background: var(--brand-tint, rgba(31, 58, 95, 0.06)); }
+.cancel-edit { align-self: center; }
+.manual-actions .cancel-edit { margin-left: auto; }
+.manual-actions .cancel-edit + .btn { margin-left: 0; }
 form { display: inline; }
 
 .card.narrow form { display: flex; flex-direction: column; gap: 16px; }

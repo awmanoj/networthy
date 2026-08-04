@@ -471,6 +471,23 @@ def get_or_create_user(email: str) -> User:
     return _row_to_user(row)
 
 
+def update_row(table: str, row_id: int, user_id: int, **fields) -> None:
+    """Update a manual-entry row's columns, scoped to its owner.
+
+    `table` and the field *names* are always code-controlled (never user input),
+    so interpolating them is safe; values are bound. Used by the edit flow across
+    every manual-entry type so we don't need a bespoke updater per table.
+    """
+    if not fields:
+        return
+    cols = ", ".join(f"{k} = ?" for k in fields)
+    with _connect() as conn:
+        conn.execute(
+            f"UPDATE {table} SET {cols} WHERE id = ? AND user_id = ?",
+            (*fields.values(), row_id, user_id),
+        )
+
+
 def list_users() -> list[User]:
     """Every account, oldest first — for batch jobs like the email digest."""
     with _connect() as conn:

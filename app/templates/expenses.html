@@ -70,7 +70,8 @@
 </p>
 
 {% for s in sections %}
-<section class="dash-card exp-cat">
+{% set ed = (s.entries | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
+<section class="dash-card exp-cat" id="cat-{{ s.slug }}">
   <div class="exp-cat-head">
     <span class="dot" style="background: {{ s.color }}"></span>
     <h3>{{ s.label }}</h3>
@@ -81,13 +82,14 @@
   <table class="holdings exp-cat-table">
     <tbody>
       {% for e in s.entries %}
-      <tr>
+      <tr{% if ed and ed.id == e.id %} class="row-editing"{% endif %}>
         <td class="h-name">{{ e.name }}{% if e.notes %} <span class="h-isin muted">{{ e.notes }}</span>{% endif %}</td>
         <td class="num">₹{{ "{:,.0f}".format(e.amount) }}</td>
         <td>{{ e.frequency_label }}</td>
         <td class="num">{{ ("× " ~ e.count) if e.count and e.count > 1 else "" }}</td>
         <td class="num">₹{{ "{:,.0f}".format(e.monthly) }}/mo</td>
-        <td class="num">
+        <td class="num nw-actions">
+          <a class="link-edit" href="?edit={{ e.id }}#cat-{{ s.slug }}">edit</a>
           <form method="post" action="/expenses/{{ e.id }}/delete"
                 onsubmit="return confirm('Delete this expense?');">
             <button class="link-danger" type="submit">delete</button>
@@ -99,16 +101,18 @@
   </table>
   {% endif %}
 
-  <form class="exp-add-row" method="post" action="/expenses/add">
+  <form class="exp-add-row{% if ed %} editing{% endif %}" method="post" action="/expenses/add">
     <input type="hidden" name="category" value="{{ s.slug }}">
-    <input class="exp-name" name="name" placeholder="{{ s.example }}" required>
+    {% if ed %}<input type="hidden" name="id" value="{{ ed.id }}">{% endif %}
+    <input class="exp-name" name="name" placeholder="{{ s.example }}" value="{{ ed.name if ed else '' }}" required>
     <input class="exp-amt" name="amount" type="number" step="any" min="0" placeholder="Amount ₹" required
-           aria-label="Amount">
+           aria-label="Amount" value="{{ ed.amount if ed else '' }}">
     <select class="exp-freq" name="frequency" aria-label="Frequency">
-      {% for slug, f in frequencies.items() %}<option value="{{ slug }}"{{ ' selected' if slug == 'monthly' else '' }}>{{ f.label }}</option>{% endfor %}
+      {% for slug, f in frequencies.items() %}<option value="{{ slug }}"{{ ' selected' if (ed.frequency == slug if ed else slug == 'monthly') else '' }}>{{ f.label }}</option>{% endfor %}
     </select>
-    <input class="exp-count" name="count" type="number" step="1" min="1" placeholder="× 1" aria-label="Count">
-    <button class="btn" type="submit">Add</button>
+    <input class="exp-count" name="count" type="number" step="1" min="1" placeholder="× 1" aria-label="Count" value="{{ ed.count if ed and ed.count and ed.count > 1 else '' }}">
+    {% if ed %}<a class="link-muted cancel-edit" href="?#cat-{{ s.slug }}">Cancel</a>{% endif %}
+    <button class="btn" type="submit">{{ "Save" if ed else "Add" }}</button>
   </form>
 </section>
 {% endfor %}

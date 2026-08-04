@@ -226,6 +226,19 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   `_leaf_holdings` combine CAS-live holdings **and** manual rows, so a leaf like Corporate Bonds
   shows both. Add via `POST /networth/manual/add`, remove via `POST /networth/manual/{id}/delete`
   (both carry a `redirect` = the leaf's slug-path, validated through `networth.resolve`).
+- **Editing manual entries** (every Networth manual type *and* Expenses): there is no separate
+  edit route — each `/…/add` route is add-*or*-update. It takes an optional `id` form field; when
+  present it calls the one generic `storage.update_row(table, row_id, user_id, **fields)` (owner-
+  scoped `UPDATE`; table + column names are code-controlled so interpolating them is safe, values
+  bound), otherwise it inserts as before. The UI is a pre-filled-form pattern, no JS: a row's
+  **edit** link reloads the page with `?edit={id}`; the leaf page (or Expenses category section)
+  reads it as `edit_id` (via `_opt_int`) and the matching add-form pre-fills from that row —
+  heading flips to "Edit…", the button becomes "Save", a **Cancel** link (`href="?"`) clears the
+  query, and the row highlights (`.row-editing`). Edit writes exactly the same column set the add
+  path does (each route builds one `f` dict used for both), so anything not in that route's form —
+  e.g. the `position` ordering column, or `notes` on Expenses, which has no notes input — is never
+  disturbed. `test_edit.py` covers the `update_row` contract (columns changed, others untouched,
+  owner-scoped, no-field no-op) plus an end-to-end prefill→save round-trip.
 - **Tiny direct-equity filter**: `_leaf_rows` drops `direct_equity` holdings whose statement value
   is `< MIN_EQUITY_VALUE` (₹10,000) — tracking-only positions (a stray share or two) that
   shouldn't count toward net worth or clutter the Equity leaf. Applied before valuation, so both

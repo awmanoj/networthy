@@ -855,19 +855,23 @@ def manual_add(
     investment_date: str = Form(""),
     maturity_date: str = Form(""),
     rate: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a hand-entered holding to a manual-enabled Networth leaf."""
+    """Add or edit a hand-entered holding on a manual-enabled Networth leaf."""
     if leaf_slug in networth.MANUAL_LEAVES and scheme.strip():
-        storage.add_manual_holding(
-            request.state.user.id,
-            leaf_slug,
-            scheme.strip(),
-            investment_amount,
-            maturity_amount=_opt_float(maturity_amount),
-            rate=_opt_float(rate),
-            investment_date=_opt_date(investment_date),
-            maturity_date=_opt_date(maturity_date),
-        )
+        f = {
+            "scheme": scheme.strip(),
+            "investment_amount": investment_amount,
+            "maturity_amount": _opt_float(maturity_amount),
+            "rate": _opt_float(rate),
+            "investment_date": _opt_date(investment_date),
+            "maturity_date": _opt_date(maturity_date),
+        }
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("manual_holdings", eid, request.state.user.id, **f)
+        else:
+            storage.add_manual_holding(request.state.user.id, leaf_slug, **f)
     return _networth_redirect(redirect)
 
 
@@ -884,11 +888,17 @@ def foreign_add(
     ticker: str = Form(...),
     units: float = Form(...),
     cost: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a hand-entered foreign (US) equity holding: ticker + shares (+ cost)."""
+    """Add or edit a foreign (US) equity holding: ticker + shares (+ cost)."""
     symbol = ticker.strip().upper()
     if symbol:
-        storage.add_foreign_holding(request.state.user.id, symbol, units, _opt_float(cost))
+        f = {"ticker": symbol, "units": units, "cost_usd": _opt_float(cost)}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("foreign_holdings", eid, request.state.user.id, **f)
+        else:
+            storage.add_foreign_holding(request.state.user.id, **f)
     return _networth_redirect(redirect)
 
 
@@ -906,14 +916,18 @@ def forex_add(
     amount: float = Form(...),
     kind: str = Form(""),
     label: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a foreign-currency holding (amount in a currency, held account/cash)."""
+    """Add or edit a foreign-currency holding (amount in a currency, account/cash)."""
     cur = currency.strip().upper()
     if cur:
-        storage.add_forex_holding(
-            request.state.user.id, cur, amount,
-            kind=kind.strip() or None, label=label.strip() or None,
-        )
+        f = {"currency": cur, "amount": amount,
+             "kind": kind.strip() or None, "label": label.strip() or None}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("forex_holdings", eid, request.state.user.id, **f)
+        else:
+            storage.add_forex_holding(request.state.user.id, **f)
     return _networth_redirect(redirect)
 
 
@@ -931,14 +945,18 @@ def crypto_add(
     quantity: float = Form(...),
     invested_inr: str = Form(""),
     label: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a crypto holding (coin + quantity)."""
+    """Add or edit a crypto holding (coin + quantity)."""
     sym = symbol.strip().upper()
     if sym:
-        storage.add_crypto_holding(
-            request.state.user.id, sym, quantity,
-            invested_inr=_opt_float(invested_inr), label=label.strip() or None,
-        )
+        f = {"symbol": sym, "quantity": quantity,
+             "invested_inr": _opt_float(invested_inr), "label": label.strip() or None}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("crypto_holdings", eid, request.state.user.id, **f)
+        else:
+            storage.add_crypto_holding(request.state.user.id, **f)
     return _networth_redirect(redirect)
 
 
@@ -957,14 +975,18 @@ def alt_add(
     category: str = Form(""),
     cost: str = Form(""),
     invested_date: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add an alternate investment (illiquid, hand-valued)."""
+    """Add or edit an alternate investment (illiquid, hand-valued)."""
     if name.strip():
-        storage.add_alt_investment(
-            request.state.user.id, name.strip(), current_value,
-            category=category.strip() or None, cost=_opt_float(cost),
-            invested_date=_opt_date(invested_date),
-        )
+        f = {"name": name.strip(), "current_value": current_value,
+             "category": category.strip() or None, "cost": _opt_float(cost),
+             "invested_date": _opt_date(invested_date)}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("alt_investments", eid, request.state.user.id, **f)
+        else:
+            storage.add_alt_investment(request.state.user.id, **f)
     return _networth_redirect(redirect)
 
 
@@ -985,14 +1007,18 @@ def property_add(
     purchase_date: str = Form(""),
     notes: str = Form(""),
     share_pct: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a property to a Real Estate sub-leaf."""
+    """Add or edit a property on a Real Estate sub-leaf."""
     if leaf_slug in networth.REALTY_LEAVES and label.strip():
-        storage.add_property_holding(
-            request.state.user.id, leaf_slug, label.strip(), current_value,
-            cost=_opt_float(cost), purchase_date=_opt_date(purchase_date),
-            notes=notes.strip() or None, share_pct=_opt_float(share_pct),
-        )
+        f = {"label": label.strip(), "current_value": current_value,
+             "cost": _opt_float(cost), "purchase_date": _opt_date(purchase_date),
+             "notes": notes.strip() or None, "share_pct": _opt_float(share_pct)}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("property_holdings", eid, request.state.user.id, **f)
+        else:
+            storage.add_property_holding(request.state.user.id, leaf_slug, **f)
     return _networth_redirect(redirect)
 
 
@@ -1017,16 +1043,20 @@ def gold_add(
     weight_g: str = Form(""),
     karat: str = Form(""),
     flat_value: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a physical-gold item (weight+karat for live valuation, or a flat value)."""
+    """Add or edit a physical-gold item (weight+karat, or a flat value)."""
     desc = description.strip()
     weight, flat = _opt_float(weight_g), _opt_float(flat_value)
     # Need at least one basis to value it.
     if desc and (weight or flat is not None):
-        storage.add_gold_item(
-            request.state.user.id, desc,
-            weight_g=weight, karat=_opt_int(karat), flat_value=flat,
-        )
+        f = {"description": desc, "weight_g": weight,
+             "karat": _opt_int(karat), "flat_value": flat}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("gold_items", eid, request.state.user.id, **f)
+        else:
+            storage.add_gold_item(request.state.user.id, **f)
     return _networth_redirect(redirect)
 
 
@@ -1046,14 +1076,18 @@ def business_add(
     cost: str = Form(""),
     invested_date: str = Form(""),
     notes: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a private-business ownership stake."""
+    """Add or edit a private-business ownership stake."""
     if name.strip():
-        storage.add_business_holding(
-            request.state.user.id, name.strip(), current_value,
-            ownership_pct=_opt_float(ownership_pct), cost=_opt_float(cost),
-            invested_date=_opt_date(invested_date), notes=notes.strip() or None,
-        )
+        f = {"name": name.strip(), "current_value": current_value,
+             "ownership_pct": _opt_float(ownership_pct), "cost": _opt_float(cost),
+             "invested_date": _opt_date(invested_date), "notes": notes.strip() or None}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("business_holdings", eid, request.state.user.id, **f)
+        else:
+            storage.add_business_holding(request.state.user.id, **f)
     return _networth_redirect(redirect)
 
 
@@ -1075,15 +1109,19 @@ def liability_add(
     emi: str = Form(""),
     end_date: str = Form(""),
     notes: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a liability to a loan/dues leaf."""
+    """Add or edit a liability on a loan/dues leaf."""
     if leaf_slug in networth.LIABILITY_LEAVES and lender.strip():
-        storage.add_liability(
-            request.state.user.id, leaf_slug, lender.strip(), outstanding,
-            principal=_opt_float(principal), rate=_opt_float(rate),
-            emi=_opt_float(emi), end_date=_opt_date(end_date),
-            notes=notes.strip() or None,
-        )
+        f = {"lender": lender.strip(), "outstanding": outstanding,
+             "principal": _opt_float(principal), "rate": _opt_float(rate),
+             "emi": _opt_float(emi), "end_date": _opt_date(end_date),
+             "notes": notes.strip() or None}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("liabilities", eid, request.state.user.id, **f)
+        else:
+            storage.add_liability(request.state.user.id, leaf_slug, **f)
     return _networth_redirect(redirect)
 
 
@@ -1102,17 +1140,17 @@ def bank_cash_add(
     bank_name: str = Form(""),
     account_type: str = Form(""),
     label: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a bank-account or cash entry to its leaf."""
+    """Add or edit a bank-account or cash entry on its leaf."""
     if leaf_slug in networth.BANK_CASH_LEAVES:
-        storage.add_bank_cash(
-            request.state.user.id,
-            leaf_slug,
-            balance,
-            bank_name=bank_name.strip() or None,
-            account_type=account_type.strip() or None,
-            label=label.strip() or None,
-        )
+        f = {"balance": balance, "bank_name": bank_name.strip() or None,
+             "account_type": account_type.strip() or None, "label": label.strip() or None}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("bank_cash", eid, request.state.user.id, **f)
+        else:
+            storage.add_bank_cash(request.state.user.id, leaf_slug, **f)
     return _networth_redirect(redirect)
 
 
@@ -1170,6 +1208,8 @@ def networth_node(request: Request, path: str):
             "children": children,
             "node_value": values.get(prefix),
             "node_path": prefix,
+            # The row being edited (?edit={id}) — the leaf's add-form pre-fills from it.
+            "edit_id": _opt_int(request.query_params.get("edit", "")),
             "breadcrumbs": networth.breadcrumbs(chain),
             "leaf_data": leaf_data,
             "import_url": CAMS_IMPORT_URL,
@@ -1250,6 +1290,8 @@ def expenses_page(request: Request):
             "user": user,
             "has_expenses": bool(rows),
             "sections": sections,
+            # The row being edited (?edit={id}) — its category's add-form pre-fills from it.
+            "edit_id": _opt_int(request.query_params.get("edit", "")),
             "frequencies": expenses.FREQUENCIES,
             "monthly_total": monthly_total,
             "annual_total": annual_total,
@@ -1272,17 +1314,23 @@ def expense_add(
     frequency: str = Form(...),
     count: str = Form(""),
     notes: str = Form(""),
+    id: str = Form(""),
 ):
-    """Add a recurring expense."""
+    """Add or edit a recurring expense."""
     if (
         name.strip()
         and category in expenses.CATEGORY_BY_SLUG
         and frequency in expenses.FREQUENCIES
     ):
-        storage.add_expense(
-            request.state.user.id, name.strip(), category, amount, frequency,
-            count=max(1, _opt_int(count) or 1), notes=notes.strip() or None,
-        )
+        f = {"name": name.strip(), "category": category, "amount": amount,
+             "frequency": frequency, "count": max(1, _opt_int(count) or 1),
+             "notes": notes.strip() or None}
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("expenses", eid, request.state.user.id, **f)
+        else:
+            storage.add_expense(request.state.user.id, f.pop("name"), f.pop("category"),
+                                f.pop("amount"), f.pop("frequency"), **f)
     return RedirectResponse(url="/expenses", status_code=303)
 
 
