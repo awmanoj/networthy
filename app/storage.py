@@ -349,6 +349,25 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_crypto_user ON crypto_holdings(user_id)")
+        # Daily net-worth history (one row per IST day per user), recorded by the
+        # digest job. Powers the day-over-day / week-over-week email digests (and a
+        # future trend chart). `breakdown` is a JSON map of live-category → value.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS nw_history (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                date        TEXT NOT NULL,
+                net_worth   REAL NOT NULL,
+                assets      REAL NOT NULL,
+                liabilities REAL NOT NULL,
+                breakdown   TEXT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE (user_id, date)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_nwhist_user ON nw_history(user_id, date)")
         # Hand-entered bank accounts and cash. One table for both leaves, keyed by
         # leaf_slug ('bank-accounts' | 'cash'); balance is the value that rolls into
         # net worth. Bank rows carry bank_name/account_type; cash rows leave them null.
@@ -450,6 +469,13 @@ def get_or_create_user(email: str) -> User:
         user_id = _get_or_create_user(conn, email)
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return _row_to_user(row)
+
+
+def list_users() -> list[User]:
+    """Every account, oldest first — for batch jobs like the email digest."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT * FROM users ORDER BY id ASC").fetchall()
+    return [_row_to_user(r) for r in rows]
 
 
 def get_user(user_id: int) -> User | None:
@@ -1282,6 +1308,57 @@ def delete_crypto_holding(user_id: int, holding_id: int) -> None:
         conn.execute(
             "DELETE FROM crypto_holdings WHERE id = ? AND user_id = ?", (holding_id, user_id)
         )
+
+
+# --- Net-worth history (for the email digests / trend) ----------------------
+
+def record_nw_snapshot(
+    user_id: int, date: str, net_worth: float, assets: float, liabilities: float,
+    breakdown: str | None = None,
+) -> None:
+    """Upsert one day's net-worth snapshot (idempotent per user + date)."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO nw_history (user_id, date, net_worth, assets, liabilities, breakdown)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, date) DO UPDATE SET
+                net_worth   = excluded.net_worth,
+                assets      = excluded.assets,
+                liabilities = excluded.liabilities,
+                breakdown   = excluded.breakdown
+            """,
+            (user_id, date, net_worth, assets, liabilities, breakdown),
+        )
+
+
+def _row_to_nw_history(row: sqlite3.Row) -> dict:
+    return {
+        "date": row["date"], "net_worth": row["net_worth"], "assets": row["assets"],
+        "liabilities": row["liabilities"], "breakdown": row["breakdown"],
+    }
+
+
+def latest_nw_snapshot_before(user_id: int, date: str) -> dict | None:
+    """The most recent snapshot strictly before `date` (for day-over-day)."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM nw_history WHERE user_id = ? AND date < ? "
+            "ORDER BY date DESC LIMIT 1",
+            (user_id, date),
+        ).fetchone()
+    return _row_to_nw_history(row) if row else None
+
+
+def nw_snapshot_on_or_before(user_id: int, date: str) -> dict | None:
+    """The snapshot closest to (but not after) `date` — for week-over-week."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM nw_history WHERE user_id = ? AND date <= ? "
+            "ORDER BY date DESC LIMIT 1",
+            (user_id, date),
+        ).fetchone()
+    return _row_to_nw_history(row) if row else None
 
 
 # --- Bank accounts & cash ---------------------------------------------------

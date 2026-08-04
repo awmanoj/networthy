@@ -163,6 +163,17 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
 - The SQLite DB persists in the `networthy_data` Docker volume mounted at `/app/data`.
 - `deploy.sh` requires a prior `docker login` (or `DOCKERHUB_TOKEN`) and tags each image with
   both the given tag and the short git SHA.
+- **Email digests** (`app/digest.py`): `python -m app.digest daily|weekly` recomputes every user's net
+  worth live, records a **daily snapshot** in `nw_history`, and emails a change summary via `mailer`
+  (no-ops to a log without `RESEND_API_KEY`). Daily = day-over-day net-worth delta; weekly = that plus a
+  breakdown of the four live-priced categories (MF, Equity, Foreign Equity, Crypto). Subjects carry the
+  **change, not the total** (keeps the figure off lock-screen previews). Cron (server is UTC; 6 PM IST =
+  12:30 UTC — daily Mon–Sat, weekly Sunday so you never get two in one day):
+  ```
+  30 12 * * 1-6 docker exec networthy python -m app.digest daily  >> /var/log/networthy-digest.log 2>&1
+  30 12 * * 0   docker exec networthy python -m app.digest weekly >> /var/log/networthy-digest.log 2>&1
+  ```
+  `nw_history` (one row per IST day per user) also gives the deferred net-worth-over-time trend.
 - `backup.sh` snapshots the DB via SQLite's **online backup** (run inside the app container's
   Python, so it's consistent under concurrent writes — not a raw file copy), gzips it into
   `$BACKUP_DIR`, and prunes beyond `$KEEP` (default 42 ≈ 7 days at every 4h). Cron it every 4h:
