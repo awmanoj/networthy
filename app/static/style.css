@@ -842,7 +842,10 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .goal-chip--muted, .goal-chip--auto { color: var(--faint); background: var(--surface-2); }
 /* The FIRE card is a touch distinguished with a copper hairline. */
 .goal-fire { border: 1px solid color-mix(in srgb, var(--copper) 45%, var(--border)); }
-.goal-form-head { font-size: 1.05rem; color: var(--ink); margin: 0 0 14px; }
+/* The add/edit form is its own card already, so the heading is a plain label
+   above it (no wrapping surface) — avoids a box-in-a-box. */
+.goal-add-section { margin-top: 22px; }
+.goal-form-head { font-size: 1.05rem; color: var(--ink); margin: 0 0 12px; }
 
 .dash-empty { text-align: center; padding: 60px 24px; }
 .dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }

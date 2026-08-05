@@ -93,7 +93,7 @@
 {% endfor %}
 
 {# --- Add / edit -------------------------------------------------------------- #}
-<section class="dash-card">
+<section class="goal-add-section">
   <h2 class="goal-form-head" id="editform">{{ "Edit goal" if ed else "Add a goal" }}</h2>
   <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/goals/add">
     {% if ed %}<input type="hidden" name="id" value="{{ ed.id }}">{% endif %}
