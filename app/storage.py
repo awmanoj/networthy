@@ -391,6 +391,20 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_bank_cash_user_leaf "
             "ON bank_cash(user_id, leaf_slug)"
         )
+        # Per-user convenience settings for the CAMS import: the PAN (which doubles as
+        # the CAS PDF password) and the CAS-registered email. Stored deliberately, opt-in,
+        # so the user doesn't retype the PAN on every upload and we can build a personal
+        # auto-fill bookmarklet for the CAMS form. Local-only — never egresses.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_settings (
+                user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                pan        TEXT,
+                cams_email TEXT,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -485,6 +499,34 @@ def update_row(table: str, row_id: int, user_id: int, **fields) -> None:
         conn.execute(
             f"UPDATE {table} SET {cols} WHERE id = ? AND user_id = ?",
             (*fields.values(), row_id, user_id),
+        )
+
+
+def get_user_settings(user_id: int) -> dict:
+    """The user's CAMS-import settings ({'pan', 'cams_email'}), empty strings if unset."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT pan, cams_email FROM user_settings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+    return {
+        "pan": (row["pan"] if row else "") or "",
+        "cams_email": (row["cams_email"] if row else "") or "",
+    }
+
+
+def save_user_settings(user_id: int, pan: str, cams_email: str) -> None:
+    """Upsert the user's CAMS PAN + registered email (one row per user)."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_settings (user_id, pan, cams_email, updated_at)
+            VALUES (?, ?, ?, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET
+                pan = excluded.pan,
+                cams_email = excluded.cams_email,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, pan or None, cams_email or None),
         )
 
 

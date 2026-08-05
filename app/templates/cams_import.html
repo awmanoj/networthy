@@ -44,8 +44,89 @@
 </section>
 {% endif %}
 
+<!-- Step 1 — save PAN + registered email once -->
 <section class="card narrow" style="margin-top:22px;">
-  <h2 style="color:var(--text);font-size:1.05rem;">Upload your CAMS statement</h2>
+  <h2 style="color:var(--ink);font-size:1.05rem;">1 · Your details</h2>
+  <p class="muted" style="margin:-4px 0 4px;font-size:0.9rem;">
+    Saved so you don't retype them, and to build your one-click auto-fill below. Your
+    PAN doubles as the CAS PDF password. Stored on this server only — it never leaves it.
+  </p>
+  <form method="post" action="/networth/settings/cams">
+    <label>
+      PAN
+      <input name="pan" value="{{ settings.pan }}" placeholder="ABCDE1234F"
+             style="text-transform:uppercase;" maxlength="10" />
+    </label>
+    <label>
+      Email registered with CAMS
+      <input name="cams_email" type="email" value="{{ settings.cams_email }}"
+             placeholder="{{ user.email }}" />
+    </label>
+    <button class="btn" type="submit">Save details</button>
+  </form>
+</section>
+
+<!-- Step 2 — get the statement (bookmarklet + deep link + manual steps) -->
+<section class="card">
+  <h2>2 · Get your CAMS statement</h2>
+
+  {% if settings.pan %}
+  <p class="muted" style="margin-top:-4px;">
+    Drag this button to your bookmarks bar. Then open the CAMS form and click it —
+    it fills your email, PAN and password automatically. You just press <strong>Submit</strong>.
+  </p>
+  <p style="margin:14px 0;">
+    <a class="btn bookmarklet" href="{{ bookmarklet }}"
+       onclick="alert('Drag me to your bookmarks bar, then click me on the CAMS page.');return false;"
+       draggable="true">📌 Autofill CAMS (drag me up)</a>
+    <a class="btn btn-outline" href="{{ cams_page }}" target="_blank" rel="noopener"
+       style="margin-left:8px;">Open CAMS form ↗</a>
+  </p>
+  <details style="margin-top:6px;">
+    <summary class="muted" style="cursor:pointer;font-size:0.85rem;">
+      Bookmarklet won't drag? Copy the code instead
+    </summary>
+    <textarea readonly rows="4" onclick="this.select();"
+              style="width:100%;margin-top:8px;font-family:var(--mono,monospace);font-size:0.75rem;
+                     padding:10px;border:1px solid var(--line,#d8dde4);border-radius:8px;
+                     background:var(--surface);color:var(--ink);">{{ bookmarklet }}</textarea>
+    <p class="muted" style="font-size:0.8rem;margin:6px 0 0;">
+      Create a new bookmark and paste this as its URL.
+    </p>
+  </details>
+  {% else %}
+  <p class="muted" style="margin-top:-4px;">
+    Save your PAN above to unlock the one-click auto-fill. Or fill the CAMS form by hand —
+    <a href="{{ cams_page }}" target="_blank" rel="noopener">open it here ↗</a>.
+  </p>
+  {% endif %}
+
+  <h3 style="margin:20px 0 6px;font-size:0.95rem;color:var(--ink);">Doing it by hand</h3>
+  <ol class="steps">
+    <li>
+      Open <strong>CAMS → Statements → CAS – CAMS + KFintech</strong>
+      (<a href="{{ cams_page }}" target="_blank" rel="noopener">direct link</a>).
+    </li>
+    <li>
+      <strong>Statement type</strong>: <em>Summary</em> (balances &amp; valuation) is enough;
+      <em>Detailed</em> also works. Leave the <em>as-on</em> date as today.
+    </li>
+    <li>
+      Enter your <strong>registered email</strong> (the one your folios are registered
+      under — the PDF is mailed only there). PAN is optional. Set <strong>Password</strong>
+      and <strong>Confirm Password</strong> to your <strong>PAN in CAPITALS</strong>.
+    </li>
+    <li>
+      Press <strong>Submit</strong> (complete an <strong>OTP</strong> if asked). The
+      password-protected PDF arrives in your email within a few minutes.
+    </li>
+    <li>Come back and upload it below.</li>
+  </ol>
+</section>
+
+<!-- Step 3 — upload -->
+<section class="card narrow" style="margin-top:22px;">
+  <h2 style="color:var(--ink);font-size:1.05rem;">3 · Upload the PDF</h2>
 
   {% if error %}
   <div class="alert">{{ error }}</div>
@@ -58,42 +139,20 @@
     </label>
     <label>
       PDF password
-      <input type="password" name="password" placeholder="usually your PAN (CAPITALS)" />
+      <input type="password" name="password" value="{{ settings.pan }}"
+             placeholder="usually your PAN (CAPITALS)" />
     </label>
     <button class="btn btn-lg" type="submit">Import</button>
   </form>
   <p class="auth-sub muted" style="margin-top:14px;">
-    The password is used only to decrypt the PDF in memory — it is never stored.
+    {% if settings.pan %}Pre-filled with your saved PAN.{% endif %}
+    The password decrypts the PDF in memory; the file itself is never stored.
   </p>
 </section>
 
-<section class="card">
-  <h2>How to generate a CAMS statement</h2>
-  <ol class="steps">
-    <li>
-      Go to <strong>MF Central</strong> (mfcentral.com) or <strong>CAMS</strong>
-      (camsonline.com) → <em>Statements → Consolidated Account Statement (CAS) —
-      CAMS + KFintech</em>.
-    </li>
-    <li>
-      Enter your <strong>PAN</strong> and <strong>registered email</strong>, pick the
-      period (choose <em>Since Inception</em> for everything, or a date range) and the
-      <strong>Detailed</strong> statement, then submit.
-    </li>
-    <li>
-      Verify with the <strong>OTP</strong> sent to your registered email/mobile, and
-      set or note the <strong>password</strong> for the PDF (often your PAN in CAPITALS).
-    </li>
-    <li>
-      Within a few minutes a <strong>password-protected PDF</strong> arrives in your
-      email.
-    </li>
-    <li>Come back here and upload it above with that password.</li>
-  </ol>
-  <p class="muted" style="font-size:0.85rem;margin:12px 0 0;">
-    Note: a CAMS statement covers mutual funds only. Direct stocks, bonds and SGBs come
-    from your NSDL CAS (via <a href="/upload">Upload CAS</a>).
-  </p>
-</section>
+<p class="muted" style="font-size:0.85rem;margin:18px 2px 0;">
+  Note: a CAMS statement covers mutual funds only. Direct stocks, bonds and SGBs come
+  from your NSDL CAS (via <a href="/upload">Upload CAS</a>).
+</p>
 
 {% endblock %}

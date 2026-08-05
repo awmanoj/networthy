@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from datetime import date
@@ -271,15 +272,70 @@ def networth_overview(request: Request):
 
 
 CAMS_IMPORT_URL = "/networth/import/cams"
+# The live CAMS "CAS – CAMS + KFintech" mailback form.
+CAMS_CAS_PAGE = (
+    "https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement"
+)
+
+
+def _cams_bookmarklet(email: str, pan: str) -> str:
+    """A one-click auto-fill bookmarklet for the CAMS CAS form, personalised with the
+    user's email + PAN. It sets the Angular Material inputs via the native value setter
+    and dispatches `input` so the reactive form registers them; the user just presses
+    Submit. Runs only in the user's own browser (so reCAPTCHA, if any, sees a real user).
+    Email/PAN are embedded as JSON literals — the template attribute-escapes the whole
+    string, and the browser decodes it back on click."""
+    e, p = json.dumps(email or ""), json.dumps(pan or "")
+    return (
+        "javascript:(function(){var E=%s,P=%s;"
+        "function s(el,v){if(!el)return;var d=Object.getOwnPropertyDescriptor("
+        "HTMLInputElement.prototype,'value').set;d.call(el,v);"
+        "el.dispatchEvent(new Event('input',{bubbles:true}));"
+        "el.dispatchEvent(new Event('blur',{bubbles:true}));}"
+        "s(document.querySelector('input[placeholder=\"Email\"]'),E);"
+        "s(document.querySelector('input[placeholder=\"PAN\"]'),P);"
+        "s(document.querySelector('#password'),P);"
+        "s(document.querySelector('#confirmPassword'),P);"
+        "alert('Networthy filled Email, PAN and Password (=PAN). "
+        "Choose Summary or Detailed if you like, then press Submit.');})();" % (e, p)
+    )
+
+
+def _cams_ctx(user, *, error=None, result=None) -> dict:
+    """Shared template context for the CAMS import page: saved settings, the
+    personalised bookmarklet, and the deep link to the CAMS form."""
+    s = storage.get_user_settings(user.id)
+    email = s["cams_email"] or user.email
+    return {
+        "user": user,
+        "settings": s,
+        "cams_email": email,
+        "cams_page": CAMS_CAS_PAGE,
+        "bookmarklet": _cams_bookmarklet(email, s["pan"]),
+        "error": error,
+        "result": result,
+    }
 
 
 @app.get(CAMS_IMPORT_URL, response_class=HTMLResponse)
 def cams_import_form(request: Request):
-    """How to generate a CAMS CAS + an upload form to import it."""
+    """How to generate a CAMS CAS (with a one-click auto-fill bookmarklet) + an upload
+    form to import it."""
     return templates.TemplateResponse(
-        "cams_import.html",
-        {"request": request, "user": request.state.user, "error": None, "result": None},
+        "cams_import.html", {"request": request, **_cams_ctx(request.state.user)}
     )
+
+
+@app.post("/networth/settings/cams")
+def cams_settings_save(
+    request: Request, pan: str = Form(""), cams_email: str = Form("")
+):
+    """Remember the user's PAN (= CAS PDF password) and CAS-registered email so they
+    don't retype them, and to build the personalised auto-fill bookmarklet."""
+    storage.save_user_settings(
+        request.state.user.id, pan.strip().upper(), cams_email.strip()
+    )
+    return RedirectResponse(url=CAMS_IMPORT_URL, status_code=303)
 
 
 @app.post(CAMS_IMPORT_URL, response_class=HTMLResponse)
@@ -290,17 +346,18 @@ async def cams_import(
 ):
     """Parse an uploaded CAMS CAS and store its holdings for the Networth pages.
 
-    The password (usually the PAN) is used only to decrypt the PDF in memory — it
-    is never stored. A prior CAMS import is replaced wholesale.
+    The password (the PAN) decrypts the PDF in memory. If the field is left blank we
+    fall back to the saved PAN. A prior CAMS import is replaced wholesale.
     """
     user = request.state.user
+    pw = password or storage.get_user_settings(user.id)["pan"]
     try:
         contents = await file.read()
-        parsed = parse_cams(contents, password or None)
+        parsed = parse_cams(contents, pw or None)
     except CASParseError as exc:
         return templates.TemplateResponse(
             "cams_import.html",
-            {"request": request, "user": user, "error": str(exc), "result": None},
+            {"request": request, **_cams_ctx(user, error=str(exc))},
             status_code=400,
         )
 
@@ -316,8 +373,7 @@ async def cams_import(
         "as_of": parsed.as_of_date.strftime("%d %b %Y") if parsed.as_of_date else None,
     }
     return templates.TemplateResponse(
-        "cams_import.html",
-        {"request": request, "user": user, "error": None, "result": result},
+        "cams_import.html", {"request": request, **_cams_ctx(user, result=result)}
     )
 
 

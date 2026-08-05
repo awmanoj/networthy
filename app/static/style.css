@@ -151,6 +151,16 @@ main.wide { max-width: 1120px; }
 }
 .btn:hover { filter: brightness(1.08); }
 .btn-lg { padding: 12px 22px; font-size: 1rem; }
+/* Secondary button: outlined in the brand colour, fills on hover. The doubled
+   `.btn.btn-outline` outweighs the global `a.btn { color: var(--btn-fg) }` guard so
+   the label stays visible (navy on transparent), not white-on-white. */
+.btn.btn-outline {
+  background: transparent; color: var(--brand);
+  border: 1px solid var(--brand);
+}
+.btn.btn-outline:hover { filter: none; background: var(--brand); color: var(--btn-fg); }
+/* The draggable auto-fill bookmarklet reads as a grab handle. */
+.bookmarklet { cursor: grab; }
 
 .card {
   background: var(--surface);
