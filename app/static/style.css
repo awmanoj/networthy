@@ -223,9 +223,6 @@ table.snapshots .num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Breathe a few times to catch the eye, then rest on the halo above. */
   animation: edit-glow 2.4s ease-in-out 3;
 }
-/* Drop the section's separator rule while glowing — the halo is the boundary now,
-   so the solid line reads as a stray stroke through the box. */
-.manual-section.manual-sep.edit-glow { border-top: none; }
 #editform { scroll-margin-top: 24px; }
 @keyframes edit-glow {
   0%, 100% {

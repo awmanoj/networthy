@@ -114,9 +114,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit US holding" if ed else "Add US holding" }}</h3>
-      <form class="manual-add" method="post" action="/networth/foreign/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/foreign/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
         <div class="manual-field col-2">
@@ -176,9 +176,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ ("Edit " if ed else "Add ") ~ ("bank account" if leaf_data.is_bank else "cash") }}</h3>
-      <form class="manual-add" method="post" action="/networth/bank/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/bank/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
@@ -260,9 +260,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit foreign currency" if ed else "Add foreign currency" }}</h3>
-      <form class="manual-add" method="post" action="/networth/forex/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/forex/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
         <div class="manual-field">
@@ -342,9 +342,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit crypto" if ed else "Add crypto" }}</h3>
-      <form class="manual-add" method="post" action="/networth/crypto/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/crypto/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
         <div class="manual-field">
@@ -420,9 +420,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit alternate investment" if ed else "Add alternate investment" }}</h3>
-      <form class="manual-add" method="post" action="/networth/alt/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/alt/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
         <div class="manual-field col-2">
@@ -508,9 +508,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit property" if ed else "Add property" }}</h3>
-      <form class="manual-add" method="post" action="/networth/property/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/property/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
@@ -585,9 +585,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit gold item" if ed else "Add gold item" }}</h3>
-      <form class="manual-add" method="post" action="/networth/gold/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/gold/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
         <div class="manual-field col-2">
@@ -661,9 +661,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit business stake" if ed else "Add business stake" }}</h3>
-      <form class="manual-add" method="post" action="/networth/business/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/business/add">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
         <div class="manual-field col-2">
@@ -742,9 +742,9 @@
       </tbody>
     </table>
     {% endif %}
-    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">{{ "Edit liability" if ed else "Add liability" }}</h3>
-      <form class="manual-add" method="post" action="/networth/liability/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/liability/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
@@ -860,7 +860,7 @@
     {% endif %}
 
     {% if leaf_data.manual_enabled %}
-    <div class="manual-section{% if leaf_data.has_cas %} manual-sep{% endif %}{% if ed %} edit-glow{% endif %}">
+    <div class="manual-section{% if leaf_data.has_cas %} manual-sep{% endif %}">
       <h3 class="manual-head" id="editform">
         {{ "Edit entry" if ed else "Manual entries" }}{% if not ed and leaf_data.manual %} <span class="muted">· ₹{{ "{:,.0f}".format(leaf_data.manual_total) }}</span>{% endif %}
       </h3>
@@ -904,7 +904,7 @@
         </tbody>
       </table>
       {% endif %}
-      <form class="manual-add" method="post" action="/networth/manual/add">
+      <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/manual/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
