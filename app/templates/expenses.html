@@ -89,7 +89,7 @@
         <td class="num">{{ ("× " ~ e.count) if e.count and e.count > 1 else "" }}</td>
         <td class="num">₹{{ "{:,.0f}".format(e.monthly) }}/mo</td>
         <td class="num nw-actions">
-          <a class="link-edit" href="?edit={{ e.id }}#cat-{{ s.slug }}">edit</a>
+          <a class="link-edit" href="?edit={{ e.id }}#editform">edit</a>
           <form method="post" action="/expenses/{{ e.id }}/delete"
                 onsubmit="return confirm('Delete this expense?');">
             <button class="link-danger" type="submit">delete</button>
@@ -101,7 +101,7 @@
   </table>
   {% endif %}
 
-  <form class="exp-add-row{% if ed %} editing{% endif %}" method="post" action="/expenses/add">
+  <form class="exp-add-row{% if ed %} edit-glow{% endif %}"{% if ed %} id="editform"{% endif %} method="post" action="/expenses/add">
     <input type="hidden" name="category" value="{{ s.slug }}">
     {% if ed %}<input type="hidden" name="id" value="{{ ed.id }}">{% endif %}
     <input class="exp-name" name="name" placeholder="{{ s.example }}" value="{{ ed.name if ed else '' }}" required>

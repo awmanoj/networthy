@@ -209,6 +209,39 @@ table.snapshots .num { text-align: right; font-variant-numeric: tabular-nums; }
 .cancel-edit { align-self: center; }
 .manual-actions .cancel-edit { margin-left: auto; }
 .manual-actions .cancel-edit + .btn { margin-left: 0; }
+
+/* --- Edit-mode attention glow ------------------------------------------------
+   Clicking a row's Edit link reloads the page with ?edit= and pre-fills the form.
+   This copper halo breathes around that form so it's immediately obvious where to
+   make the change and Save. The `#editform` / section is also the scroll anchor. */
+.edit-glow {
+  border-radius: 12px;
+  scroll-margin-top: 24px;
+  /* Steady soft halo (also the resting state the animation settles back to). */
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--copper) 42%, transparent),
+              0 0 8px 1px color-mix(in srgb, var(--copper) 16%, transparent);
+  /* Breathe a few times to catch the eye, then rest on the halo above. */
+  animation: edit-glow 2.4s ease-in-out 3;
+}
+#editform { scroll-margin-top: 24px; }
+@keyframes edit-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--copper) 42%, transparent),
+                0 0 8px 1px color-mix(in srgb, var(--copper) 16%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--copper) 78%, transparent),
+                0 0 22px 5px color-mix(in srgb, var(--copper) 42%, transparent);
+  }
+}
+/* Reduced-motion: drop the breathing, keep a steady halo so the cue survives. */
+@media (prefers-reduced-motion: reduce) {
+  .edit-glow {
+    animation: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--copper) 60%, transparent),
+                0 0 16px 3px color-mix(in srgb, var(--copper) 30%, transparent);
+  }
+}
 form { display: inline; }
 
 .card.narrow form { display: flex; flex-direction: column; gap: 16px; }
