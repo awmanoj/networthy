@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Goals · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+{% set ed = (goals | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
+
+<section class="nw-page-head">
+  <h1>Goals</h1>
+  <p class="muted">
+    Set a target and a date — we work out the monthly investment needed to get there.
+    Your <strong>Retirement (FIRE)</strong> goal is tracked automatically from your Expenses.
+  </p>
+</section>
+
+{% if has_goals or fire %}
+<section class="goals-summary dash-card">
+  <div class="gs-stat">
+    <span class="eyebrow">Overall progress</span>
+    <span class="gs-figure num">{{ "%.0f"|format(overall_pct) }}%</span>
+    <span class="hero-note">₹{{ "{:,.0f}".format(total_saved) }} of ₹{{ "{:,.0f}".format(total_target) }} across {{ goals|length }} goal{{ '' if goals|length == 1 else 's' }}</span>
+  </div>
+  {% if total_monthly %}
+  <div class="gs-stat">
+    <span class="eyebrow">Needed each month</span>
+    <span class="gs-figure num">₹{{ "{:,.0f}".format(total_monthly) }}</span>
+    <span class="hero-note">to keep every dated goal on track</span>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{# --- Retirement (FIRE): read-only, mirrored from Expenses -------------------- #}
+{% if fire %}
+<section class="dash-card goal-card goal-fire">
+  <div class="goal-head">
+    <span class="goal-title"><span class="goal-icon">★</span> Retirement (FIRE)</span>
+    <span class="goal-chip goal-chip--auto">auto · from Expenses</span>
+  </div>
+  <div class="goal-meta">{{ fire.multiple }}× your annual expenses · a 4% safe-withdrawal corpus</div>
+  <div class="goal-bar"><span style="width: {{ '%.1f'|format([fire.progress_pct, 100]|min) }}%; background: var(--copper);"></span></div>
+  <div class="goal-foot">
+    <span>₹{{ "{:,.0f}".format(fire.saved) }} of ₹{{ "{:,.0f}".format(fire.target) }} · {{ "%.0f"|format(fire.progress_pct) }}% there</span>
+    <a href="/expenses" class="goal-link">Adjust on Expenses →</a>
+  </div>
+</section>
+{% endif %}
+
+{# --- Your goals -------------------------------------------------------------- #}
+{% for g in goals %}
+<section class="dash-card goal-card{% if ed and ed.id == g.id %} row-editing{% endif %}">
+  <div class="goal-head">
+    <span class="goal-title"><span class="goal-icon">{{ g.category_icon }}</span> {{ g.name }}</span>
+    {% if g.status == 'funded' %}
+    <span class="goal-chip goal-chip--funded">Funded ✓</span>
+    {% elif g.status == 'overdue' %}
+    <span class="goal-chip goal-chip--overdue">Overdue</span>
+    {% elif g.status == 'undated' %}
+    <span class="goal-chip goal-chip--muted">No date</span>
+    {% else %}
+    <span class="goal-chip goal-chip--active">{{ g.months_left }} mo left</span>
+    {% endif %}
+  </div>
+  <div class="goal-meta">
+    {{ g.category_label }}
+    {% if g.target_fmt %} · by {{ g.target_fmt }}{% endif %}
+    · {{ "%g"|format(g.return_pct_display) }}%/yr assumed
+    {% if g.notes %} · {{ g.notes }}{% endif %}
+  </div>
+  <div class="goal-bar"><span style="width: {{ '%.1f'|format([g.progress_pct, 100]|min) }}%; background: {{ g.category_color }};"></span></div>
+  <div class="goal-foot">
+    <span>₹{{ "{:,.0f}".format(g.saved_amount) }} of ₹{{ "{:,.0f}".format(g.target_amount) }} · {{ "%.0f"|format(g.progress_pct) }}%</span>
+    <span class="goal-sip">
+      {% if g.status == 'active' %}
+        Invest <strong>₹{{ "{:,.0f}".format(g.required_monthly) }}/mo</strong>{% if g.target_fmt %} to reach it by {{ g.target_fmt }}{% endif %}
+      {% elif g.status == 'funded' %}
+        On track — projected to reach the target with no new investment
+      {% elif g.status == 'overdue' %}
+        Target date has passed — update the date or amount
+      {% else %}
+        Add a target date to see the monthly plan
+      {% endif %}
+    </span>
+  </div>
+  <div class="goal-actions nw-actions">
+    <a class="link-edit" href="?edit={{ g.id }}#editform">edit</a>
+    <form method="post" action="/goals/{{ g.id }}/delete"
+          onsubmit="return confirm('Delete this goal?');">
+      <button class="link-danger" type="submit">delete</button>
+    </form>
+  </div>
+</section>
+{% endfor %}
+
+{# --- Add / edit -------------------------------------------------------------- #}
+<section class="dash-card">
+  <h2 class="goal-form-head" id="editform">{{ "Edit goal" if ed else "Add a goal" }}</h2>
+  <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/goals/add">
+    {% if ed %}<input type="hidden" name="id" value="{{ ed.id }}">{% endif %}
+    <div class="manual-field col-2">
+      <label for="g-name">Goal</label>
+      <input id="g-name" name="name" placeholder="e.g. Kids' education" value="{{ ed.name if ed else '' }}" required>
+    </div>
+    <div class="manual-field">
+      <label for="g-cat">Type</label>
+      <select id="g-cat" name="category">
+        {% for c in categories %}
+        <option value="{{ c.slug }}"{{ ' selected' if (ed.category == c.slug if ed else c.slug == 'wealth') else '' }}>{{ c.icon }} {{ c.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="manual-field">
+      <label for="g-target">Target ₹</label>
+      <input id="g-target" name="target_amount" type="number" step="any" min="0" placeholder="0" value="{{ ed.target_amount if ed else '' }}" required>
+    </div>
+    <div class="manual-field">
+      <label for="g-saved">Saved so far ₹ <span class="opt">optional</span></label>
+      <input id="g-saved" name="saved_amount" type="number" step="any" min="0" placeholder="0" value="{{ ed.saved_amount if ed and ed.saved_amount else '' }}">
+    </div>
+    <div class="manual-field">
+      <label for="g-date">Target date <span class="opt">optional</span></label>
+      <input id="g-date" name="target_date" type="date" value="{{ ed.target_date if ed and ed.target_date else '' }}">
+    </div>
+    <div class="manual-field">
+      <label for="g-ret">Expected return % <span class="opt">optional</span></label>
+      <input id="g-ret" name="return_pct" type="number" step="any" min="0" placeholder="{{ default_return }}" value="{{ ed.return_pct if ed and ed.return_pct is not none else '' }}">
+    </div>
+    <div class="manual-field col-2">
+      <label for="g-notes">Notes <span class="opt">optional</span></label>
+      <input id="g-notes" name="notes" placeholder="e.g. via monthly SIP in index funds" value="{{ ed.notes if ed and ed.notes else '' }}">
+    </div>
+    <div class="manual-actions">
+      <span class="manual-hint muted">We assume {{ default_return }}%/yr if you leave return blank. Saved-so-far compounds at that rate toward the target.</span>
+      {% if ed %}<a class="link-muted cancel-edit" href="?">Cancel</a>{% endif %}
+      <button class="btn" type="submit">{{ "Save changes" if ed else "Add goal" }}</button>
+    </div>
+  </form>
+</section>
+
+{% endblock %}

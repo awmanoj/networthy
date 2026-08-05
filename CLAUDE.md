@@ -91,7 +91,7 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `networth_overview.html`) is the structured entry point — the net-worth summary plus the **full
   tree** (every section/subsection/leaf, incl. empty scaffolds) as navigable links with rolled
   values and "N inside" chips. Leaf/detail pages are at `/networth/{path}`; breadcrumbs root at the
-  Net worth hub. Nav order: Dashboard · Net worth · Expenses · NSDL CAS. Leaves are blank scaffolds
+  Net worth hub. Nav order: Dashboard · Net worth · Expenses · Goals · NSDL CAS. Leaves are blank scaffolds
   except the **data-backed** ones in
   `LEAF_ASSET_CLASSES` (Mutual Funds, Gold & Silver), which render holdings from two sources: an
   uploaded CAMS import and/or the latest NSDL snapshot's classified rows. `POST
@@ -129,8 +129,8 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 - **`app/models.py`** — dataclasses shared across layers: `Holding`, `ParsedStatement` (parser
   output), `Snapshot` (stored row).
 
-- **`app/expenses.py` + the Expenses tab** (`GET /expenses`, top-level nav between Dashboard and
-  NSDL CAS) — a recurring-expense **planner**, deliberately *separate from net worth* (its own
+- **`app/expenses.py` + the Expenses tab** (`GET /expenses`, top-level nav between Net worth and
+  Goals) — a recurring-expense **planner**, deliberately *separate from net worth* (its own
   `expenses` table; not in the Assets/Liabilities tree). Each entry is amount × **count** (the
   per-person family-scaling lever) at a **frequency** (`FREQUENCIES`: monthly/quarterly/half-yearly/
   annual), normalised to a monthly & annual burn via `annual_amount()`. The page shows the burn,
@@ -139,6 +139,21 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   the 4% rule) with progress. Loan EMIs are intentionally **not** modelled here — they live under
   Liabilities, and double-counting would make burn-rate and net-worth views disagree. Routes:
   `POST /expenses/add` + `/expenses/{id}/delete`.
+
+- **`app/goals.py` + the Goals tab** (`GET /goals` → `goals_page`, template `goals.html`; nav order is
+  Dashboard · Net worth · Expenses · **Goals** · NSDL CAS) — a **target-by-date planner**, another
+  lens separate from the net-worth tree (own `goals` table). Each goal is a target amount + date +
+  expected return + **saved-so-far** (hand-entered — we deliberately don't tag holdings to goals, which
+  avoids double-counting one rupee across goals). `goals.plan()` is the core: it compounds saved-so-far
+  to the target date and returns the **required monthly SIP** (future-value-of-annuity) plus a status —
+  `funded` (projection alone reaches target), `active` (show the SIP), `overdue` (date passed, not
+  funded), `undated` (no date → progress only, no SIP). Return is stored per-goal as a percent
+  (`DEFAULT_RETURN_PCT` = 10 if blank). `CATEGORIES` gives each goal type a colour + icon. **Retirement
+  is not stored** — it's mirrored **read-only** at the top of the list from the Expenses FIRE target
+  (25× annual burn, progress = live net worth), so the burn has a single source of truth; the card links
+  back to Expenses to change it. Add/edit/delete reuse the shared edit flow (`update_row` + `.edit-glow`):
+  `POST /goals/add` (add-or-update via optional `id`) + `/goals/{id}/delete`. `test_goals.py` pins the
+  SIP math (annuity formula, funded/undated/overdue branches, month counting) and the route round-trips.
 
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **full page at `GET /standing`**
   reached from the Dashboard CTA tile; pre-fills with the user's live sum-the-tree net worth. Static net-worth

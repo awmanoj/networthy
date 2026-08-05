@@ -332,6 +332,27 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
+        # Financial goals: a target amount by a target date, how much is saved toward
+        # it so far (hand-entered), and an expected return — from which we derive the
+        # required monthly SIP. A separate planning lens, not part of the net-worth tree.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS goals (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name           TEXT NOT NULL,
+                category       TEXT NOT NULL,
+                target_amount  REAL NOT NULL,
+                saved_amount   REAL NOT NULL DEFAULT 0,
+                target_date    TEXT,
+                return_pct     REAL,
+                notes          TEXT,
+                position       INTEGER NOT NULL DEFAULT 0,
+                created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id)")
         # Hand-entered crypto: coin + quantity, priced live in USD and converted to
         # INR. invested_inr (total put in) is optional and drives gain%.
         conn.execute(
@@ -1321,6 +1342,56 @@ def delete_expense(user_id: int, expense_id: int) -> None:
     with _connect() as conn:
         conn.execute(
             "DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id)
+        )
+
+
+# --- Goals ------------------------------------------------------------------
+
+def add_goal(
+    user_id: int, name: str, category: str, target_amount: float,
+    saved_amount: float = 0.0, target_date: str | None = None,
+    return_pct: float | None = None, notes: str | None = None,
+) -> None:
+    """Append one financial goal."""
+    with _connect() as conn:
+        (n,) = conn.execute(
+            "SELECT COUNT(*) FROM goals WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO goals
+                (user_id, name, category, target_amount, saved_amount, target_date,
+                 return_pct, notes, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, name, category, target_amount, saved_amount, target_date,
+             return_pct, notes, n),
+        )
+
+
+def list_goals(user_id: int) -> list[dict]:
+    """A user's goals, in entry order."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM goals WHERE user_id = ? ORDER BY position ASC, id ASC",
+            (user_id,),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"], "name": r["name"], "category": r["category"],
+            "target_amount": r["target_amount"], "saved_amount": r["saved_amount"],
+            "target_date": r["target_date"], "return_pct": r["return_pct"],
+            "notes": r["notes"],
+        }
+        for r in rows
+    ]
+
+
+def delete_goal(user_id: int, goal_id: int) -> None:
+    """Delete one goal, scoped to its owner."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM goals WHERE id = ? AND user_id = ?", (goal_id, user_id)
         )
 
 

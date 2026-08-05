@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, expenses, networth, prices, storage, wealth
+from . import __version__, auth, expenses, goals, networth, prices, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -1394,6 +1394,103 @@ def expense_add(
 def expense_delete(request: Request, expense_id: int):
     storage.delete_expense(request.state.user.id, expense_id)
     return RedirectResponse(url="/expenses", status_code=303)
+
+
+@app.get("/goals", response_class=HTMLResponse)
+def goals_page(request: Request):
+    """Financial goals: target-by-date with the required monthly SIP, plus a
+    read-only Retirement (FIRE) goal mirrored from the Expenses burn."""
+    user = request.state.user
+    today = date.today()
+    rows = storage.list_goals(user.id)
+    total_target = total_saved = total_monthly = 0.0
+    for g in rows:
+        d = _parse_date(g["target_date"])
+        p = goals.plan(g["target_amount"], g["saved_amount"], d, g["return_pct"], today)
+        g.update(p)
+        g["target_fmt"] = d.strftime("%b %Y") if d else None
+        g["return_pct_display"] = (
+            g["return_pct"] if g["return_pct"] is not None else goals.DEFAULT_RETURN_PCT
+        )
+        g["category_label"] = goals.category_label(g["category"])
+        g["category_color"] = goals.category_color(g["category"])
+        g["category_icon"] = goals.category_icon(g["category"])
+        total_target += g["target_amount"] or 0.0
+        total_saved += g["saved_amount"] or 0.0
+        total_monthly += p["required_monthly"] or 0.0
+
+    # FIRE mirror (read-only): target = 25× annual burn, progress = live net worth.
+    annual_burn = sum(
+        expenses.annual_amount(e["amount"], e["count"], e["frequency"])
+        for e in storage.list_expenses(user.id)
+    )
+    net_worth = _dashboard(user)["net_worth"]
+    fire = None
+    if annual_burn > 0:
+        fire_target = annual_burn * expenses.FIRE_MULTIPLE
+        fire = {
+            "target": fire_target,
+            "saved": net_worth,
+            "progress_pct": min(100.0, net_worth / fire_target * 100.0) if fire_target else 0.0,
+            "multiple": expenses.FIRE_MULTIPLE,
+        }
+
+    return templates.TemplateResponse(
+        "goals.html",
+        {
+            "request": request,
+            "user": user,
+            "goals": rows,
+            "has_goals": bool(rows),
+            "categories": goals.CATEGORIES,
+            "default_return": goals.DEFAULT_RETURN_PCT,
+            "fire": fire,
+            "net_worth": net_worth,
+            "total_target": total_target,
+            "total_saved": total_saved,
+            "total_monthly": total_monthly,
+            "overall_pct": (total_saved / total_target * 100.0) if total_target > 0 else 0.0,
+            "edit_id": _opt_int(request.query_params.get("edit", "")),
+            "today": today,
+        },
+    )
+
+
+@app.post("/goals/add")
+def goal_add(
+    request: Request,
+    name: str = Form(...),
+    category: str = Form(...),
+    target_amount: float = Form(...),
+    saved_amount: str = Form(""),
+    target_date: str = Form(""),
+    return_pct: str = Form(""),
+    notes: str = Form(""),
+    id: str = Form(""),
+):
+    """Add or edit a financial goal."""
+    if name.strip() and category in goals.CATEGORY_BY_SLUG:
+        f = {
+            "name": name.strip(), "category": category,
+            "target_amount": target_amount,
+            "saved_amount": _opt_float(saved_amount) or 0.0,
+            "target_date": _opt_date(target_date),
+            "return_pct": _opt_float(return_pct),
+            "notes": notes.strip() or None,
+        }
+        eid = _opt_int(id)
+        if eid:
+            storage.update_row("goals", eid, request.state.user.id, **f)
+        else:
+            storage.add_goal(request.state.user.id, f.pop("name"), f.pop("category"),
+                             f.pop("target_amount"), **f)
+    return RedirectResponse(url="/goals", status_code=303)
+
+
+@app.post("/goals/{goal_id}/delete")
+def goal_delete(request: Request, goal_id: int):
+    storage.delete_goal(request.state.user.id, goal_id)
+    return RedirectResponse(url="/goals", status_code=303)
 
 
 @app.get("/upload", response_class=HTMLResponse)

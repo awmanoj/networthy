@@ -817,6 +817,33 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .exp-add-row .exp-count { width: 70px; }
 .exp-add-row .btn { height: 38px; }
 
+/* --- Goals ------------------------------------------------------------------ */
+.goals-summary { display: flex; flex-wrap: wrap; gap: 36px; padding: 22px 28px; margin-bottom: 18px; }
+.gs-stat { display: flex; flex-direction: column; gap: 4px; }
+.gs-figure { font-family: var(--serif); font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+.goal-card { padding: 18px 22px; margin-bottom: 14px; }
+.goal-head { display: flex; align-items: center; gap: 12px; }
+.goal-title { font-weight: 600; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 8px; }
+.goal-icon { font-size: 1.1rem; line-height: 1; }
+.goal-meta { color: var(--muted); font-size: 0.85rem; margin: 4px 0 12px; }
+.goal-bar { height: 9px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.goal-bar span { display: block; height: 100%; border-radius: 999px; }
+.goal-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; margin-top: 9px; font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.goal-sip { color: var(--text); }
+.goal-sip strong { color: var(--brand); font-variant-numeric: tabular-nums; }
+.goal-link { margin-left: auto; color: var(--brand); font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+.goal-link:hover { text-decoration: underline; }
+.goal-actions { margin-top: 10px; }
+/* Status chip */
+.goal-chip { margin-left: auto; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.goal-chip--funded { color: var(--gain); background: color-mix(in srgb, var(--gain) 16%, transparent); }
+.goal-chip--active { color: var(--brand); background: color-mix(in srgb, var(--brand) 14%, transparent); }
+.goal-chip--overdue { color: var(--loss); background: color-mix(in srgb, var(--loss) 16%, transparent); }
+.goal-chip--muted, .goal-chip--auto { color: var(--faint); background: var(--surface-2); }
+/* The FIRE card is a touch distinguished with a copper hairline. */
+.goal-fire { border: 1px solid color-mix(in srgb, var(--copper) 45%, var(--border)); }
+.goal-form-head { font-size: 1.05rem; color: var(--ink); margin: 0 0 14px; }
+
 .dash-empty { text-align: center; padding: 60px 24px; }
 .dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .dash-empty p { color: var(--muted); margin: 0 auto 22px; max-width: 480px; }
