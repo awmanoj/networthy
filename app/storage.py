@@ -70,6 +70,18 @@ def init_db() -> None:
             )
             """
         )
+        # Durable login history for adoption analytics — a row per sign-in. (The
+        # sessions table can't serve this: rows are deleted on logout/expiry.)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS login_events (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_login_events ON login_events(created_at)")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS snapshots (
@@ -622,6 +634,12 @@ def create_session(user_id: int, token: str, expires_at: datetime) -> None:
             "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
             (token, user_id, expires_at.strftime(_DB_TIME_FMT)),
         )
+
+
+def record_login(user_id: int) -> None:
+    """Append a sign-in event (for adoption analytics)."""
+    with _connect() as conn:
+        conn.execute("INSERT INTO login_events (user_id) VALUES (?)", (user_id,))
 
 
 def get_session_user(token: str) -> User | None:

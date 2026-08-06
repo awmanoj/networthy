@@ -1,7 +1,8 @@
 // Minimal dependency-free SVG line chart for the net-worth timeline.
 // Kept local (no CDN) so financial data never triggers an external request.
 
-function drawChart(data) {
+function drawChart(data, opts) {
+  opts = opts || {};
   const host = document.getElementById("chart");
   if (!host) return;
   if (!data || data.length === 0) {
@@ -30,7 +31,9 @@ function drawChart(data) {
   const line = data.map((d, i) => `${x(i)},${y(d.value)}`).join(" ");
   const area = `${pad.left},${pad.top + ih} ${line} ${pad.left + iw},${pad.top + ih}`;
 
-  const fmt = (v) => "₹" + Math.round(v).toLocaleString("en-IN");
+  // Default value formatter is currency; callers (e.g. the signups chart) can pass a
+  // plain-number one via opts.fmt so counts don't render with a ₹ prefix.
+  const fmt = opts.fmt || ((v) => "₹" + Math.round(v).toLocaleString("en-IN"));
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const fmtDate = (iso) => {
@@ -65,7 +68,7 @@ function drawChart(data) {
   host.innerHTML = `
     <div class="chart-wrap">
       <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
-           aria-label="Net worth over time">
+           aria-label="${opts.label || "Net worth over time"}">
         <polyline points="${area}" class="c-area" />
         <polyline points="${line}" class="c-line" />
         <line class="c-guide" y1="${pad.top}" y2="${pad.top + ih}" style="display:none" />

@@ -13,7 +13,8 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, demo, expenses, goals, networth, prices, storage, wealth
+from . import (__version__, analytics, auth, demo, expenses, goals, networth,
+               prices, storage, wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -246,6 +247,19 @@ def home(request: Request):
     return templates.TemplateResponse(
         "networth.html",
         {"request": request, "user": user, "dash": dash},
+    )
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_analytics(request: Request):
+    """Owner-only business analytics (adoption metadata, no financial values). Served
+    at analytics.networthyhq.com via a Caddy vhost. 404 for anyone who isn't the owner,
+    so the route's existence isn't revealed."""
+    user = request.state.user
+    if user is None or user.email != auth.owner_email():
+        return HTMLResponse("Not found", status_code=404)
+    return templates.TemplateResponse(
+        "admin.html", {"request": request, "user": user, **analytics.overview()}
     )
 
 

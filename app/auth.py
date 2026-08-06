@@ -180,7 +180,13 @@ def start_session(user_id: int) -> str:
     flow and by the one-click demo login."""
     token = secrets.token_urlsafe(32)
     storage.create_session(user_id, token, _utcnow() + SESSION_TTL)
+    storage.record_login(user_id)  # durable sign-in event for adoption analytics
     return token
+
+
+def owner_email() -> str:
+    """The single admin account allowed to see business analytics."""
+    return os.environ.get("OWNER_EMAIL", "awasthi.manoj@gmail.com").strip().lower()
 
 
 def logout(token: str | None) -> None:

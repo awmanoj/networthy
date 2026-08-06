@@ -850,6 +850,26 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .goal-add-section { margin-top: 22px; }
 .goal-form-head { font-size: 1.05rem; color: var(--ink); margin: 0 0 12px; }
 
+/* --- Admin analytics -------------------------------------------------------- */
+.adm-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 760px) { .adm-stats { grid-template-columns: repeat(2, 1fr); } }
+.adm-stat { padding: 18px 20px; display: flex; flex-direction: column; gap: 3px; }
+.adm-figure { font-family: var(--serif); font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+.adm-h2 { font-size: 1.05rem; color: var(--ink); margin: 0 0 14px; }
+.adm-funnel { display: flex; flex-direction: column; gap: 12px; }
+.adm-funnel-row { display: grid; grid-template-columns: 160px 1fr 120px; align-items: center; gap: 14px; }
+.adm-funnel-label { font-size: 0.9rem; }
+.adm-funnel-val { text-align: right; font-variant-numeric: tabular-nums; }
+.adm-features td { padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.adm-features tr:last-child td { border-bottom: none; }
+.adm-feat-name { width: 200px; }
+.adm-feat-bar { width: auto; }
+.adm-feat-val { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adm-summary { cursor: pointer; font-weight: 600; }
+.adm-users { width: 100%; margin-top: 12px; }
+.adm-users th { text-align: left; font-size: 0.8rem; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.adm-users td { padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+
 .dash-empty { text-align: center; padding: 60px 24px; }
 .dash-empty h1 { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .dash-empty p { color: var(--muted); margin: 0 auto 22px; max-width: 480px; }

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Analytics · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <h1>Analytics</h1>
+  <p class="muted">
+    Adoption at a glance — account &amp; usage metadata only, no financial values.
+    The demo account is excluded.
+  </p>
+</section>
+
+<!-- Signups -->
+<section class="adm-stats">
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">Total users</span>
+    <span class="adm-figure num">{{ total_users }}</span>
+    <span class="hero-note">{{ new_today }} today</span>
+  </div>
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">New · 7 days</span>
+    <span class="adm-figure num">{{ new_7d }}</span>
+  </div>
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">New · 30 days</span>
+    <span class="adm-figure num">{{ new_30d }}</span>
+  </div>
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">Returning</span>
+    <span class="adm-figure num">{{ returning }}</span>
+    <span class="hero-note">signed in on ≥2 days</span>
+  </div>
+</section>
+
+<!-- Sign-ins -->
+<section class="adm-stats">
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">Signed in · 24h</span>
+    <span class="adm-figure num">{{ logins_24h }}</span>
+  </div>
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">Signed in · 7 days</span>
+    <span class="adm-figure num">{{ logins_7d }}</span>
+  </div>
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">Signed in · 30 days</span>
+    <span class="adm-figure num">{{ logins_30d }}</span>
+  </div>
+  <div class="dash-card adm-stat">
+    <span class="eyebrow">Total sign-ins</span>
+    <span class="adm-figure num">{{ logins_total }}</span>
+  </div>
+</section>
+
+<!-- Growth -->
+{% if signup_chart|length > 1 %}
+<section class="dash-card">
+  <h2 class="adm-h2">Signups over time</h2>
+  <div id="chart"></div>
+</section>
+{% endif %}
+
+<!-- Funnel -->
+<section class="dash-card">
+  <h2 class="adm-h2">Activation</h2>
+  <div class="adm-funnel">
+    {% for f in funnel %}
+    <div class="adm-funnel-row">
+      <span class="adm-funnel-label">{{ f.label }}</span>
+      <div class="goal-bar"><span style="width: {{ '%.1f'|format([f.pct, 100]|min) }}%; background: var(--brand);"></span></div>
+      <span class="adm-funnel-val num">{{ f.users }} <span class="muted">· {{ "%.0f"|format(f.pct) }}%</span></span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Feature adoption -->
+<section class="dash-card">
+  <h2 class="adm-h2">Feature adoption</h2>
+  <table class="holdings adm-features">
+    <tbody>
+      {% for f in features %}
+      <tr>
+        <td class="adm-feat-name">{{ f.label }}</td>
+        <td class="adm-feat-bar">
+          <div class="goal-bar"><span style="width: {{ '%.1f'|format([f.pct, 100]|min) }}%; background: var(--copper);"></span></div>
+        </td>
+        <td class="num adm-feat-val">{{ f.users }} <span class="muted">· {{ "%.0f"|format(f.pct) }}%</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Users -->
+<section class="dash-card">
+  <details {{ 'open' if recent|length <= 25 else '' }}>
+    <summary class="adm-summary">Users <span class="muted">· {{ recent|length }} shown</span></summary>
+    <table class="holdings adm-users">
+      <thead>
+        <tr><th>Email</th><th>Joined</th><th>Last seen</th></tr>
+      </thead>
+      <tbody>
+        {% for u in recent %}
+        <tr>
+          <td class="h-name">{{ u.email }}</td>
+          <td>{{ u.joined or "—" }}</td>
+          <td>{{ u.last_seen or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+</section>
+
+{% if signup_chart|length > 1 %}
+<script src="/static/chart.js?v={{ version }}"></script>
+<script>drawChart({{ signup_chart | tojson }}, {fmt: function (v) { return Math.round(v).toLocaleString('en-IN'); }, label: 'Signups over time'});</script>
+{% endif %}
+
+{% endblock %}

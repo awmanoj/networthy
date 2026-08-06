@@ -200,6 +200,22 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
 - The SQLite DB persists in the `networthy_data` Docker volume mounted at `/app/data`.
 - `deploy.sh` requires a prior `docker login` (or `DOCKERHUB_TOKEN`) and tags each image with
   both the given tag and the short git SHA.
+- **Business analytics** (`app/analytics.py` + `GET /admin`, template `admin.html`): owner-only
+  adoption metrics — signups, sign-ins (DAU/WAU/MAU from the durable `login_events` table, since
+  `sessions` rows vanish on logout), returning users, feature adoption, an activation funnel, and a
+  users/email listing. **First-party and metadata-only by design**: it reads the app's own tables,
+  nothing egresses, and it deliberately carries **no financial values** (counts, not amounts) — so this
+  surface leaks no holdings even if breached. The **demo account is excluded** from every number. Gate:
+  `user.email == auth.owner_email()` (env `OWNER_EMAIL`, default `awasthi.manoj@gmail.com`); non-owners
+  get a 404 (existence hidden), anonymous → `/login`. Disclosed on the Privacy page. Served at
+  **analytics.networthyhq.com** via a Caddy vhost that redirects to `/admin` on the apex (so the owner's
+  session cookie — set host-only on the apex — is valid; a subdomain reverse-proxy would need a
+  `.networthyhq.com` cookie domain):
+  ```
+  analytics.networthyhq.com { redir https://networthyhq.com/admin }
+  ```
+  Distinct from the existing **stats.networthyhq.com** (GoAccess web-traffic analytics from Caddy logs):
+  that's anonymous page-view traffic; this is per-account product adoption. Both stay first-party.
 - **Email digests** (`app/digest.py`): `python -m app.digest daily|weekly` recomputes every user's net
   worth live, records a **daily snapshot** in `nw_history`, and emails a change summary via `mailer`
   (no-ops to a log without `RESEND_API_KEY`). Daily = day-over-day net-worth delta; weekly = that plus a
