@@ -56,6 +56,18 @@ def test_demo_route_logs_in_and_seeds(client):
     assert client.get("/goals").status_code == 200
 
 
+def test_create_your_own_leaves_demo_then_reaches_login(client):
+    r = client.get("/demo", follow_redirects=False)
+    client.cookies.update(r.cookies)
+    # The banner's "Create your own" posts to /logout (a bare /login link would bounce
+    # a logged-in user back to /). Logout clears the session and lands on /login.
+    out = client.post("/logout", follow_redirects=False)
+    assert out.status_code == 303 and out.headers["location"] == "/login"
+    client.cookies.clear()
+    client.cookies.update(out.cookies)
+    assert client.get("/login", follow_redirects=False).status_code == 200  # form, not a bounce
+
+
 def test_demo_route_is_public():
     # /demo must be reachable without a session.
     assert auth._is_public("/demo")

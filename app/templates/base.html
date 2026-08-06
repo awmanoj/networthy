@@ -38,7 +38,9 @@
   {% if user and user.email == 'demo@networthyhq.com' %}
   <div class="demo-banner">
     <span>🔎 You're exploring the <strong>live demo</strong> — poke around freely; changes here aren't saved.</span>
-    <a href="/login">Create your own →</a>
+    {# Leave the demo session first, then land on the sign-in screen (/login bounces
+       logged-in users back to /, so a bare link would look like a no-op here). #}
+    <form method="post" action="/logout"><button type="submit" class="demo-leave">Create your own →</button></form>
   </div>
   {% endif %}
   <main class="{% block main_class %}{% endblock %}">

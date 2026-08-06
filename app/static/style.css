@@ -1010,8 +1010,10 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
   border-bottom: 1px solid color-mix(in srgb, var(--copper) 40%, var(--border));
   color: var(--text);
 }
-.demo-banner a { color: var(--brand); font-weight: 600; text-decoration: none; white-space: nowrap; }
-.demo-banner a:hover { text-decoration: underline; }
+.demo-banner a, .demo-leave { color: var(--brand); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.demo-banner a:hover, .demo-leave:hover { text-decoration: underline; }
+.demo-banner form { display: inline; }
+.demo-leave { background: none; border: none; cursor: pointer; font: inherit; padding: 0; }
 
 /* Footer */
 .mkt-footer { border-top: 1px solid var(--border); background: var(--surface); }
