@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import __version__, auth, expenses, goals, networth, prices, storage, wealth
+from . import __version__, auth, demo, expenses, goals, networth, prices, storage, wealth
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -107,6 +107,22 @@ def logout(request: Request):
     auth.logout(request.cookies.get(SESSION_COOKIE))
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie(SESSION_COOKIE)
+    return resp
+
+
+@app.get("/demo")
+def enter_demo(request: Request):
+    """One-click entry into the shared demo account — no sign-up. Resets the demo
+    data to a clean fixture, opens a session, and drops the visitor on the dashboard."""
+    user = storage.get_or_create_user(demo.DEMO_EMAIL)
+    demo.reset(user.id)
+    token = auth.start_session(user.id)
+    resp = RedirectResponse(url="/", status_code=303)
+    resp.set_cookie(
+        SESSION_COOKIE, token,
+        max_age=int(auth.SESSION_TTL.total_seconds()),
+        httponly=True, samesite="lax", secure=auth.cookie_secure(),
+    )
     return resp
 
 

@@ -523,6 +523,14 @@ def update_row(table: str, row_id: int, user_id: int, **fields) -> None:
         )
 
 
+def clear_user_tables(user_id: int, tables: list[str]) -> None:
+    """Delete a user's rows from each of `tables` (code-controlled names, so safe to
+    interpolate). Used to reset the shared demo account to a clean fixture."""
+    with _connect() as conn:
+        for t in tables:
+            conn.execute(f"DELETE FROM {t} WHERE user_id = ?", (user_id,))
+
+
 def get_user_settings(user_id: int) -> dict:
     """The user's CAMS-import settings ({'pan', 'cams_email'}), empty strings if unset."""
     with _connect() as conn:

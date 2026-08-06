@@ -10,6 +10,9 @@ in one place, priced live where it can be.
 > leaves the machine — the *only* things that egress are public price lookups by symbol
 > (a ticker, a currency pair, a coin), never a value, quantity, PAN, or identity.
 
+**Try it without signing up:** the landing page has an **Explore the live demo** button
+(`GET /demo`) that drops you into a fully-loaded demo account — no email required.
+
 ![Dashboard](docs/screenshots/dashboard.png)
 
 ---

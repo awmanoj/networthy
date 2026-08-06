@@ -13,13 +13,13 @@
     </p>
     <div class="mkt-cta">
       <a href="/login" class="btn btn-lg">Get started — it's free</a>
-      <a href="/login" class="mkt-cta-alt">Log in →</a>
+      <a href="/demo" class="btn btn-lg btn-outline">Explore the live demo →</a>
     </div>
-    <p class="mkt-cta-note muted">No credit card. Sign in with just your email.</p>
+    <p class="mkt-cta-note muted">No sign-up needed to try the demo · sign in with just your email to save your own.</p>
   </div>
 
   <div class="mkt-hero-shot">
-    <div class="shot">
+    <a href="/demo" class="shot shot-demo" title="Open the live demo">
       <div class="shot-bar"><i></i><i></i><i></i><span class="shot-url">networthyhq.com</span></div>
       <div class="shot-body">
         <div class="ms-eyebrow">Total net worth</div>
@@ -44,7 +44,8 @@
           <span><i style="background:var(--c-crypto)"></i>Crypto</span>
         </div>
       </div>
-    </div>
+      <span class="shot-demo-hint">▶ Explore this live</span>
+    </a>
   </div>
 </section>
 
@@ -141,11 +142,28 @@
   </div>
 </section>
 
+<!-- Demo band -->
+<section class="mkt-demo">
+  <div class="mkt-demo-inner">
+    <span class="mkt-eyebrow">Kick the tyres</span>
+    <h2>See it with a full portfolio</h2>
+    <p>
+      Open a fully-loaded demo account — real estate, mutual funds, US equity, crypto,
+      gold, loans, expenses and goals, all priced live. No sign-up, nothing to install.
+    </p>
+    <a href="/demo" class="btn btn-lg">Explore the live demo →</a>
+    <p class="mkt-cta-note muted">Opens instantly · it's a shared sandbox, so feel free to poke around.</p>
+  </div>
+</section>
+
 <!-- Final CTA -->
 <section class="mkt-final">
   <h2>Your number is waiting.</h2>
   <p class="muted">Add your first asset in under a minute.</p>
-  <a href="/login" class="btn btn-lg">Get started — it's free</a>
+  <div class="mkt-cta mkt-cta-center">
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-lg btn-outline">Explore the live demo →</a>
+  </div>
 </section>
 
 {% endblock %}

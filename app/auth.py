@@ -33,7 +33,7 @@ SESSION_COOKIE = "session"
 # the footer pages are public too.
 _PUBLIC_PREFIXES = ("/static/",)
 _PUBLIC_PATHS = {"/", "/login", "/verify", "/logout", "/health",
-                 "/about", "/terms", "/privacy"}
+                 "/about", "/terms", "/privacy", "/demo"}
 
 _DB_TIME_FMT = "%Y-%m-%d %H:%M:%S"  # matches SQLite's datetime('now') (UTC)
 
@@ -169,12 +169,18 @@ def verify_login_code(email: str, code: str) -> str | None:
     if hmac.compare_digest(row["code_hash"], _hash_code(email, code)):
         storage.consume_login_code(email)
         user = storage.get_or_create_user(email)
-        token = secrets.token_urlsafe(32)
-        storage.create_session(user.id, token, _utcnow() + SESSION_TTL)
-        return token
+        return start_session(user.id)
 
     storage.increment_code_attempts(email)
     return None
+
+
+def start_session(user_id: int) -> str:
+    """Issue and persist a fresh session token for a user. Used by the OTP verify
+    flow and by the one-click demo login."""
+    token = secrets.token_urlsafe(32)
+    storage.create_session(user_id, token, _utcnow() + SESSION_TTL)
+    return token
 
 
 def logout(token: str | None) -> None:

@@ -42,9 +42,19 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   — its own header with Log in / Get started and a footer of About/Privacy/Terms) when logged out, and
   the **Dashboard** when logged in (`main.home` branches on `request.state.user`). `/about`, `/privacy`,
   `/terms` are content pages. All four, plus `/`, are in `auth._PUBLIC_PATHS`; every other route stays
-  gated (anonymous → `/login`). Sign-up == login (open signup via email OTP), so all landing CTAs point
-  at `/login`. The landing's "screenshots" are on-brand HTML/CSS mockups (`.shot` frames) built from the
-  design tokens — swap for real captures if desired. **Both** the app base (`base.html`) and
+  gated (anonymous → `/login`). Sign-up == login (open signup via email OTP), so the primary landing CTA
+  points at `/login`; a secondary **"Explore the live demo"** CTA points at `/demo`. The landing's
+  "screenshots" are on-brand HTML/CSS mockups (`.shot` frames) built from the design tokens — swap for
+  real captures if desired.
+- **Public demo** (`app/demo.py`, `GET /demo` — in `_PUBLIC_PATHS`): a one-click, no-signup entry into a
+  shared **`demo@networthyhq.com`** account. The route **resets** the account to a fixed fixture on every
+  entry (`demo.reset` → `storage.clear_user_tables` then re-seed, so it's always clean no matter how the
+  last visitor poked at it), opens a session via `auth.start_session`, and redirects to the Dashboard.
+  The fixture covers popular categories (real estate, MFs via a CAMS import, fixed income, bank/cash,
+  gold, US equity + crypto — which price *live* on the server — an angel investment, a home loan, expenses
+  and goals, plus NSDL snapshots for the trend chart). `base.html` shows a copper **demo banner** whenever
+  `user.email == demo.DEMO_EMAIL`. Note: the session cookie is `Secure`, so the demo login only "sticks"
+  over HTTPS (tests set `auth.cookie_secure=lambda: False`). **Both** the app base (`base.html`) and
   `marketing_base.html` include the shared `_footer.html` (About/Privacy/Terms) — edit the footer in one
   place. The **display brand is "Networthy HQ"** across templates and emails (the project/module name
   stays `networthy`).
