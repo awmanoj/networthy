@@ -73,6 +73,27 @@ def test_same_money_is_more_exclusive_in_india_than_usa():
     assert usa.top_pct == pytest.approx(8.69, abs=0.1)
 
 
+def test_new_geographies_are_present_and_well_formed():
+    for geo in ("australia", "canada", "japan"):
+        assert geo in GEO_ORDER
+        counts = BAND_COUNTS[geo]
+        assert len(counts) == len(BAND_EDGES_CR) + 1          # 11 bands
+        assert counts[-1] >= 1                                 # a non-empty top anchor
+        assert all(counts[i] >= counts[i + 1] for i in range(len(counts) - 1))  # non-increasing
+
+
+def test_display_order_matches_requested_ranking():
+    assert GEO_ORDER == ["india", "usa", "singapore", "australia", "canada",
+                         "indonesia", "japan", "world"]
+
+
+def test_a_us_dollar_millionaire_is_rarer_in_india_than_developed_markets():
+    # ~₹10 cr ≈ $1M: common in wealthy economies, rare in India.
+    india = place_one(10 * CRORE, "india").top_pct
+    for geo in ("usa", "australia", "canada", "japan"):
+        assert place_one(10 * CRORE, geo).top_pct > india
+
+
 def test_richer_than_and_one_in_are_consistent():
     p = place_one(10 * CRORE, "india")
     assert p.richer_than_pct == pytest.approx(100 - p.top_pct)

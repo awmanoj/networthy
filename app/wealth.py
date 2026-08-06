@@ -40,7 +40,8 @@ DEFAULT_NET_WORTH = 5 * CRORE
 BASE_FLOOR = 100_000  # ₹1 lakh
 
 # Display order for the geographies (India first — the primary audience).
-GEO_ORDER = ["india", "indonesia", "singapore", "usa", "world"]
+GEO_ORDER = ["india", "usa", "singapore", "australia", "canada", "indonesia",
+             "japan", "world"]
 
 GEO_META: dict[str, dict] = {
     "india": {
@@ -54,6 +55,18 @@ GEO_META: dict[str, dict] = {
     "singapore": {
         "name": "Singapore", "flag": "\U0001F1F8\U0001F1EC",
         "adults": 4_500_000, "adults_label": "≈4.5 million adults",
+    },
+    "australia": {
+        "name": "Australia", "flag": "\U0001F1E6\U0001F1FA",
+        "adults": 20_000_000, "adults_label": "≈20 million adults",
+    },
+    "canada": {
+        "name": "Canada", "flag": "\U0001F1E8\U0001F1E6",
+        "adults": 30_000_000, "adults_label": "≈30 million adults",
+    },
+    "japan": {
+        "name": "Japan", "flag": "\U0001F1EF\U0001F1F5",
+        "adults": 104_000_000, "adults_label": "≈104 million adults",
     },
     "usa": {
         "name": "USA", "flag": "\U0001F1FA\U0001F1F8",
@@ -95,6 +108,13 @@ BAND_COUNTS: dict[str, list[int]] = {
                   9_480, 728, 468, 41, 33],
     "singapore": [2_250_726, 1_680_000, 254_000, 214_000, 58_400, 24_700,
                   15_900, 1_420, 766, 53, 35],
+    # High median wealth; large millionaire share (≈1.8M adults > $1M).
+    "australia": [8_011_735, 7_800_000, 2_400_000, 1_050_000, 430_000, 180_000,
+                  120_000, 6_000, 2_100, 120, 45],
+    "canada": [14_298_455, 10_500_000, 3_200_000, 1_080_000, 520_000, 230_000,
+               160_000, 8_500, 2_800, 180, 65],
+    "japan": [50_000_000, 44_218_130, 6_500_000, 2_100_000, 700_000, 280_000,
+              190_000, 9_000, 2_700, 130, 40],
     "usa": [115_595_960, 105_100_000, 16_700_000, 15_970_000, 4_010_000,
             1_590_000, 923_000, 71_400, 36_900, 1_840, 900],
     "world": [3_114_934_040, 563_000_000, 65_000_000, 39_000_000, 10_500_000,

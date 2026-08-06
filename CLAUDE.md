@@ -169,8 +169,9 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **full page at `GET /standing`**
   reached from the Dashboard CTA tile; pre-fills with the user's live sum-the-tree net worth. Static net-worth
-  distribution data (adults per band for India/Indonesia/Singapore/USA/World, from
-  `wealth_distribution.xlsx` — UBS/Knight Frank/Forbes) plus `rank_net_worth()`, which places a
+  distribution data (adults per band for India/USA/Singapore/Australia/Canada/Indonesia/Japan/World —
+  the `GEO_ORDER` display order — from `wealth_distribution.xlsx` plus modeled UBS/Knight Frank/Forbes
+  estimates for the added markets) plus `rank_net_worth()`, which places a
   net worth within each geography by **piecewise power-law (Pareto) interpolation** between the
   known band edges (log-log linear between anchors; extrapolate the nearest segment's slope
   beyond the ends; clamp head-count to [top-band size, adult population]). This is the canonical,
