@@ -34,6 +34,15 @@ function drawChart(data, opts) {
   // Default value formatter is currency; callers (e.g. the signups chart) can pass a
   // plain-number one via opts.fmt so counts don't render with a ₹ prefix.
   const fmt = opts.fmt || ((v) => "₹" + Math.round(v).toLocaleString("en-IN"));
+  // Axis labels use a compact form so crore-scale rupee values don't overflow (and
+  // clip) the left gutter. Falls back to `fmt` for non-currency charts (signups).
+  const compact = (v) => {
+    const a = Math.abs(v);
+    if (a >= 1e7) return "₹" + (v / 1e7).toFixed(a >= 1e8 ? 0 : 2) + " Cr";
+    if (a >= 1e5) return "₹" + (v / 1e5).toFixed(a >= 1e6 ? 0 : 1) + " L";
+    return "₹" + Math.round(v).toLocaleString("en-IN");
+  };
+  const fmtAxis = opts.fmtAxis || opts.fmt || compact;
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const fmtDate = (iso) => {
@@ -41,9 +50,13 @@ function drawChart(data, opts) {
     return `${D} ${MONTHS[parseInt(M, 10) - 1]} ${Y}`;
   };
 
-  const dots = data
-    .map((d, i) => `<circle cx="${x(i)}" cy="${y(d.value)}" r="3" class="c-dot" />`)
-    .join("");
+  // Per-point dots read well for sparse series; on a dense daily series they clutter,
+  // so drop them past a threshold (the hover focus dot still appears).
+  const dots = data.length > 40
+    ? ""
+    : data
+        .map((d, i) => `<circle cx="${x(i)}" cy="${y(d.value)}" r="3" class="c-dot" />`)
+        .join("");
 
   const labels = data
     .map((d, i) => {
@@ -59,7 +72,7 @@ function drawChart(data, opts) {
   const yticks = [lo, (lo + hi) / 2, hi]
     .map(
       (v) =>
-        `<text x="${pad.left - 10}" y="${y(v) + 4}" class="c-ylabel">${fmt(
+        `<text x="${pad.left - 10}" y="${y(v) + 4}" class="c-ylabel">${fmtAxis(
           v
         )}</text>`
     )

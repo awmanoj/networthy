@@ -817,6 +817,26 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .exp-add-row .exp-count { width: 70px; }
 .exp-add-row .btn { height: 38px; }
 
+/* --- Dashboard net-worth trend --------------------------------------------- */
+.nw-trend { padding: 18px 22px 10px; margin-bottom: 18px; }
+.nw-trend-empty { padding: 20px 22px; }
+.nw-trend-empty p { margin: 8px 0 0; }
+.trend-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap; margin-bottom: 4px; }
+.trend-title { display: flex; flex-direction: column; gap: 5px; }
+.trend-delta { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--muted); }
+.trend-delta.up { color: var(--gain); }
+.trend-delta.down { color: var(--loss); }
+.trend-ranges { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 9px; padding: 3px; }
+.trend-ranges button {
+  border: none; background: none; cursor: pointer; font: inherit; font-size: 0.82rem;
+  font-weight: 600; color: var(--muted); padding: 5px 12px; border-radius: 6px;
+}
+.trend-ranges button:hover { color: var(--ink); }
+.trend-ranges button.active {
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 1px 2px rgba(16, 24, 38, 0.10);
+}
+
 /* --- Goals ------------------------------------------------------------------ */
 .goals-summary { display: flex; flex-wrap: wrap; gap: 36px; padding: 22px 28px; margin-bottom: 18px; }
 .gs-stat { display: flex; flex-direction: column; gap: 4px; }

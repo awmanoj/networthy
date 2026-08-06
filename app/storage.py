@@ -1517,6 +1517,33 @@ def nw_snapshot_on_or_before(user_id: int, date: str) -> dict | None:
     return _row_to_nw_history(row) if row else None
 
 
+def ensure_nw_point(
+    user_id: int, date: str, net_worth: float, assets: float, liabilities: float
+) -> None:
+    """Record today's net-worth point only if none exists for that day yet — so a
+    dashboard visit bootstraps the trend without clobbering the digest's richer row
+    (which carries the category breakdown and is written via record_nw_snapshot)."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO nw_history (user_id, date, net_worth, assets, liabilities)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, date) DO NOTHING
+            """,
+            (user_id, date, net_worth, assets, liabilities),
+        )
+
+
+def list_nw_history(user_id: int) -> list[dict]:
+    """A user's daily net-worth points, oldest-first (chart-ready)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT date, net_worth FROM nw_history WHERE user_id = ? ORDER BY date ASC",
+            (user_id,),
+        ).fetchall()
+    return [{"date": r["date"], "value": r["net_worth"]} for r in rows]
+
+
 # --- Bank accounts & cash ---------------------------------------------------
 
 def add_bank_cash(

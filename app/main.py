@@ -13,8 +13,8 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import (__version__, analytics, auth, demo, expenses, goals, networth,
-               prices, storage, wealth)
+from . import (__version__, analytics, auth, demo, digest, expenses, goals,
+               networth, prices, storage, wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -244,9 +244,17 @@ def home(request: Request):
     if user is None:
         return templates.TemplateResponse("landing.html", {"request": request})
     dash = _dashboard(user)
+    # Bootstrap the net-worth-over-time trend from usage: record today's point (once
+    # per IST day; won't overwrite the digest's richer row). Then hand the browser the
+    # full series for the Dashboard chart, ending at today's live value.
+    today = digest.ist_today().isoformat()
+    storage.ensure_nw_point(user.id, today, dash["net_worth"], dash["assets"], dash["liabilities"])
+    series = storage.list_nw_history(user.id)
+    if series:
+        series[-1]["value"] = dash["net_worth"]  # keep the last point at the live value
     return templates.TemplateResponse(
         "networth.html",
-        {"request": request, "user": user, "dash": dash},
+        {"request": request, "user": user, "dash": dash, "nw_series": series},
     )
 
 

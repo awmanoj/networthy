@@ -96,8 +96,14 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 - **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. Two views of
   it: the **Dashboard** (`GET /` → `main.home` + `main._dashboard`, template `networth.html`) is the
   at-a-glance home — a hero total (Assets − Liabilities, summed live via `_networth_values`), an
-  allocation strip, category tiles, a "Where do you stand?" CTA, and a "where it sits" list (empty
-  categories omitted). The **Net worth hub** (`GET /networth` → `main.networth_overview`, template
+  allocation strip, a **net-worth-over-time trend chart**, category tiles, a "Where do you stand?"
+  CTA, and a "where it sits" list (empty categories omitted). The **trend** is the forward series from
+  `nw_history`: `main.home` **bootstraps** it by recording today's point on each view
+  (`storage.ensure_nw_point`, insert-if-absent per IST day — so a dashboard visit builds history even
+  before the digest cron runs, and never clobbers the digest's richer breakdown row), then ships the
+  full series to `networth.html`, whose inline script drives `chart.js` with **range toggles**
+  (1M/3M/6M/1Y/All) and a Δ-over-range readout. No investment-date reconstruction — it accumulates
+  forward from first use (shows a "trend builds" note until there are ≥2 points). The **Net worth hub** (`GET /networth` → `main.networth_overview`, template
   `networth_overview.html`) is the structured entry point — the net-worth summary plus the **full
   tree** (every section/subsection/leaf, incl. empty scaffolds) as navigable links with rolled
   values and "N inside" chips. Leaf/detail pages are at `/networth/{path}`; breadcrumbs root at the

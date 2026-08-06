@@ -62,6 +62,30 @@
   {% endif %}
 </section>
 
+{% if nw_series and nw_series|length > 1 %}
+<section class="dash-card nw-trend">
+  <div class="trend-head">
+    <div class="trend-title">
+      <span class="eyebrow">Net worth over time</span>
+      <span class="trend-delta" id="trend-delta"></span>
+    </div>
+    <div class="trend-ranges" id="trend-ranges">
+      <button type="button" data-days="30">1M</button>
+      <button type="button" data-days="90">3M</button>
+      <button type="button" data-days="180">6M</button>
+      <button type="button" data-days="365">1Y</button>
+      <button type="button" data-days="0" class="active">All</button>
+    </div>
+  </div>
+  <div id="chart"></div>
+</section>
+{% elif nw_series %}
+<section class="dash-card nw-trend nw-trend-empty">
+  <span class="eyebrow">Net worth over time</span>
+  <p class="muted">Your trend starts today — check back over the next few days to watch it build.</p>
+</section>
+{% endif %}
+
 <section class="dash-tiles">
   <a class="dash-card dash-tile" href="/networth/assets/financial-assets">
     <span class="k">Financial Assets</span>
@@ -106,6 +130,40 @@
   </div>
 </section>
 {% endif %}
+{% endif %}
+
+{% if nw_series and nw_series|length > 1 %}
+<script src="/static/chart.js?v={{ version }}"></script>
+<script>
+  (function () {
+    var SERIES = {{ nw_series | tojson }};
+    var deltaEl = document.getElementById("trend-delta");
+    var ranges = document.getElementById("trend-ranges");
+    function inr(v) { return "₹" + Math.round(v).toLocaleString("en-IN"); }
+    function render(days) {
+      var data = SERIES;
+      if (days > 0) {
+        var c = new Date(); c.setDate(c.getDate() - days);
+        var iso = c.toISOString().slice(0, 10);
+        var f = SERIES.filter(function (p) { return p.date >= iso; });
+        data = f.length >= 2 ? f : SERIES;   // too short a window -> show all
+      }
+      drawChart(data, { label: "Net worth over time" });
+      var delta = data[data.length - 1].value - data[0].value;
+      var pct = data[0].value ? (delta / data[0].value * 100) : 0;
+      var arrow = delta > 0 ? "▲" : (delta < 0 ? "▼" : "·");
+      deltaEl.className = "trend-delta " + (delta > 0 ? "up" : (delta < 0 ? "down" : ""));
+      deltaEl.textContent = arrow + " " + inr(Math.abs(delta)) + " (" + Math.abs(pct).toFixed(1) + "%)";
+    }
+    ranges.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      Array.prototype.forEach.call(ranges.children, function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+      render(parseInt(b.getAttribute("data-days"), 10));
+    });
+    render(0);
+  })();
+</script>
 {% endif %}
 
 {% endblock %}

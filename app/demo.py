@@ -9,7 +9,8 @@ bits (US equity, crypto) really do price live on the server, which shows the fea
 
 from __future__ import annotations
 
-from datetime import date
+import math
+from datetime import date, timedelta
 
 from . import storage
 from .models import Holding, Snapshot
@@ -105,7 +106,7 @@ def _seed(user_id: int) -> None:
                      saved_amount=6_800_000.0, target_date="2030-01-01", return_pct=12.0)
     storage.add_goal(u, "Emergency fund", "emergency", 1_200_000.0, saved_amount=650_000.0)
 
-    # --- NSDL snapshots for the net-worth-over-time chart ---
+    # --- NSDL snapshots for the /nsdl-cas chart ---
     for i, (d, v) in enumerate([
         ("2025-09-30", 30_500_000.0), ("2025-12-31", 32_200_000.0),
         ("2026-03-31", 34_100_000.0), ("2026-06-30", 36_900_000.0),
@@ -114,3 +115,10 @@ def _seed(user_id: int) -> None:
             statement_date=date.fromisoformat(d), total_value=v,
             holding_count=18, source_filename=f"cas_{i}.pdf",
         ))
+
+    # --- Daily net-worth history for the Dashboard trend (~90 days, trending up) ---
+    base, target = 33_000_000.0, 36_900_000.0
+    for i in range(90, -1, -1):
+        day = (date.today() - timedelta(days=i)).isoformat()
+        v = base + (target - base) * (90 - i) / 90 + 260_000 * math.sin(i / 6.0)
+        storage.record_nw_snapshot(u, day, round(v), round(v), 3_500_000.0, "{}")
