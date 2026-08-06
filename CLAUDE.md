@@ -145,9 +145,11 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   lens separate from the net-worth tree (own `goals` table). Each goal is a target amount + date +
   expected return + **saved-so-far** (hand-entered — we deliberately don't tag holdings to goals, which
   avoids double-counting one rupee across goals). `goals.plan()` is the core: it compounds saved-so-far
-  to the target date and returns the **required monthly SIP** (future-value-of-annuity) plus a status —
-  `funded` (projection alone reaches target), `active` (show the SIP), `overdue` (date passed, not
-  funded), `undated` (no date → progress only, no SIP). Return is stored per-goal as a percent
+  to the target date and returns the **required monthly SIP** (future-value-of-annuity) **and a
+  `required_lumpsum`** — the one-time amount today that, compounding at the same rate, closes the same
+  gap (`gap / (1+r)^n`; the "set it aside now" alternative to the SIP) — plus a status —
+  `funded` (projection alone reaches target), `active` (show the SIP + lump sum), `overdue` (date passed,
+  not funded), `undated` (no date → progress only). The summary also totals both across dated goals. Return is stored per-goal as a percent
   (`DEFAULT_RETURN_PCT` = 10 if blank). `CATEGORIES` gives each goal type a colour + icon. **Retirement
   is not stored** — it's mirrored **read-only** at the top of the list from the Expenses FIRE target
   (25× annual burn, progress = live net worth), so the burn has a single source of truth; the card links

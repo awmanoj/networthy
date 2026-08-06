@@ -1403,7 +1403,7 @@ def goals_page(request: Request):
     user = request.state.user
     today = date.today()
     rows = storage.list_goals(user.id)
-    total_target = total_saved = total_monthly = 0.0
+    total_target = total_saved = total_monthly = total_lumpsum = 0.0
     for g in rows:
         d = _parse_date(g["target_date"])
         p = goals.plan(g["target_amount"], g["saved_amount"], d, g["return_pct"], today)
@@ -1418,6 +1418,7 @@ def goals_page(request: Request):
         total_target += g["target_amount"] or 0.0
         total_saved += g["saved_amount"] or 0.0
         total_monthly += p["required_monthly"] or 0.0
+        total_lumpsum += p["required_lumpsum"] or 0.0
 
     # FIRE mirror (read-only): target = 25× annual burn, progress = live net worth.
     annual_burn = sum(
@@ -1449,6 +1450,7 @@ def goals_page(request: Request):
             "total_target": total_target,
             "total_saved": total_saved,
             "total_monthly": total_monthly,
+            "total_lumpsum": total_lumpsum,
             "overall_pct": (total_saved / total_target * 100.0) if total_target > 0 else 0.0,
             "edit_id": _opt_int(request.query_params.get("edit", "")),
             "today": today,

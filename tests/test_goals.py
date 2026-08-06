@@ -26,20 +26,33 @@ def test_plan_required_monthly_matches_annuity_formula():
     assert p["required_monthly"] == pytest.approx(100_000.0)   # 1.2L / 12 months, no return
 
 
+def test_plan_lumpsum_compounds_to_close_the_gap():
+    # A one-time lump sum today, grown at the rate, should equal the funding gap.
+    p = goals.plan(5_000_000, 800_000, date(2035, 6, 1), 11.0, today=date(2026, 8, 5))
+    gap = p["projected"] and (5_000_000 - p["projected"])
+    monthly_r = 1.11 ** (1 / 12) - 1
+    grown = p["required_lumpsum"] * (1 + monthly_r) ** p["months_left"]
+    assert grown == pytest.approx(gap, rel=1e-6)
+    # And a single lump sum is a smaller total outlay than summing every SIP.
+    assert p["required_lumpsum"] < p["required_monthly"] * p["months_left"]
+
+
 def test_plan_funded_when_projection_reaches_target():
     p = goals.plan(1_000_000, 950_000, date(2028, 8, 5), 12.0, today=date(2026, 8, 5))
-    assert p["status"] == "funded" and p["required_monthly"] == 0.0
+    assert p["status"] == "funded"
+    assert p["required_monthly"] == 0.0 and p["required_lumpsum"] == 0.0
 
 
 def test_plan_undated_goal_has_no_sip():
     p = goals.plan(1_000_000, 100_000, None, 10.0, today=date(2026, 8, 5))
     assert p["status"] == "undated" and p["required_monthly"] is None
-    assert p["months_left"] is None
+    assert p["required_lumpsum"] is None and p["months_left"] is None
 
 
 def test_plan_overdue_when_date_passed_and_short():
     p = goals.plan(1_000_000, 100_000, date(2025, 1, 1), 10.0, today=date(2026, 8, 5))
-    assert p["status"] == "overdue" and p["required_monthly"] is None
+    assert p["status"] == "overdue"
+    assert p["required_monthly"] is None and p["required_lumpsum"] is None
 
 
 def test_months_between():

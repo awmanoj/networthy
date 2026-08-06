@@ -26,6 +26,11 @@
     <span class="gs-figure num">₹{{ "{:,.0f}".format(total_monthly) }}</span>
     <span class="hero-note">to keep every dated goal on track</span>
   </div>
+  <div class="gs-stat">
+    <span class="eyebrow">Or as a lump sum today</span>
+    <span class="gs-figure num">₹{{ "{:,.0f}".format(total_lumpsum) }}</span>
+    <span class="hero-note">set aside now instead of the monthly SIPs</span>
+  </div>
   {% endif %}
 </section>
 {% endif %}
@@ -73,6 +78,7 @@
     <span class="goal-sip">
       {% if g.status == 'active' %}
         Invest <strong>₹{{ "{:,.0f}".format(g.required_monthly) }}/mo</strong>{% if g.target_fmt %} to reach it by {{ g.target_fmt }}{% endif %}
+        <span class="goal-alt">or set aside <strong>₹{{ "{:,.0f}".format(g.required_lumpsum) }}</strong> as a lump sum today</span>
       {% elif g.status == 'funded' %}
         On track — projected to reach the target with no new investment
       {% elif g.status == 'overdue' %}

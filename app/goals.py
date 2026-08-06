@@ -78,10 +78,12 @@ def plan(
     Returns a dict with: progress_pct (saved vs target, nominal), months_left,
     projected (what `saved` grows to by the date at the expected return),
     required_monthly (the SIP that closes the remaining gap; None if the date has
-    passed and it isn't already funded), and a status string:
+    passed and it isn't already funded), required_lumpsum (a one-time amount today
+    that, compounding at the same rate, closes the same gap — the "set it aside now"
+    alternative to the SIP; same None/0 rules as the SIP), and a status string:
 
       funded   — projected savings alone reach the target (no new investment needed)
-      active   — on the way; contribute `required_monthly` to land on time
+      active   — on the way; contribute `required_monthly` (or `required_lumpsum` now)
       overdue  — target date has passed and it isn't funded
       undated  — no target date, so we can only show progress (no SIP)
     """
@@ -96,7 +98,7 @@ def plan(
     if target_date is None:
         return {
             "progress_pct": progress_pct, "months_left": None, "projected": saved,
-            "required_monthly": None, "status": "undated",
+            "required_monthly": None, "required_lumpsum": None, "status": "undated",
         }
 
     n = _months_between(today, target_date)
@@ -104,17 +106,20 @@ def plan(
     gap = target - projected
 
     if gap <= 0:
-        status, required = "funded", 0.0
+        status, required, lumpsum = "funded", 0.0, 0.0
     elif n <= 0:
-        status, required = "overdue", None  # date gone, can't SIP into the past
-    elif monthly_r == 0:
-        status, required = "active", gap / n
+        status, required, lumpsum = "overdue", None, None  # date gone, nothing to plan
     else:
-        # Future value of an ordinary annuity: gap = SIP · ((1+r)^n − 1) / r.
         status = "active"
-        required = gap * monthly_r / (((1.0 + monthly_r) ** n) - 1.0)
+        if monthly_r == 0:
+            required = gap / n
+        else:
+            # Future value of an ordinary annuity: gap = SIP · ((1+r)^n − 1) / r.
+            required = gap * monthly_r / (((1.0 + monthly_r) ** n) - 1.0)
+        # One-time amount today that compounds to the gap: L · (1+r)^n = gap.
+        lumpsum = gap / ((1.0 + monthly_r) ** n)
 
     return {
         "progress_pct": progress_pct, "months_left": n, "projected": projected,
-        "required_monthly": required, "status": status,
+        "required_monthly": required, "required_lumpsum": lumpsum, "status": status,
     }
