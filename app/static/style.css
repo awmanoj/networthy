@@ -107,6 +107,37 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
 }
 .topbar nav { display: flex; gap: 20px; align-items: center; }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+/* Hamburger (mobile only) — a 3-line icon drawn from one <span>. */
+.nav-burger { display: none; width: 26px; height: 22px; cursor: pointer; position: relative; }
+.nav-burger span, .nav-burger span::before, .nav-burger span::after {
+  content: ""; position: absolute; left: 0; width: 100%; height: 2px; border-radius: 2px;
+  background: var(--ink); transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.nav-burger span { top: 10px; }
+.nav-burger span::before { top: -7px; }
+.nav-burger span::after { top: 7px; }
+/* Collapse the nav into a dropdown below ~760px; the checkbox toggles it (no JS). */
+@media (max-width: 760px) {
+  .topbar { position: relative; }
+  .nav-burger { display: inline-block; }
+  .topbar nav.nav-links {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 60;
+    flex-direction: column; align-items: stretch; gap: 2px;
+    padding: 8px 20px 14px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 16px 30px -16px rgba(16, 24, 38, 0.30);
+  }
+  .nav-toggle:checked ~ nav.nav-links { display: flex; }
+  .topbar nav.nav-links a,
+  .topbar nav.nav-links .user-email,
+  .topbar nav.nav-links form { width: 100%; padding: 9px 2px; }
+  .topbar nav.nav-links .user-email { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px; }
+  /* Animate the burger into an X when open. */
+  .nav-toggle:checked ~ .nav-right .nav-burger span { background: transparent; }
+  .nav-toggle:checked ~ .nav-right .nav-burger span::before { transform: translateY(7px) rotate(45deg); }
+  .nav-toggle:checked ~ .nav-right .nav-burger span::after { transform: translateY(-7px) rotate(-45deg); }
+}
 /* Theme toggle */
 .theme-toggle {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
@@ -731,7 +762,7 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .hero-split { display: flex; gap: 30px; margin-top: auto; padding-top: 24px; }
 .hero-split .lab { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .hero-split .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
-.hero-split .val { font-family: var(--serif); font-size: 1.45rem; margin-top: 3px; }
+.hero-split .val { font-family: var(--serif); font-size: 1.45rem; margin-top: 3px; white-space: nowrap; }
 .hero-split .val.neg { color: var(--loss); }
 
 .alloc-card { padding: 24px 26px; display: flex; flex-direction: column; }
@@ -1090,3 +1121,21 @@ a.btn { color: var(--btn-fg); }
 }
 .mkt-auth .card.narrow { margin: 0; width: 100%; }
 .mkt-auth-note { text-align: center; font-size: 0.85rem; margin: 18px 0 0; }
+
+/* ===========================================================================
+   Mobile overrides — kept last so they win over the base grid rules above
+   regardless of where those are defined (same-specificity source order).
+   =========================================================================== */
+@media (max-width: 640px) {
+  /* Wide tables scroll inside their card instead of widening the whole page. */
+  table.holdings, table.snapshots {
+    display: block; overflow-x: auto; white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Two-column legends (dashboard "how it's composed", expenses "where it goes")
+     stack so long ₹ figures can't force horizontal overflow. */
+  .alloc-legend { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .dash-tiles { grid-template-columns: 1fr; }
+}

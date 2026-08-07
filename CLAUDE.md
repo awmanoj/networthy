@@ -250,6 +250,13 @@ If you rename or change the signature of a `_`-prefixed parser helper, the tests
   Style components through tokens, never hardcode theme colors. Legacy names (`--text/--accent/--up/
   --down`) are aliased to the new tokens. Figures use `var(--serif)` (a system serif) for gravitas;
   UI chrome stays system-sans. Buttons go through `--btn-bg/--btn-fg` for dark-mode legibility.
+  **Responsive**: mobile-usable, not app-shell — the app nav collapses to a **CSS-only hamburger**
+  (a hidden `#nav-toggle` checkbox in `base.html`; `:checked ~ .nav-links` opens the dropdown, no JS),
+  wide `.holdings`/`.snapshots` tables scroll inside their card (`display:block; overflow-x:auto` under
+  640px) rather than widening the page, and multi-column grids (allocation legend, dashboard tiles)
+  stack. **Gotcha**: same-specificity media overrides must come *after* the base grid rule, so the
+  mobile block lives at the **end of `style.css`** (source order wins). Verify changes don't reintroduce
+  horizontal scroll at 390px (`document.documentElement.scrollWidth <= clientWidth`).
 - Amounts are INR, formatted with Indian digit grouping (`_to_float` strips lakh/crore commas
   like `12,34,567.89`).
 - The privacy invariant is load-bearing: never add code paths that write statement contents or

@@ -19,7 +19,8 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/"><span class="mark">₹</span>Networthy HQ</a>
-    <nav>
+    {% if user %}<input type="checkbox" id="nav-toggle" class="nav-toggle" hidden>{% endif %}
+    <nav class="nav-links">
       {% if user %}
       <a href="/">Dashboard</a>
       <a href="/networth">Net worth</a>
@@ -31,9 +32,14 @@
         <button class="link-muted" type="submit">Log out</button>
       </form>
       {% endif %}
+    </nav>
+    <div class="nav-right">
       <button class="theme-toggle" id="theme-toggle" type="button"
               title="Toggle light / dark" aria-label="Toggle light or dark theme">◑</button>
-    </nav>
+      {% if user %}
+      <label for="nav-toggle" class="nav-burger" aria-label="Toggle menu"><span></span></label>
+      {% endif %}
+    </div>
   </header>
   {% if user and user.email == 'demo@networthyhq.com' %}
   <div class="demo-banner">
