@@ -151,10 +151,21 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   per-person family-scaling lever) at a **frequency** (`FREQUENCIES`: monthly/quarterly/half-yearly/
   annual), normalised to a monthly & annual burn via `annual_amount()`. The page shows the burn,
   a category breakdown (`CATEGORIES`, fixed list with per-category colours), and the **net-worth
-  connection**: runway (net worth ÷ annual burn) and a **FIRE target** (`FIRE_MULTIPLE` = 25×,
-  the 4% rule) with progress. Loan EMIs are intentionally **not** modelled here — they live under
-  Liabilities, and double-counting would make burn-rate and net-worth views disagree. Routes:
-  `POST /expenses/add` + `/expenses/{id}/delete`.
+  connection**: runway (net worth ÷ annual burn) and a **FIRE target** with progress. Loan EMIs are
+  intentionally **not** modelled here — they live under Liabilities, and double-counting would make
+  burn-rate and net-worth views disagree. Routes: `POST /expenses/add` + `/expenses/{id}/delete`.
+  **Safe withdrawal rate**: the FIRE target is driven by a **per-user rate**, not a constant —
+  `DEFAULT_SWR_PCT` = **3.0** (33×), deliberately *not* the US 4%/25× rule, which is a Trinity-study
+  result (US 1926–95, 30-year horizon, ~3% inflation, Social Security underneath) and optimistic
+  against India's ~6% general / higher healthcare inflation and absent state pension. `normalise_swr`
+  (default-if-unset, clamped to `SWR_MIN_PCT`..`SWR_MAX_PCT`), `swr_multiple` (100/rate) and
+  `fire_target` are the API; `SWR_PRESETS` (2.5 / 3.0 / 3.5 / 4.0, each with a one-line rationale)
+  drives the **ladder** on the Expenses page (`main._swr_ladder` — the target and % progress at every
+  preset, plus the user's own rate if it isn't one, so the assumption reads as a *range*). Stored in
+  `user_settings.swr_pct` via `get`/`save_swr_pct` — kept as **separate accessors** from
+  `get`/`save_user_settings` (the CAMS PAN/email pair) so neither upsert clobbers the other's columns.
+  Set via `POST /expenses/swr`. Goals' read-only Retirement card reads the same setting, so there is
+  one source of truth for the assumption.
 
 - **`app/goals.py` + the Goals tab** (`GET /goals` → `goals_page`, template `goals.html`; nav order is
   Dashboard · Net worth · Expenses · **Goals** · NSDL CAS) — a **target-by-date planner**, another
@@ -168,8 +179,8 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   not funded), `undated` (no date → progress only). The summary also totals both across dated goals. Return is stored per-goal as a percent
   (`DEFAULT_RETURN_PCT` = 10 if blank). `CATEGORIES` gives each goal type a colour + icon. **Retirement
   is not stored** — it's mirrored **read-only** at the top of the list from the Expenses FIRE target
-  (25× annual burn, progress = live net worth), so the burn has a single source of truth; the card links
-  back to Expenses to change it. Add/edit/delete reuse the shared edit flow (`update_row` + `.edit-glow`):
+  (annual burn ÷ the user's withdrawal rate, default 3% → 33×; progress = live net worth), so both the
+  burn and the SWR assumption have a single source of truth; the card links back to Expenses to change it. Add/edit/delete reuse the shared edit flow (`update_row` + `.edit-glow`):
   `POST /goals/add` (add-or-update via optional `id`) + `/goals/{id}/delete`. `test_goals.py` pins the
   SIP math (annuity formula, funded/undated/overdue branches, month counting) and the route round-trips.
 

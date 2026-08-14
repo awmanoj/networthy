@@ -5,7 +5,9 @@ transaction ledger and not part of the Assets/Liabilities tree. Each entry is an
 amount at a cadence, optionally multiplied by a count (the lightweight
 family-scaling lever: "school fees × 2 kids", "health cover × 4 members"). We
 normalise everything to an annual (and monthly) burn rate, which is what connects
-to net worth via runway and a FIRE target.
+to net worth via runway and a FIRE target (see the safe-withdrawal-rate block
+below — the target is driven by a per-user rate, defaulting to an India-realistic
+3%, not the US 4% rule).
 
 Loan EMIs are deliberately *not* modelled here — they live under Liabilities, and
 counting them in both places would make the two views disagree.
@@ -51,8 +53,56 @@ CATEGORIES: list[dict] = [
 ]
 CATEGORY_BY_SLUG: dict[str, dict] = {c["slug"]: c for c in CATEGORIES}
 
-# The FIRE rule of thumb: 25× annual expenses ≈ a 4% safe withdrawal rate.
-FIRE_MULTIPLE = 25
+# --- Safe withdrawal rate ---------------------------------------------------
+#
+# A FIRE target is "the corpus from which I can withdraw my expenses, raised for
+# inflation, without running out". The famous 25× / 4% figure is a *US* result —
+# the Trinity study ran US stocks/bonds over 1926–1995, a 30-year horizon, with
+# ~3% inflation and Social Security underneath. India differs on every one of
+# those inputs: ~6% general inflation and double-digit healthcare inflation,
+# a much shorter reliable-return history, and no state pension floor. So the
+# default here is **3% (33×)**, not 4%, and the rate is a per-user assumption
+# rather than a constant — the honest answer is a range, which is why the
+# Expenses page also shows the target at each preset rate.
+DEFAULT_SWR_PCT = 3.0
+
+# Sanity bounds for a hand-entered rate (0% would be an infinite target).
+SWR_MIN_PCT = 1.0
+SWR_MAX_PCT = 10.0
+
+SWR_PRESETS: list[dict] = [
+    {"pct": 2.5, "label": "Conservative",
+     "note": "Early retirement, a 40+ year horizon, or a corpus you can never top up."},
+    {"pct": 3.0, "label": "India-realistic",
+     "note": "The sane Indian default — ~6% inflation, healthcare rising faster, no state pension."},
+    {"pct": 3.5, "label": "Moderate",
+     "note": "Retiring later, or able to trim spending in bad years / earn a little on the side."},
+    {"pct": 4.0, "label": "US · Trinity rule",
+     "note": "The classic 4% rule, from US market history. Optimistic for an Indian portfolio."},
+]
+
+
+def normalise_swr(pct: float | None) -> float:
+    """A usable withdrawal rate: the default when unset, clamped to sane bounds."""
+    if pct is None:
+        return DEFAULT_SWR_PCT
+    try:
+        val = float(pct)
+    except (TypeError, ValueError):
+        return DEFAULT_SWR_PCT
+    if val <= 0:
+        return DEFAULT_SWR_PCT
+    return min(SWR_MAX_PCT, max(SWR_MIN_PCT, val))
+
+
+def swr_multiple(pct: float | None) -> float:
+    """The corpus multiple implied by a withdrawal rate: 4% → 25×, 3% → 33.3×."""
+    return 100.0 / normalise_swr(pct)
+
+
+def fire_target(annual_expense: float, pct: float | None) -> float:
+    """The corpus that sustains this annual burn at the given withdrawal rate."""
+    return (annual_expense or 0.0) * swr_multiple(pct)
 
 
 def annual_amount(amount: float | None, count: int | None, frequency: str) -> float:

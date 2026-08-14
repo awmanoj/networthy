@@ -434,10 +434,14 @@ def init_db() -> None:
                 user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                 pan        TEXT,
                 cams_email TEXT,
+                swr_pct    REAL,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
             """
         )
+        # The safe-withdrawal-rate assumption behind the FIRE target moved from a
+        # module constant to a per-user setting; older DBs predate the column.
+        _add_column_if_missing(conn, "user_settings", "swr_pct", "REAL")
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -568,6 +572,34 @@ def save_user_settings(user_id: int, pan: str, cams_email: str) -> None:
                 updated_at = excluded.updated_at
             """,
             (user_id, pan or None, cams_email or None),
+        )
+
+
+def get_swr_pct(user_id: int) -> float | None:
+    """The user's chosen safe withdrawal rate, or None if they never set one.
+
+    Kept separate from `get_user_settings` (which is the CAMS PAN/email pair) so
+    each caller reads only what it needs; both live in the same one-row table.
+    """
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT swr_pct FROM user_settings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+    return row["swr_pct"] if row else None
+
+
+def save_swr_pct(user_id: int, pct: float) -> None:
+    """Upsert the user's safe withdrawal rate, leaving their PAN/email alone."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_settings (user_id, swr_pct, updated_at)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET
+                swr_pct = excluded.swr_pct,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, pct),
         )
 
 

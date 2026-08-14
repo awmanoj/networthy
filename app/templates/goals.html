@@ -42,7 +42,7 @@
     <span class="goal-title"><span class="goal-icon">★</span> Retirement (FIRE)</span>
     <span class="goal-chip goal-chip--auto">auto · from Expenses</span>
   </div>
-  <div class="goal-meta">{{ fire.multiple }}× your annual expenses · a 4% safe-withdrawal corpus</div>
+  <div class="goal-meta">{{ "%.0f"|format(fire.multiple) }}× your annual expenses · a {{ "%g"|format(fire.swr_pct) }}% safe-withdrawal corpus</div>
   <div class="goal-bar"><span style="width: {{ '%.1f'|format([fire.progress_pct, 100]|min) }}%; background: var(--copper);"></span></div>
   <div class="goal-foot">
     <span>₹{{ "{:,.0f}".format(fire.saved) }} of ₹{{ "{:,.0f}".format(fire.target) }} · {{ "%.0f"|format(fire.progress_pct) }}% there</span>

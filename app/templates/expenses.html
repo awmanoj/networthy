@@ -30,17 +30,70 @@
       {% endif %}
     </div>
     <div class="exp-stat">
-      <span class="eyebrow">FIRE target · {{ fire_multiple }}×</span>
+      <span class="eyebrow">FIRE target · {{ "%g"|format(swr_pct) }}% SWR ({{ "%.0f"|format(fire_multiple) }}×)</span>
       {% if fire_target %}
       <span class="exp-figure num">₹{{ "{:,.0f}".format(fire_target) }}</span>
       <div class="fire-bar"><span style="width: {{ '%.1f'|format([fire_pct, 100]|min) }}%"></span></div>
-      <span class="hero-note">{{ "%.0f"|format(fire_pct) }}% there</span>
+      <span class="hero-note">{{ "%.0f"|format(fire_pct) }}% there · <a href="#swr">change the rate</a></span>
       {% else %}
       <span class="exp-figure">—</span>
       {% endif %}
     </div>
   </div>
 </section>
+
+{% if swr_ladder %}
+<section class="dash-card swr-card" id="swr">
+  <h2>What withdrawal rate?</h2>
+  <p class="muted swr-lead">
+    The famous <strong>4% rule (25×)</strong> is a US result — the Trinity study ran US
+    stocks and bonds over 1926–1995, a 30-year retirement, ~3% inflation, with Social
+    Security underneath. India isn't that: general inflation runs ~6%, healthcare faster
+    still, the return history is shorter, and there's no state pension floor. A
+    <strong>2.5–3%</strong> rate is the more defensible assumption here — which means a
+    corpus of <strong>33–40×</strong> your annual spend, not 25×.
+  </p>
+
+  <form method="post" action="/expenses/swr" class="swr-ladder">
+    {% for r in swr_ladder %}
+    <div class="swr-row{% if r.current %} swr-row--current{% endif %}">
+      <div class="swr-rate">
+        <b class="num">{{ "%g"|format(r.pct) }}%</b>
+        <span class="swr-mult">{{ "%.0f"|format(r.multiple) }}×</span>
+      </div>
+      <div class="swr-meat">
+        <div class="swr-head">
+          <span class="swr-label">{{ r.label }}{% if r.current %} <span class="swr-you">· yours</span>{% endif %}</span>
+          <span class="swr-target num">₹{{ "{:,.0f}".format(r.target) }}</span>
+        </div>
+        <div class="fire-bar"><span style="width: {{ '%.1f'|format([r.progress_pct, 100]|min) }}%"></span></div>
+        <div class="swr-foot">
+          <span class="muted">{{ r.note }}</span>
+          <span class="swr-there">{{ "%.0f"|format(r.progress_pct) }}% there</span>
+        </div>
+      </div>
+      <div class="swr-pick">
+        {% if r.current %}
+        <span class="swr-current-tag">in use</span>
+        {% else %}
+        <button type="submit" name="swr_pct" value="{{ r.pct }}">Use this</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </form>
+
+  <form method="post" action="/expenses/swr" class="swr-custom">
+    <label>Or set your own rate
+      <input type="number" name="swr_pct" step="0.1" min="{{ swr_min }}" max="{{ swr_max }}"
+             value="{{ '%g'|format(swr_pct) }}" required>
+      <span class="swr-pct-sign">%</span>
+    </label>
+    <button class="btn" type="submit">Save</button>
+    <span class="muted swr-hint">Lower rate → bigger corpus → more margin for a bad decade.</span>
+  </form>
+</section>
+{% endif %}
 
 {% if breakdown %}
 <section class="dash-card alloc-card">

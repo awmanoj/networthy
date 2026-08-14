@@ -1371,11 +1371,16 @@ def expenses_page(request: Request):
         key=lambda b: b["value"], reverse=True,
     )
 
-    # The net-worth connection: runway and a FIRE target.
+    # The net-worth connection: runway and a FIRE target. The target hangs off the
+    # user's safe-withdrawal-rate assumption (default 3%, not the US 4% rule), and
+    # we ship the whole ladder of preset rates so the range is visible, not just
+    # the one number they happen to have picked.
     net_worth = _dashboard(user)["net_worth"]
+    swr_pct = expenses.normalise_swr(storage.get_swr_pct(user.id))
     runway_years = (net_worth / annual_total) if annual_total > 0 else None
-    fire_target = annual_total * expenses.FIRE_MULTIPLE if annual_total > 0 else None
+    fire_target = expenses.fire_target(annual_total, swr_pct) if annual_total > 0 else None
     fire_pct = (net_worth / fire_target * 100.0) if fire_target else None
+    swr_ladder = _swr_ladder(annual_total, net_worth, swr_pct) if annual_total > 0 else []
 
     return templates.TemplateResponse(
         "expenses.html",
@@ -1394,9 +1399,28 @@ def expenses_page(request: Request):
             "runway_years": runway_years,
             "fire_target": fire_target,
             "fire_pct": fire_pct,
-            "fire_multiple": expenses.FIRE_MULTIPLE,
+            "swr_pct": swr_pct,
+            "fire_multiple": expenses.swr_multiple(swr_pct),
+            "swr_ladder": swr_ladder,
+            "swr_min": expenses.SWR_MIN_PCT,
+            "swr_max": expenses.SWR_MAX_PCT,
         },
     )
+
+
+def _swr_ladder(annual: float, net_worth: float, current: float) -> list[dict]:
+    """The FIRE target at each preset withdrawal rate, plus the user's own if it
+    isn't one of them — so the assumption reads as a range, not a fact."""
+    rows = [dict(p) for p in expenses.SWR_PRESETS]
+    if not any(abs(r["pct"] - current) < 1e-9 for r in rows):
+        rows.append({"pct": current, "label": "Yours", "note": "Your own assumption."})
+        rows.sort(key=lambda r: r["pct"])
+    for r in rows:
+        r["multiple"] = expenses.swr_multiple(r["pct"])
+        r["target"] = expenses.fire_target(annual, r["pct"])
+        r["progress_pct"] = (net_worth / r["target"] * 100.0) if r["target"] else 0.0
+        r["current"] = abs(r["pct"] - current) < 1e-9
+    return rows
 
 
 @app.post("/expenses/add")
@@ -1425,6 +1449,13 @@ def expense_add(
         else:
             storage.add_expense(request.state.user.id, f.pop("name"), f.pop("category"),
                                 f.pop("amount"), f.pop("frequency"), **f)
+    return RedirectResponse(url="/expenses", status_code=303)
+
+
+@app.post("/expenses/swr")
+def expense_swr(request: Request, swr_pct: float = Form(...)):
+    """Set the safe-withdrawal-rate assumption behind the FIRE target."""
+    storage.save_swr_pct(request.state.user.id, expenses.normalise_swr(swr_pct))
     return RedirectResponse(url="/expenses", status_code=303)
 
 
@@ -1458,7 +1489,8 @@ def goals_page(request: Request):
         total_monthly += p["required_monthly"] or 0.0
         total_lumpsum += p["required_lumpsum"] or 0.0
 
-    # FIRE mirror (read-only): target = 25× annual burn, progress = live net worth.
+    # FIRE mirror (read-only): target = annual burn ÷ the user's withdrawal rate
+    # (same assumption as Expenses, single source of truth), progress = live net worth.
     annual_burn = sum(
         expenses.annual_amount(e["amount"], e["count"], e["frequency"])
         for e in storage.list_expenses(user.id)
@@ -1466,12 +1498,14 @@ def goals_page(request: Request):
     net_worth = _dashboard(user)["net_worth"]
     fire = None
     if annual_burn > 0:
-        fire_target = annual_burn * expenses.FIRE_MULTIPLE
+        swr_pct = expenses.normalise_swr(storage.get_swr_pct(user.id))
+        fire_target = expenses.fire_target(annual_burn, swr_pct)
         fire = {
             "target": fire_target,
             "saved": net_worth,
             "progress_pct": min(100.0, net_worth / fire_target * 100.0) if fire_target else 0.0,
-            "multiple": expenses.FIRE_MULTIPLE,
+            "multiple": expenses.swr_multiple(swr_pct),
+            "swr_pct": swr_pct,
         }
 
     return templates.TemplateResponse(

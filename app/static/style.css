@@ -823,6 +823,49 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .fire-bar span { display: block; height: 100%; background: var(--gain); border-radius: 999px; }
 .exp-lead { max-width: 720px; font-size: 0.9rem; margin: 0 0 18px; }
 
+/* Withdrawal-rate ladder: the FIRE target at each preset rate, so the assumption
+   reads as a range rather than one authoritative number. */
+.swr-card { padding: 22px 26px 20px; margin-bottom: 20px; }
+.swr-card h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.swr-lead { max-width: 760px; font-size: 0.9rem; margin: 0 0 18px; line-height: 1.55; }
+.swr-lead strong { color: var(--text); }
+.swr-ladder { display: flex; flex-direction: column; gap: 2px; }
+.swr-row {
+  display: grid; grid-template-columns: 84px 1fr 92px; align-items: center; gap: 16px;
+  padding: 12px 14px; border-radius: 10px; border: 1px solid transparent;
+}
+.swr-row:hover { background: var(--surface-2); }
+.swr-row--current {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--copper) 45%, var(--border));
+}
+.swr-rate { display: flex; flex-direction: column; line-height: 1.2; }
+.swr-rate b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+.swr-mult { font-size: 0.8rem; color: var(--faint); }
+.swr-head, .swr-foot { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+.swr-label { font-size: 0.9rem; font-weight: 600; }
+.swr-you { color: var(--copper); font-weight: 600; }
+.swr-target { font-family: var(--serif); font-size: 1rem; font-weight: 600; }
+.swr-foot { font-size: 0.8rem; }
+.swr-there { font-weight: 600; white-space: nowrap; }
+.swr-pick { text-align: right; }
+.swr-pick button {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 14px; font: inherit; font-size: 0.82rem; font-weight: 600;
+  color: var(--text); cursor: pointer;
+}
+.swr-pick button:hover { border-color: var(--accent); color: var(--accent); }
+.swr-current-tag { font-size: 0.78rem; color: var(--copper); font-weight: 600; }
+.swr-custom {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+.swr-custom label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.swr-custom input { width: 84px; }
+.swr-pct-sign { margin-left: -4px; color: var(--muted); }
+.swr-hint { font-size: 0.82rem; }
+
 /* Per-category expense sections */
 .exp-cat { padding: 16px 20px 18px; margin-bottom: 14px; }
 .exp-cat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -1135,6 +1178,13 @@ a.btn { color: var(--btn-fg); }
   /* Two-column legends (dashboard "how it's composed", expenses "where it goes")
      stack so long ₹ figures can't force horizontal overflow. */
   .alloc-legend { grid-template-columns: 1fr; }
+  /* Withdrawal-rate ladder: rate on top, the "Use this" button under the bar,
+     so three columns of ₹ figures can't force horizontal scroll. */
+  .swr-row { grid-template-columns: 1fr auto; gap: 8px 12px; }
+  .swr-rate { flex-direction: row; align-items: baseline; gap: 8px; }
+  .swr-meat { grid-column: 1 / -1; }
+  .swr-pick { text-align: right; }
+  .swr-foot { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
 @media (max-width: 520px) {
   .dash-tiles { grid-template-columns: 1fr; }
