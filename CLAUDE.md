@@ -184,8 +184,10 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `POST /goals/add` (add-or-update via optional `id`) + `/goals/{id}/delete`. `test_goals.py` pins the
   SIP math (annuity formula, funded/undated/overdue branches, month counting) and the route round-trips.
 
-- **`app/wealth.py`** — the "Where do you stand?" feature, a **full page at `GET /standing`**
-  reached from the Dashboard CTA tile; pre-fills with the user's live sum-the-tree net worth. Static net-worth
+- **`app/wealth.py`** — the "Where do you stand?" feature, a **public full page at
+  `GET /how-rich-am-i`** (`main.how_rich_am_i`, template `standing.html`) reached from the Dashboard
+  CTA tile, the landing page and the footer; pre-fills with the user's live sum-the-tree net worth
+  when signed in. Static net-worth
   distribution data (adults per band for India/USA/Singapore/Australia/Canada/Indonesia/Japan/World —
   the `GEO_ORDER` display order — from `wealth_distribution.xlsx` plus modeled UBS/Knight Frank/Forbes
   estimates for the added markets) plus `rank_net_worth()`, which places a
@@ -200,6 +202,24 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   "peers at your level" — the pyramid's "you're here" band shows ≈above-you / ≈below-you instead.
   Keep the two in sync if either changes; `test_wealth.py` pins the contract (band sums,
   monotonicity, anchor reproduction, the band split partition, the India-vs-USA contrast).
+
+- **SEO / the indexable surface** — the ranking page is the one piece of top-of-funnel content, so
+  it is **public** (in `auth._PUBLIC_PATHS`) and deliberately crawlable. A crawler is an anonymous
+  client with no JS, which drives three constraints: (1) the page must not slip back behind the
+  session gate; (2) the explorer paints into empty divs from `standing.js`, so `main._standing_levels`
+  / `_standing_bands` **server-render** the reference tables (where ₹25L…₹100cr rank in India, and
+  the band table) — that's the only indexable text on the page, and `_share_display` keeps millionth-
+  of-a-percent bands readable as "1 in N" instead of `2.05e-05%`; (3) `base.html` renders Log in /
+  Get started in `.nav-right` when there's no `user` (not in `.nav-links`, which is collapsed behind
+  the burger checkbox that only exists for signed-in users). The old **`/standing` URL 301s** to the
+  new one — permanent, so the move carries its signals (contrast `/portfolio` → `/nsdl-cas`, a 307,
+  which is fine because that route is gated and never indexed). Per-page meta is opt-in: a route
+  passes `page_title` / `page_description` / `canonical_path` and `_head_meta.html` (included by
+  **both** bases, and the single owner of description + canonical + OG — don't re-add a description
+  to `marketing_base.html`) falls back to the site-wide defaults. `GET /robots.txt` and
+  `GET /sitemap.xml` are generated in `main` from `_SITEMAP_PATHS`; **every path listed there must be
+  in `_PUBLIC_PATHS`** (`test_seo.py` asserts exactly that, plus the 301, anonymous reachability, the
+  server-rendered numbers, and that the app routes are still gated).
 
 ## Testing approach
 

@@ -1,17 +1,27 @@
-{# Favicons + social share (Open Graph / Twitter) — included in both bases. #}
+{# Favicons + SEO/social head — included in both bases.
+
+   Per-page SEO is opt-in: a route may pass `page_title`, `page_description` and
+   `canonical_path` in its template context; anything it doesn't pass falls back
+   to the site-wide defaults below. Keeping description/canonical/OG in one file
+   means a page can't end up with two conflicting descriptions. #}
+{%- set _title = page_title | default("Networthy HQ — see where you stand", true) -%}
+{%- set _desc = page_description | default("Track your complete net worth — Indian & US stocks, mutual funds, crypto, gold, real estate, bank balances and loans — priced live. Private by design.", true) -%}
+{%- set _url = site_url ~ (canonical_path | default("/", true)) -%}
+<meta name="description" content="{{ _desc }}" />
+<link rel="canonical" href="{{ _url }}" />
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v={{ version }}" />
 <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png?v={{ version }}" />
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{ version }}" />
 <meta name="theme-color" content="#1f3a5f" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Networthy HQ" />
-<meta property="og:title" content="Networthy HQ — see where you stand" />
-<meta property="og:description" content="Track your complete net worth — Indian &amp; US stocks, mutual funds, crypto, gold, real estate, bank balances and loans — priced live. Private by design." />
-<meta property="og:url" content="{{ site_url }}/" />
+<meta property="og:title" content="{{ _title }}" />
+<meta property="og:description" content="{{ _desc }}" />
+<meta property="og:url" content="{{ _url }}" />
 <meta property="og:image" content="{{ site_url }}/static/og-image.png?v={{ version }}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Networthy HQ — see where you stand" />
-<meta name="twitter:description" content="Track your complete net worth, priced live. Private by design." />
+<meta name="twitter:title" content="{{ _title }}" />
+<meta name="twitter:description" content="{{ _desc }}" />
 <meta name="twitter:image" content="{{ site_url }}/static/og-image.png?v={{ version }}" />

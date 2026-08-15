@@ -1,18 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Where do you stand? · Networthy HQ{% endblock %}
+{% block title %}{{ page_title }} · Networthy HQ{% endblock %}
 {% block content %}
 
+{% if user %}
 <nav class="crumbs" aria-label="Breadcrumb">
   <a href="/">Dashboard</a><span class="crumb-sep">/</span>
   <span class="crumb-current">Where do you stand?</span>
 </nav>
+{% endif %}
 
 <section class="card stand-intro">
-  <h1>Where do you stand?</h1>
+  <h1>How rich am I?</h1>
   <p class="muted">
     Type a net worth and see where it ranks among adults in India, the USA,
     Singapore, Australia, Canada, Indonesia, Japan and worldwide. Modelled from UBS,
     Knight Frank and Forbes wealth data — a fun estimate, not a census.
+    {% if not user %}Everything is worked out in your browser: the number you type
+    is never sent to us.{% endif %}
   </p>
 
   <div class="nw-control">
@@ -66,6 +70,90 @@
     in INR crore; USD at ₹96.5/$1.
   </p>
 </section>
+
+{# ---------------------------------------------------------------------------
+   Server-rendered reference tables. The explorer above paints into empty divs
+   from JS, so these exist to give crawlers (and no-JS readers) the actual
+   numbers — and they answer the questions people search for directly.
+   --------------------------------------------------------------------------- #}
+<section class="card stand-ref">
+  <h2>What net worth puts you in the top 1% in India?</h2>
+  <p class="muted stand-ref-lead">
+    Roughly ₹2 crore. Here's where each level lands among India's ≈1 billion adults —
+    the same maths the explorer above runs, at fixed rungs.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>Net worth</th>
+          <th class="num">Top %</th>
+          <th class="num">Adults at or above</th>
+          <th class="num">That's about</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in levels %}
+        <tr>
+          <th scope="row">{{ l.label }}</th>
+          <td class="num">{{ "%.3g"|format(l.top_pct) }}%</td>
+          <td class="num">{{ "{:,.0f}".format(l.rank) }}</td>
+          <td class="num">{% if l.one_in %}1 in {{ "{:,.0f}".format(l.one_in) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card stand-ref">
+  <h2>India's wealth bands</h2>
+  <p class="muted stand-ref-lead">
+    How India's adults split across net-worth bands, richest first. USD equivalents
+    at ₹96.5/$1.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>Band</th>
+          <th>USD</th>
+          <th class="num">Adults</th>
+          <th class="num">Share of adults</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in band_rows %}
+        <tr>
+          <th scope="row">{{ b.label }}</th>
+          <td class="muted">{{ b.usd_label }}</td>
+          <td class="num">{{ "{:,.0f}".format(b.adults) }}</td>
+          <td class="num">{{ b.share_display }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Bands come from UBS Global Wealth Report, Knight Frank's Wealth Report and Forbes,
+    with a modelled power-law tail between the published anchors. Adults are age 20+.
+  </p>
+</section>
+
+{% if not user %}
+<section class="card stand-cta">
+  <h2>Know your real number first</h2>
+  <p class="muted">
+    Ranking a guess is entertainment. Networthy HQ tracks your actual net worth —
+    Indian &amp; US stocks, mutual funds, crypto, gold, property, bank balances and
+    loans, priced live — so the number you rank is the real one.
+  </p>
+  <p>
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-outline btn-lg">Explore the live demo</a>
+  </p>
+</section>
+{% endif %}
 
 <script id="stand-data" type="application/json">{{ dataset | tojson }}</script>
 <script src="/static/standing.js?v={{ version }}"></script>

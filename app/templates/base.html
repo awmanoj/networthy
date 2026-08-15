@@ -38,6 +38,12 @@
               title="Toggle light / dark" aria-label="Toggle light or dark theme">◑</button>
       {% if user %}
       <label for="nav-toggle" class="nav-burger" aria-label="Toggle menu"><span></span></label>
+      {% else %}
+      {# Public app pages (the ranking page) are reachable logged out — give them the
+         marketing CTAs. They sit in .nav-right, not .nav-links, because that dropdown
+         is collapsed behind the burger checkbox, which only exists for signed-in users. #}
+      <a href="/login" class="mkt-login">Log in</a>
+      <a href="/login" class="btn">Get started</a>
       {% endif %}
     </div>
   </header>

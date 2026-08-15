@@ -633,6 +633,27 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .fun-fact strong { color: var(--accent); }
 .stand-note { margin: 12px 0 0; font-size: 0.8rem; }
 
+/* Server-rendered reference tables under the explorer — the indexable half of
+   the page (the explorer itself is painted by JS into empty divs). */
+.stand-ref h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.25rem; letter-spacing: -0.01em; }
+.stand-ref-lead { margin: 0 0 16px; max-width: 640px; font-size: 0.9rem; }
+.stand-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.stand-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.stand-table th, .stand-table td { padding: 9px 12px; text-align: left; }
+.stand-table thead th {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--faint); font-weight: 600; border-bottom: 1px solid var(--border);
+}
+.stand-table tbody th { font-weight: 600; white-space: nowrap; }
+.stand-table tbody tr + tr th, .stand-table tbody tr + tr td { border-top: 1px solid var(--border); }
+.stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stand-table tbody tr:hover { background: var(--surface-2); }
+
+/* Sign-up CTA shown only to logged-out visitors on the public ranking page. */
+.stand-cta h2 { margin: 0 0 8px; font-family: var(--serif); font-weight: 600; font-size: 1.35rem; }
+.stand-cta > .muted { margin: 0 0 18px; max-width: 620px; font-size: 0.95rem; }
+.stand-cta .btn { margin-right: 10px; }
+
 /* Wealth pyramid */
 .pyramid-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
 .ptab {
@@ -1099,6 +1120,9 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .mkt-feature.reverse .mkt-feature-copy { order: 2; }
 @media (max-width: 860px) { .mkt-feature.reverse .mkt-feature-copy { order: 0; } }
 .mkt-feature p { color: var(--muted); font-size: 1.02rem; line-height: 1.6; margin: 16px 0 0; max-width: 32em; }
+/* Internal link out to the public ranking page — crawl path + real anchor text. */
+.mkt-feature-link a { color: var(--brand); font-weight: 600; }
+.mkt-feature-link a:hover { text-decoration: underline; }
 
 /* Privacy band */
 .mkt-privacy { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 30px; }

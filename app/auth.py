@@ -33,7 +33,11 @@ SESSION_COOKIE = "session"
 # the footer pages are public too.
 _PUBLIC_PREFIXES = ("/static/",)
 _PUBLIC_PATHS = {"/", "/login", "/verify", "/logout", "/health",
-                 "/about", "/terms", "/privacy", "/demo"}
+                 "/about", "/terms", "/privacy", "/demo",
+                 # Public top-of-funnel: the net-worth ranking page (all its maths
+                 # runs client-side, so an anonymous visitor's number never leaves
+                 # their browser), its old URL, and the crawler files.
+                 "/how-rich-am-i", "/standing", "/robots.txt", "/sitemap.xml"}
 
 _DB_TIME_FMT = "%Y-%m-%d %H:%M:%S"  # matches SQLite's datetime('now') (UTC)
 

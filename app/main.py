@@ -9,7 +9,9 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import (
+    HTMLResponse, PlainTextResponse, RedirectResponse, Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -1311,13 +1313,41 @@ def networth_node(request: Request, path: str):
     )
 
 
-@app.get("/standing", response_class=HTMLResponse)
-def standing(request: Request):
-    """The 'Where do you stand?' explorer — a full page reached from the dashboard
-    CTA. Pre-fills with the user's live net worth (sum-the-tree) when they have data."""
+# Net-worth levels the server-rendered reference table ranks. Chosen to span the
+# range people actually search for, and to give a crawler real text to index —
+# the interactive explorer above it is JS-only, so without this the page would
+# have nothing rankable in its HTML.
+_STANDING_LEVELS = [
+    (2_500_000, "₹25 lakh"), (5_000_000, "₹50 lakh"), (10_000_000, "₹1 crore"),
+    (20_000_000, "₹2 crore"), (50_000_000, "₹5 crore"), (100_000_000, "₹10 crore"),
+    (250_000_000, "₹25 crore"), (1_000_000_000, "₹100 crore"),
+]
+
+STANDING_PATH = "/how-rich-am-i"
+
+
+@app.get("/standing")
+def standing_redirect():
+    """The ranking page moved to a URL that matches what people actually search.
+    301 (not 307) so the move is permanent and its signals carry over."""
+    return RedirectResponse(url=STANDING_PATH, status_code=301)
+
+
+@app.get(STANDING_PATH, response_class=HTMLResponse)
+def how_rich_am_i(request: Request):
+    """The net-worth ranking page — public, so it can be found and indexed.
+
+    Logged in, it pre-fills with the user's live net worth (sum-the-tree). Logged
+    out it's a standalone tool: every placement is computed in the browser by
+    static/standing.js, so nothing a visitor types is ever sent to us. The
+    server-rendered tables below the explorer exist for crawlers (and no-JS
+    readers) — the interactive part paints into empty divs.
+    """
     user = request.state.user
-    dash = _dashboard(user)
-    my_nw = dash["net_worth"] if dash["has_data"] else None
+    my_nw = None
+    if user:
+        dash = _dashboard(user)
+        my_nw = dash["net_worth"] if dash["has_data"] else None
     default_nw = my_nw if my_nw else wealth.DEFAULT_NET_WORTH
     return templates.TemplateResponse(
         "standing.html",
@@ -1327,8 +1357,110 @@ def standing(request: Request):
             "my_net_worth": my_nw,
             "default_net_worth": default_nw,
             "dataset": wealth.client_dataset(),
+            "levels": _standing_levels("india"),
+            "band_rows": _standing_bands("india"),
+            "page_title": "How rich am I? Net worth percentile for India",
+            "page_description": (
+                "See where your net worth ranks. Find what ₹1 crore, ₹5 crore or ₹100 "
+                "crore puts you in — the top 1%, 0.1% or higher — among adults in India, "
+                "the USA, Singapore and worldwide. Nothing you type leaves your browser."
+            ),
+            "canonical_path": STANDING_PATH,
         },
     )
+
+
+def _standing_levels(geo: str) -> list[dict]:
+    """Where each reference net worth ranks in one geography — server-rendered."""
+    rows = []
+    for inr, label in _STANDING_LEVELS:
+        p = wealth.place_one(inr, geo)
+        rows.append({
+            "label": label,
+            "inr": inr,
+            "top_pct": p.top_pct,
+            "rank": p.rank,
+            "one_in": p.one_in,
+        })
+    return rows
+
+
+def _standing_bands(geo: str) -> list[dict]:
+    """The wealth-band table for one geography (the pyramid, as indexable text)."""
+    counts = wealth.BAND_COUNTS[geo]
+    adults = wealth.GEO_META[geo]["adults"]
+    rows = []
+    for i, label in enumerate(wealth.BAND_LABELS):
+        pct = counts[i] / adults * 100.0
+        rows.append({
+            "label": label,
+            "usd_label": wealth.BAND_USD_LABELS[i],
+            "adults": counts[i],
+            "share_pct": pct,
+            "share_display": _share_display(pct),
+            "at_or_above": float(sum(counts[i:])),
+        })
+    return list(reversed(rows))   # richest band first — that's what people look for
+
+
+def _share_display(pct: float) -> str:
+    """A band's share of adults, readably. The top bands are millionths of a
+    percent, where '2.05e-05%' says nothing — those read better as a ratio."""
+    if pct >= 1:
+        return f"{pct:.3g}%"
+    if pct >= 0.01:
+        return f"{pct:.2g}%"
+    return f"1 in {round(100.0 / pct):,}" if pct > 0 else "—"
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt():
+    """Allow the public pages, keep the whole logged-in app out of the index.
+
+    Everything below /networth, /expenses, /goals etc. redirects anonymous
+    requests to /login anyway; disallowing them keeps crawlers off pointless
+    fetches and stops the login page ranking for a hundred URLs.
+    """
+    site = templates.env.globals["site_url"]
+    return (
+        "User-agent: *\n"
+        "Allow: /$\n"
+        f"Allow: {STANDING_PATH}\n"
+        "Allow: /about\n"
+        "Allow: /privacy\n"
+        "Allow: /terms\n"
+        "Disallow: /networth\n"
+        "Disallow: /expenses\n"
+        "Disallow: /goals\n"
+        "Disallow: /nsdl-cas\n"
+        "Disallow: /portfolio\n"
+        "Disallow: /upload\n"
+        "Disallow: /admin\n"
+        "Disallow: /login\n"
+        "Disallow: /verify\n"
+        "Disallow: /demo\n"
+        f"\nSitemap: {site}/sitemap.xml\n"
+    )
+
+
+# The public, indexable surface. Everything else is behind the session gate.
+_SITEMAP_PATHS = [("/", "1.0"), (STANDING_PATH, "0.9"), ("/about", "0.5"),
+                  ("/privacy", "0.3"), ("/terms", "0.3")]
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    site = templates.env.globals["site_url"]
+    urls = "".join(
+        f"  <url><loc>{site}{path}</loc><priority>{pri}</priority></url>\n"
+        for path, pri in _SITEMAP_PATHS
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}</urlset>\n"
+    )
+    return Response(content=xml, media_type="application/xml")
 
 
 @app.get("/expenses", response_class=HTMLResponse)
