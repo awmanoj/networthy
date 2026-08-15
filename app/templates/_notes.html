@@ -1,0 +1,7 @@
+{# Shared fine print. One place to word the "these are estimates, not advice"
+   caveat, so every page that shows a projected or modelled figure says the same
+   thing and links to the full disclaimer in Terms. #}
+{% macro fine_print(text) %}
+<p class="fine-print muted">{{ text }} Networthy HQ isn't financial advice — see
+  <a href="/terms">Terms</a>.</p>
+{% endmacro %}

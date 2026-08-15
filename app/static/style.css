@@ -649,6 +649,21 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
 
+/* Sourcing + method, stated on the public ranking page itself. */
+.stand-sources h2 { margin: 0 0 4px; font-family: var(--serif); font-weight: 600; font-size: 1.25rem; }
+.stand-sources h3 { margin: 18px 0 4px; font-size: 0.92rem; font-weight: 600; }
+.stand-sources p { margin: 0; max-width: 70ch; font-size: 0.88rem; line-height: 1.6; }
+.stand-sources strong { color: var(--text); }
+
+/* Shared fine print (_notes.html) — projections, rankings, "not advice". */
+.fine-print {
+  max-width: 70ch; margin: 18px 0 0; font-size: 0.8rem; line-height: 1.55;
+  padding-top: 12px; border-top: 1px solid var(--border);
+}
+.fine-print a { color: var(--muted); text-decoration: underline; }
+.fine-print a:hover { color: var(--brand); }
+.stand-sources .fine-print { margin-top: 20px; }
+
 /* Sign-up CTA shown only to logged-out visitors on the public ranking page. */
 .stand-cta h2 { margin: 0 0 8px; font-family: var(--serif); font-weight: 600; font-size: 1.35rem; }
 .stand-cta > .muted { margin: 0 0 18px; max-width: 620px; font-size: 0.95rem; }

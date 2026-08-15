@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
 {% block title %}Goals · Networthy HQ{% endblock %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
@@ -142,5 +143,10 @@
     </div>
   </form>
 </section>
+
+{{ fine_print("Required SIP and lump-sum figures are arithmetic on the return you
+enter, compounded evenly. Real returns are not even — markets fall, inflation moves,
+and a plan that works on paper can miss. Treat these as a planning aid, not a
+forecast.") }}
 
 {% endblock %}

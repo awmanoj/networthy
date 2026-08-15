@@ -74,6 +74,34 @@ def test_tiny_band_shares_read_as_a_ratio_not_scientific_notation(client):
     assert not any("e-" in v for v in rows.values())
 
 
+def test_public_page_states_its_sources_and_limits(client):
+    """A public page about money must show its provenance in context — a stranger
+    who lands here from a search will never read /terms."""
+    page = client.get("/how-rich-am-i").text
+    assert "Where these numbers come from" in page
+    for source in ("UBS Global Wealth Report", "Knight Frank", "Forbes"):
+        assert source in page
+    assert "₹96.5 to $1" in page                       # the FX rate behind USD bands
+    assert "piecewise power law" in page               # the interpolation method
+    assert "not a census" in page
+    assert "isn't financial advice" in page and 'href="/terms"' in page
+
+
+def test_projection_pages_carry_the_disclaimer(client):
+    ck = _login()
+    storage.add_expense(storage.get_or_create_user("k@test.com").id,
+                        "Rent", "housing", 100000.0, "monthly")
+    for path in ("/expenses", "/goals"):
+        page = client.get(path, cookies=ck).text
+        assert "isn't financial advice" in page, path
+        assert 'class="fine-print' in page, path
+
+
+def test_footer_disclaimer_is_on_every_page(client):
+    for path in ("/", "/how-rich-am-i", "/about", "/terms"):
+        assert "indicative estimates, not financial advice" in client.get(path).text, path
+
+
 def test_per_page_meta(client):
     page = client.get("/how-rich-am-i").text
     assert "<title>How rich am I? Net worth percentile for India · Networthy HQ</title>" in page

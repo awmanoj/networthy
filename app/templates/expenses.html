@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
 {% block title %}Expenses · Networthy HQ{% endblock %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
@@ -92,6 +93,11 @@
     <button class="btn" type="submit">Save</button>
     <span class="muted swr-hint">Lower rate → bigger corpus → more margin for a bad decade.</span>
   </form>
+
+  {{ fine_print("Withdrawal rates are rules of thumb drawn from historical market
+  data, not guarantees — no rate is 'safe', and the right one depends on your horizon,
+  your assets and your ability to spend less in a bad year. Runway assumes today's
+  net worth and today's burn, with no growth and no inflation.") }}
 </section>
 {% endif %}
 

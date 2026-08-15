@@ -203,6 +203,18 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   Keep the two in sync if either changes; `test_wealth.py` pins the contract (band sums,
   monotonicity, anchor reproduction, the band split partition, the India-vs-USA contrast).
 
+- **Disclaimers** — three layers, deliberately. (1) `_footer.html` carries a one-line global
+  "indicative estimates, not financial advice" that appears on **every** page via both bases.
+  (2) `_notes.html` exports a `fine_print(text)` macro — one place to word the caveat + the Terms
+  link — used on every page showing a *modelled or projected* number (Expenses' withdrawal-rate
+  card, Goals' SIP/lump-sum maths, the ranking page). (3) The public ranking page states its
+  **sourcing in context** (UBS / Knight Frank / Forbes, the ₹96.5-to-$1 rate, the Pareto
+  interpolation, and what the model can't see) rather than relying on `/terms`, because a visitor
+  arriving from search will never open Terms — and a money page with no visible provenance is
+  exactly what search quality raters penalise. Terms keeps the formal version. Live-price
+  provenance is separate and already per-leaf (`main._LIVE_NOTES`). `test_seo.py` pins all three
+  layers.
+
 - **SEO / the indexable surface** — the ranking page is the one piece of top-of-funnel content, so
   it is **public** (in `auth._PUBLIC_PATHS`) and deliberately crawlable. A crawler is an anonymous
   client with no JS, which drives three constraints: (1) the page must not slip back behind the

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
 {% block title %}{{ page_title }} · Networthy HQ{% endblock %}
 {% block content %}
 
@@ -135,9 +136,43 @@
     </table>
   </div>
   <p class="muted stand-note">
-    Bands come from UBS Global Wealth Report, Knight Frank's Wealth Report and Forbes,
-    with a modelled power-law tail between the published anchors. Adults are age 20+.
+    Adults are age 20+. Sources and method are set out below.
   </p>
+</section>
+
+{# Sourcing + limits, stated in full. This page is public and about money, so the
+   provenance belongs on the page itself rather than buried in Terms. #}
+<section class="card stand-sources">
+  <h2>Where these numbers come from</h2>
+
+  <h3>Sources</h3>
+  <p class="muted">
+    Band populations are compiled from the <strong>UBS Global Wealth Report</strong> (2025/26),
+    the <strong>Knight Frank Wealth Report</strong> and the <strong>Forbes Billionaires</strong>
+    list, covering adults aged 20+. USD equivalents use <strong>₹96.5 to $1</strong> (RBI
+    reference rate, approx. July 2026) — a moving rate frozen for legibility, so dollar figures
+    drift as the rupee does.
+  </p>
+
+  <h3>How a placement is worked out</h3>
+  <p class="muted">
+    The published data is coarse — eleven wealth bands. Between the band edges we interpolate
+    with a <strong>piecewise power law (Pareto)</strong>: wealth tails are close to log-log
+    linear, so a net worth between two anchors is placed along that curve rather than snapped
+    to a band edge. Above the top anchor we extend the last segment's slope. Below ₹1 crore the
+    source data has no sub-band structure at all, so placements there are a rough interpolation
+    and should be read as "somewhere in this region", not a percentile.
+  </p>
+
+  <h3>What this is not</h3>
+  <p class="muted">
+    It is <strong>not a census</strong>. Wealth distributions are modelled estimates built from
+    surveys, rich lists and national balance sheets; the very top bands are order-of-magnitude
+    at best, unreported and offshore wealth is by definition missing, and different reports
+    disagree with each other by wide margins. Treat every figure here as <strong>indicative
+    </strong> — good for a sense of scale, not for any decision that matters.
+  </p>
+  {{ fine_print("Rankings are estimates for general interest only.") }}
 </section>
 
 {% if not user %}
