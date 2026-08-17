@@ -198,6 +198,49 @@ def _head_count(net_worth: float, anchors: list[tuple[float, float]], pop: int) 
     return float(pop)  # unreachable given the bracket above
 
 
+def wealth_for_top_pct(top_pct: float, geo: str) -> float:
+    """The net worth at which you enter the top ``top_pct``% of adults in ``geo``.
+
+    The exact inverse of `_head_count`: that function is piecewise power-law, so
+    each segment inverts in closed form rather than needing a search. Solving it
+    analytically (instead of bisecting) means this can't drift from the forward
+    ranking — `place_one(wealth_for_top_pct(p)).top_pct` returns p, which
+    `test_wealth.py` pins.
+
+    Note this is **server-side only** — standing.js mirrors the forward ranking
+    for the live explorer, but the inverse is used for a static reference table,
+    so there's deliberately no JS twin to keep in sync.
+    """
+    meta = GEO_META[geo]
+    pop = meta["adults"]
+    anchors = _anchors(geo)
+    target = float(pop) * top_pct / 100.0   # adults at or above the threshold
+
+    if top_pct >= 100 or target >= pop:
+        return float(BASE_FLOOR)
+
+    lo_w, lo_n = anchors[0]
+    hi_w, hi_n = anchors[-1]
+
+    # Below the lowest data anchor: the same log-log line _head_count draws
+    # between (BASE_FLOOR -> everyone) and the ₹1 cr anchor. Rough by nature —
+    # the source has no sub-band structure down here.
+    if target > lo_n:
+        alpha = _alpha(BASE_FLOOR, float(pop), lo_w, lo_n)
+        return float(BASE_FLOOR) * (target / pop) ** (-1.0 / alpha)
+
+    # Between two anchors.
+    for (w1, n1), (w2, n2) in zip(anchors, anchors[1:]):
+        if n2 <= target <= n1:
+            alpha = _alpha(w1, n1, w2, n2)
+            return w1 * (target / n1) ** (-1.0 / alpha)
+
+    # Above the top anchor: extend the last segment's slope, as _head_count does.
+    (w1, n1), (w2, n2) = anchors[-2], anchors[-1]
+    alpha = _alpha(w1, n1, w2, n2)
+    return hi_w * (target / hi_n) ** (-1.0 / alpha)
+
+
 def _band_index(net_worth: float) -> int:
     """Index (0..10) of the band ``net_worth`` falls into."""
     cr = net_worth / CRORE

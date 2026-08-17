@@ -637,6 +637,11 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
    the page (the explorer itself is painted by JS into empty divs). */
 .stand-ref h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.25rem; letter-spacing: -0.01em; }
 .stand-ref-lead { margin: 0 0 16px; max-width: 640px; font-size: 0.9rem; }
+/* The direct answer, stated before the table — this is the paragraph a search
+   engine lifts as a snippet, so it stays plain prose with the figures inline. */
+.stand-answer { margin: 0 0 16px; max-width: 640px; font-size: 0.98rem; line-height: 1.6; }
+.stand-answer strong { font-family: var(--serif); font-size: 1.05em; }
+.stand-fn { color: var(--faint); font-size: 0.8em; vertical-align: super; margin-left: 1px; }
 .stand-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .stand-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .stand-table th, .stand-table td { padding: 9px 12px; text-align: left; }

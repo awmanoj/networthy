@@ -1323,6 +1323,11 @@ _STANDING_LEVELS = [
     (250_000_000, "₹25 crore"), (1_000_000_000, "₹100 crore"),
 ]
 
+# The percentile rungs the threshold table answers — "what net worth puts me in
+# the top X%", which is how the question is actually asked (and searched). Below
+# ₹1 crore the source data has no sub-band structure, so those rows get flagged.
+_STANDING_PERCENTILES = [50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01]
+
 STANDING_PATH = "/how-rich-am-i"
 
 
@@ -1359,6 +1364,7 @@ def how_rich_am_i(request: Request):
             "dataset": wealth.client_dataset(),
             "levels": _standing_levels("india"),
             "band_rows": _standing_bands("india"),
+            "thresholds": _standing_thresholds("india"),
             "page_title": "How rich am I? Net worth percentile for India",
             "page_description": (
                 "See where your net worth ranks. Find what ₹1 crore, ₹5 crore or ₹100 "
@@ -1368,6 +1374,32 @@ def how_rich_am_i(request: Request):
             "canonical_path": STANDING_PATH,
         },
     )
+
+
+def _standing_thresholds(geo: str) -> list[dict]:
+    """"Top X% starts at ₹Y" — the inverse of the ranking, which is how people ask
+    the question. Rows below ₹1 crore fall in the stretch the source data doesn't
+    model, so they carry a `rough` flag the table footnotes."""
+    rows = []
+    for pct in _STANDING_PERCENTILES:
+        inr = wealth.wealth_for_top_pct(pct, geo)
+        rows.append({
+            "pct": pct,
+            "inr": inr,
+            "label": _inr_short(inr),
+            "adults": wealth.GEO_META[geo]["adults"] * pct / 100.0,
+            "rough": inr < wealth.CRORE,
+        })
+    return rows
+
+
+def _inr_short(v: float) -> str:
+    """₹19,198,026 -> '₹1.92 crore'. Indian units, three significant figures."""
+    if v >= wealth.CRORE:
+        return f"₹{v / wealth.CRORE:.3g} crore"
+    if v >= 100_000:
+        return f"₹{v / 100_000:.3g} lakh"
+    return f"₹{v:,.0f}"
 
 
 def _standing_levels(geo: str) -> list[dict]:

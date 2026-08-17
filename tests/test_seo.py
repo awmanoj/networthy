@@ -55,6 +55,20 @@ def test_app_routes_are_still_gated(client):
 
 # --- Indexable content ------------------------------------------------------
 
+def test_threshold_table_answers_the_query_as_people_type_it(client):
+    """"What net worth puts me in the top 1%" is the head query — the answer has
+    to be in the HTML as prose, before the table, or it can't be lifted as a
+    snippet."""
+    page = client.get("/how-rich-am-i").text
+    assert "What net worth puts you in the top 1% in India?" in page
+    assert "₹1.92 crore" in page                      # top 1%, from wealth_for_top_pct
+    assert "₹18.5 lakh" in page                       # top 10%
+    assert "₹9.13 crore" in page                      # top 0.1%
+    assert "top 0.01%" in page
+    # Sub-₹1cr rows are interpolated where the source has no detail — footnoted.
+    assert "stand-fn" in page and "no sub-band detail" in page
+
+
 def test_numbers_are_server_rendered_not_js_only(client):
     """A crawler that never runs standing.js must still see real placements."""
     page = client.get("/how-rich-am-i").text

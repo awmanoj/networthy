@@ -79,9 +79,45 @@
    --------------------------------------------------------------------------- #}
 <section class="card stand-ref">
   <h2>What net worth puts you in the top 1% in India?</h2>
+  <p class="stand-answer">
+    About <strong>{{ thresholds | selectattr('pct', 'equalto', 1.0) | map(attribute='label') | first }}</strong>.
+    The top 10% starts at about
+    <strong>{{ thresholds | selectattr('pct', 'equalto', 10.0) | map(attribute='label') | first }}</strong>,
+    and the top 0.1% at about
+    <strong>{{ thresholds | selectattr('pct', 'equalto', 0.1) | map(attribute='label') | first }}</strong> —
+    measured across India's ≈1 billion adults.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>To be in the…</th>
+          <th class="num">You need about</th>
+          <th class="num">Adults above that line</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in thresholds %}
+        <tr>
+          <th scope="row">top {{ "%g"|format(t.pct) }}%</th>
+          <td class="num">{{ t.label }}{% if t.rough %}<span class="stand-fn">†</span>{% endif %}</td>
+          <td class="num">{{ "{:,.0f}".format(t.adults) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    † Below ₹1 crore the source data has no sub-band detail, so these lines are
+    interpolated and should be read as approximate.
+  </p>
+</section>
+
+<section class="card stand-ref">
+  <h2>Where common net worths rank in India</h2>
   <p class="muted stand-ref-lead">
-    Roughly ₹2 crore. Here's where each level lands among India's ≈1 billion adults —
-    the same maths the explorer above runs, at fixed rungs.
+    The same question the other way round — where each level lands among India's
+    ≈1 billion adults, at fixed rungs.
   </p>
   <div class="stand-table-wrap">
     <table class="stand-table">

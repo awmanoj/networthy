@@ -19,6 +19,7 @@ from app.wealth import (
     GEO_ORDER,
     place_one,
     rank_net_worth,
+    wealth_for_top_pct,
 )
 
 
@@ -170,3 +171,38 @@ def test_extreme_wealth_tops_the_geography():
 def test_edges_cover_all_bands():
     assert len(BAND_EDGES_CR) == 10
     assert all(math.isfinite(e) for e in BAND_EDGES_CR)
+
+
+# --- The inverse: "top X% starts at ₹Y" -------------------------------------
+
+@pytest.mark.parametrize("geo", GEO_ORDER)
+@pytest.mark.parametrize("pct", [50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01])
+def test_threshold_round_trips_through_the_ranking(geo, pct):
+    """The inverse must be the exact inverse — placing the threshold it returns
+    has to give the percentile back, in every geography and every segment of the
+    piecewise curve (base stretch, mid anchors, and above the top anchor)."""
+    w = wealth_for_top_pct(pct, geo)
+    assert place_one(w, geo).top_pct == pytest.approx(pct, rel=1e-6)
+
+
+@pytest.mark.parametrize("geo", GEO_ORDER)
+def test_thresholds_are_monotonic(geo):
+    # A rarer slice must always cost more.
+    pcts = [50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01]
+    vals = [wealth_for_top_pct(p, geo) for p in pcts]
+    assert vals == sorted(vals), f"{geo}: thresholds not increasing as the slice narrows"
+
+
+def test_threshold_reproduces_a_known_anchor():
+    """Asking for exactly the tail share above a published band edge must return
+    that edge — the anchors are data, not interpolation."""
+    counts = BAND_COUNTS["india"]
+    adults = GEO_META["india"]["adults"]
+    # Share of adults strictly above the ₹1 cr edge (band 0 is everyone below it).
+    pct_above_1cr = sum(counts[1:]) / adults * 100.0
+    assert wealth_for_top_pct(pct_above_1cr, "india") == pytest.approx(CRORE, rel=1e-9)
+
+
+def test_whole_population_bottoms_out_at_the_floor():
+    assert wealth_for_top_pct(100.0, "india") == BASE_FLOOR
+    assert wealth_for_top_pct(150.0, "india") == BASE_FLOOR

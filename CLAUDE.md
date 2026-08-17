@@ -202,6 +202,11 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   "peers at your level" — the pyramid's "you're here" band shows ≈above-you / ≈below-you instead.
   Keep the two in sync if either changes; `test_wealth.py` pins the contract (band sums,
   monotonicity, anchor reproduction, the band split partition, the India-vs-USA contrast).
+  `wealth_for_top_pct(pct, geo)` is the **exact inverse** ("the top 1% starts at ₹1.92 cr") —
+  each power-law segment inverted in closed form, not bisected, so it cannot drift from the
+  forward ranking (`test_wealth.py` round-trips it through `place_one` across every geography and
+  every segment). It is **server-side only** — `standing.js` mirrors only the forward ranking,
+  because the inverse feeds a static table, so there's no JS twin to keep in sync.
 
 - **Disclaimers** — three layers, deliberately. (1) `_footer.html` carries a one-line global
   "indicative estimates, not financial advice" that appears on **every** page via both bases.
@@ -219,9 +224,13 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   it is **public** (in `auth._PUBLIC_PATHS`) and deliberately crawlable. A crawler is an anonymous
   client with no JS, which drives three constraints: (1) the page must not slip back behind the
   session gate; (2) the explorer paints into empty divs from `standing.js`, so `main._standing_levels`
-  / `_standing_bands` **server-render** the reference tables (where ₹25L…₹100cr rank in India, and
-  the band table) — that's the only indexable text on the page, and `_share_display` keeps millionth-
-  of-a-percent bands readable as "1 in N" instead of `2.05e-05%`; (3) `base.html` renders Log in /
+  / `_standing_bands` / `_standing_thresholds` **server-render** the reference tables — that's the
+  only indexable text on the page. Order is deliberate: the **threshold** table ("top 1% starts at
+  ₹1.92 crore", from `wealth.wealth_for_top_pct`) comes first because it answers the question the
+  way people search it, with the figures also stated as **prose above the table** so a search engine
+  can lift them as a snippet; the where-does-₹X-rank table is the same question inverted. Helpers:
+  `_inr_short` (₹19,198,026 → "₹1.92 crore") and `_share_display` (millionth-of-a-percent bands read
+  as "1 in N", not `2.05e-05%`); (3) `base.html` renders Log in /
   Get started in `.nav-right` when there's no `user` (not in `.nav-links`, which is collapsed behind
   the burger checkbox that only exists for signed-in users). The old **`/standing` URL 301s** to the
   new one — permanent, so the move carries its signals (contrast `/portfolio` → `/nsdl-cas`, a 307,
