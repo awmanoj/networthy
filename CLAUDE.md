@@ -107,7 +107,7 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `networth_overview.html`) is the structured entry point — the net-worth summary plus the **full
   tree** (every section/subsection/leaf, incl. empty scaffolds) as navigable links with rolled
   values and "N inside" chips. Leaf/detail pages are at `/networth/{path}`; breadcrumbs root at the
-  Net worth hub. Nav order: Dashboard · Net worth · Expenses · Goals · NSDL CAS. Leaves are blank scaffolds
+  Net worth hub. Nav order: Dashboard · Net worth · Expenses · Goals · Plan · NSDL CAS. Leaves are blank scaffolds
   except the **data-backed** ones in
   `LEAF_ASSET_CLASSES` (Mutual Funds, Gold & Silver), which render holdings from two sources: an
   uploaded CAMS import and/or the latest NSDL snapshot's classified rows. `POST
@@ -183,6 +183,29 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   burn and the SWR assumption have a single source of truth; the card links back to Expenses to change it. Add/edit/delete reuse the shared edit flow (`update_row` + `.edit-glow`):
   `POST /goals/add` (add-or-update via optional `id`) + `/goals/{id}/delete`. `test_goals.py` pins the
   SIP math (annuity formula, funded/undated/overdue branches, month counting) and the route round-trips.
+
+- **`app/projection.py` + the Plan tab** (`GET /plan` → `main.plan_page`, template `plan.html`; nav
+  order is Dashboard · Net worth · Expenses · Goals · **Plan** · NSDL CAS) — the lifetime cash-flow
+  projection, the one forward-looking view in the app. **It adds no new data model**: the starting
+  corpus is the live net worth, the recurring draw is the Expenses annual burn, and one-off outflows
+  are **dated `goals` rows** (`outflows_from_goals` — undated, past, zero-amount and beyond-horizon
+  goals are skipped). Only four inputs are new, stored in `user_settings` (`plan_birth_year`,
+  `plan_retire_age`, `plan_annual_savings`, `plan_return_pct`, `plan_inflation_pct`) via
+  `get`/`save_plan_settings` — again **separate accessors** from the CAMS pair and the SWR one, so no
+  upsert clobbers another's columns. Age is stored as a **birth year** so a saved plan doesn't
+  under-age the user every January. Three modelling decisions carry the feature and are pinned by
+  `test_projection.py`: (1) **savings before retirement, expenses after** — `annual_savings` is
+  already net of living costs, so charging the burn during accumulation would double-count it;
+  (2) **goals are pure nominal outflows** at the amount entered — a goal that buys an asset (a house)
+  is *not* modelled as acquiring one, and the UI says to enter the deposit as the goal and the EMI
+  under Expenses; (3) **the UI shows today's money** (`YearPoint.real_closing`, `*_real` summary
+  keys) — a nominal balance 50 years out is mostly inflation and reads as a bug ("₹581 crore at 95"),
+  while the per-year Added/Drawn/Goals columns stay in that year's rupees. `project_band()` runs the
+  model at return **±`BAND_DELTA_PCT`** and the page reports all three outcomes, because a single
+  line to 95 reads as a forecast; a plan can last past 95 at 10% and run dry at 90 at 8%, and that
+  disagreement is the output. **No tax is modelled at all** — disclosed on the page via
+  `fine_print`. Chart is `static/plan-chart.js` (deliberately separate from `chart.js`: age-indexed,
+  three series, event markers).
 
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **public full page at
   `GET /how-rich-am-i`** (`main.how_rich_am_i`, template `standing.html`) reached from the Dashboard

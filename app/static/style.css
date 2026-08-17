@@ -654,6 +654,41 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
 
+/* --- Plan: the lifetime projection ---------------------------------------- */
+.plan-inputs { padding: 20px 24px; margin-bottom: 20px; }
+.plan-inputs h2 { margin: 0 0 14px; font-size: 1.05rem; }
+
+.plan-verdict { padding: 24px 28px; margin-bottom: 20px; border-left: 4px solid var(--border); }
+.plan-verdict.plan-ok { border-left-color: var(--gain); }
+.plan-verdict.plan-short { border-left-color: var(--loss); }
+.plan-figure {
+  font-family: var(--serif); font-size: 1.9rem; font-weight: 600;
+  letter-spacing: -0.02em; margin: 4px 0 6px;
+}
+.plan-sub { margin: 0; font-size: 0.92rem; }
+.plan-sub strong { color: var(--text); font-variant-numeric: tabular-nums; }
+/* The two alternate-return readouts, so the base case never reads as the answer. */
+.plan-range {
+  display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 16px;
+  padding-top: 14px; border-top: 1px solid var(--border); font-size: 0.86rem;
+}
+.prange-item { color: var(--muted); }
+.prange-item b { display: block; color: var(--text); font-size: 0.78rem; font-weight: 600; }
+
+.plan-chart-card, .plan-flows, .plan-table-card { padding: 20px 24px; margin-bottom: 20px; }
+.plan-chart-card h2, .plan-flows h2, .plan-table-card h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.plan-legend { font-size: 0.8rem; }
+.p-band { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: none; }
+.p-mark-line { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; }
+.p-mark-text { fill: var(--faint); font-size: 10px; }
+.p-event { fill: var(--copper); stroke: var(--surface); stroke-width: 2; }
+.plan-tag {
+  font-size: 0.68rem; font-weight: 600; color: var(--copper);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.plan-row-empty { opacity: 0.55; }
+.row-total td { border-top: 1px solid var(--border); }
+
 /* Sourcing + method, stated on the public ranking page itself. */
 .stand-sources h2 { margin: 0 0 4px; font-family: var(--serif); font-weight: 600; font-size: 1.25rem; }
 .stand-sources h3 { margin: 18px 0 4px; font-size: 0.92rem; font-weight: 600; }

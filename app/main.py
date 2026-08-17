@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import (__version__, analytics, auth, demo, digest, expenses, goals,
-               networth, prices, storage, wealth)
+               networth, prices, projection, storage, wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -1627,6 +1627,112 @@ def expense_swr(request: Request, swr_pct: float = Form(...)):
 def expense_delete(request: Request, expense_id: int):
     storage.delete_expense(request.state.user.id, expense_id)
     return RedirectResponse(url="/expenses", status_code=303)
+
+
+@app.get("/plan", response_class=HTMLResponse)
+def plan_page(request: Request):
+    """The lifetime projection — today's corpus walked forward to 95.
+
+    Reads everything it can from what's already entered (net worth, the Expenses
+    burn, dated Goals as one-off outflows) so the only inputs on this page are
+    the four the rest of the app has no way to know.
+    """
+    user = request.state.user
+    today = date.today()
+    s = storage.get_plan_settings(user.id)
+
+    birth_year = s["birth_year"]
+    current_age = (today.year - birth_year) if birth_year else None
+    retire_age = s["retire_age"] or projection.DEFAULT_RETIRE_AGE
+    return_pct = s["return_pct"] if s["return_pct"] is not None else projection.DEFAULT_RETURN_PCT
+    inflation_pct = (
+        s["inflation_pct"] if s["inflation_pct"] is not None
+        else projection.DEFAULT_INFLATION_PCT
+    )
+    annual_savings = s["annual_savings"] or 0.0
+
+    corpus = _dashboard(user)["net_worth"]
+    annual_expense = sum(
+        expenses.annual_amount(e["amount"], e["count"], e["frequency"])
+        for e in storage.list_expenses(user.id)
+    )
+    goal_rows = storage.list_goals(user.id)
+
+    band = chart = None
+    if current_age is not None and current_age < projection.END_AGE:
+        outflows = projection.outflows_from_goals(
+            goal_rows, today, projection.END_AGE, current_age
+        )
+        inputs = projection.PlanInputs(
+            current_age=current_age, retire_age=max(current_age, retire_age),
+            annual_savings=annual_savings, corpus=corpus,
+            annual_expense=annual_expense, return_pct=return_pct,
+            inflation_pct=inflation_pct, outflows=outflows,
+        )
+        band = projection.project_band(inputs, today)
+        # Plotted in today's rupees: a nominal curve compounding for 50 years is
+        # all inflation and no information, and it makes the y-axis unreadable.
+        chart = {
+            "labels": [r.age for r in band["base"]],
+            "base": [round(r.real_closing) for r in band["base"]],
+            "low": [round(r.real_closing) for r in band["low"]],
+            "high": [round(r.real_closing) for r in band["high"]],
+            "retire_age": inputs.retire_age,
+            # Age -> label, so the chart can mark the year a goal lands.
+            "events": [
+                {"age": r.age, "labels": list(r.outflow_labels),
+                 "amount": round(r.outflows)}
+                for r in band["base"] if r.outflows
+            ],
+            "real": True,
+        }
+
+    return templates.TemplateResponse(
+        "plan.html",
+        {
+            "request": request,
+            "user": user,
+            "has_plan": band is not None,
+            "band": band,
+            "chart": chart,
+            "rows": band["base"] if band else [],
+            "current_age": current_age,
+            "retire_age": retire_age,
+            "annual_savings": annual_savings,
+            "return_pct": return_pct,
+            "inflation_pct": inflation_pct,
+            "corpus": corpus,
+            "annual_expense": annual_expense,
+            "dated_goals": [g for g in goal_rows if g.get("target_date")],
+            "undated_goals": [g for g in goal_rows if not g.get("target_date")],
+            "band_delta": projection.BAND_DELTA_PCT,
+            "end_age": projection.END_AGE,
+        },
+    )
+
+
+@app.post("/plan/settings")
+def plan_settings_save(
+    request: Request,
+    current_age: str = Form(""),
+    retire_age: str = Form(""),
+    annual_savings: str = Form(""),
+    return_pct: str = Form(""),
+    inflation_pct: str = Form(""),
+):
+    """Save the four projection inputs. Age is stored as a birth year so the
+    plan ages with the user instead of going stale."""
+    age = _opt_int(current_age)
+    fields: dict = {
+        "retire_age": _opt_int(retire_age),
+        "annual_savings": _opt_float(annual_savings),
+        "return_pct": _opt_float(return_pct),
+        "inflation_pct": _opt_float(inflation_pct),
+    }
+    if age and 0 < age < projection.END_AGE:
+        fields["birth_year"] = date.today().year - age
+    storage.save_plan_settings(request.state.user.id, **fields)
+    return RedirectResponse(url="/plan", status_code=303)
 
 
 @app.get("/goals", response_class=HTMLResponse)

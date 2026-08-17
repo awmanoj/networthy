@@ -442,6 +442,13 @@ def init_db() -> None:
         # The safe-withdrawal-rate assumption behind the FIRE target moved from a
         # module constant to a per-user setting; older DBs predate the column.
         _add_column_if_missing(conn, "user_settings", "swr_pct", "REAL")
+        # The four inputs the lifetime projection needs that nothing else in the
+        # app knows. Birth *year* rather than age, so the plan doesn't quietly
+        # under-age the user every January.
+        for col in ("plan_birth_year", "plan_retire_age"):
+            _add_column_if_missing(conn, "user_settings", col, "INTEGER")
+        for col in ("plan_annual_savings", "plan_return_pct", "plan_inflation_pct"):
+            _add_column_if_missing(conn, "user_settings", col, "REAL")
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -600,6 +607,49 @@ def save_swr_pct(user_id: int, pct: float) -> None:
                 updated_at = excluded.updated_at
             """,
             (user_id, pct),
+        )
+
+
+_PLAN_COLS = ("plan_birth_year", "plan_retire_age", "plan_annual_savings",
+              "plan_return_pct", "plan_inflation_pct")
+
+
+def get_plan_settings(user_id: int) -> dict:
+    """The lifetime-projection inputs, keyed without the `plan_` prefix.
+
+    Values are None when unset — the projection layer supplies defaults, so an
+    untouched account still renders a plan rather than an empty page.
+    """
+    with _connect() as conn:
+        row = conn.execute(
+            f"SELECT {', '.join(_PLAN_COLS)} FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    return {c[len("plan_"):]: (row[c] if row else None) for c in _PLAN_COLS}
+
+
+def save_plan_settings(user_id: int, **fields) -> None:
+    """Upsert the projection inputs, leaving the CAMS PAN/email and SWR alone.
+
+    Accepts the un-prefixed names `get_plan_settings` returns; unknown keys are
+    ignored so a form can post extras harmlessly.
+    """
+    cols = [f"plan_{k}" for k in fields if f"plan_{k}" in _PLAN_COLS]
+    if not cols:
+        return
+    values = [fields[c[len("plan_"):]] for c in cols]
+    placeholders = ", ".join("?" for _ in cols)
+    updates = ", ".join(f"{c} = excluded.{c}" for c in cols)
+    with _connect() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO user_settings (user_id, {', '.join(cols)}, updated_at)
+            VALUES (?, {placeholders}, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET
+                {updates},
+                updated_at = excluded.updated_at
+            """,
+            (user_id, *values),
         )
 
 

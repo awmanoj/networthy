@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}Plan · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <h1>The path to {{ end_age }}</h1>
+  <p class="muted">
+    Your net worth walked forward one year at a time — savings going in while you work,
+    living costs coming out after you stop, and your dated goals landing along the way.
+    It reads from what you've already entered; only the four numbers below are new.
+  </p>
+</section>
+
+{# --- Inputs: the only four things the rest of the app can't know ------------- #}
+<section class="dash-card plan-inputs">
+  <h2>{{ "Your assumptions" if has_plan else "Start with four numbers" }}</h2>
+  <form method="post" action="/plan/settings" class="manual-add">
+    <div class="manual-field">
+      <label for="p-age">Your age</label>
+      <input id="p-age" name="current_age" type="number" min="1" max="{{ end_age - 1 }}"
+             value="{{ current_age or '' }}" placeholder="e.g. 40" required>
+    </div>
+    <div class="manual-field">
+      <label for="p-ret">Retire at</label>
+      <input id="p-ret" name="retire_age" type="number" min="1" max="{{ end_age }}"
+             value="{{ retire_age }}">
+    </div>
+    <div class="manual-field">
+      <label for="p-sav">You save ₹/year</label>
+      <input id="p-sav" name="annual_savings" type="number" step="any" min="0"
+             value="{{ annual_savings|round|int if annual_savings else '' }}" placeholder="0">
+    </div>
+    <div class="manual-field">
+      <label for="p-ret-pct">Return %/yr</label>
+      <input id="p-ret-pct" name="return_pct" type="number" step="0.1" min="0"
+             value="{{ '%g'|format(return_pct) }}">
+    </div>
+    <div class="manual-field">
+      <label for="p-infl">Inflation %/yr</label>
+      <input id="p-infl" name="inflation_pct" type="number" step="0.1" min="0"
+             value="{{ '%g'|format(inflation_pct) }}">
+    </div>
+    <div class="manual-actions">
+      <span class="manual-hint muted">
+        Savings is what you add in a year, <em>after</em> living costs — so we don't
+        subtract your expenses twice while you're still working.
+      </span>
+      <button class="btn" type="submit">{{ "Update" if has_plan else "Build my plan" }}</button>
+    </div>
+  </form>
+</section>
+
+{% if has_plan %}
+{% set s = band.summary %}
+{% set lo = band.low_summary %}
+{% set hi = band.high_summary %}
+
+{# --- The headline: does it last? ------------------------------------------- #}
+<section class="dash-card plan-verdict {{ 'plan-ok' if s.lasts else 'plan-short' }}">
+  {% if s.lasts %}
+  <span class="eyebrow">The base case</span>
+  <div class="plan-figure">Your money lasts past {{ end_age }}</div>
+  <p class="plan-sub muted">
+    At {{ "%g"|format(return_pct) }}% returns you'd still have
+    <strong>₹{{ "{:,.0f}".format(s.final_corpus_real) }}</strong> at {{ end_age }},
+    in today's money — against ₹{{ "{:,.0f}".format(corpus) }} now.
+  </p>
+  {% else %}
+  <span class="eyebrow">The base case</span>
+  <div class="plan-figure">Your money runs out at {{ s.depletion_age }}</div>
+  <p class="plan-sub muted">
+    At {{ "%g"|format(return_pct) }}% returns, the corpus is spent
+    {{ end_age - s.depletion_age }} years before {{ end_age }}.
+  </p>
+  {% endif %}
+
+  <div class="plan-range">
+    <span class="prange-item">
+      <b>If returns are {{ "%g"|format(return_pct - band_delta) }}%</b>
+      {% if lo.lasts %}lasts past {{ end_age }}{% else %}runs out at {{ lo.depletion_age }}{% endif %}
+    </span>
+    <span class="prange-item">
+      <b>If returns are {{ "%g"|format(return_pct + band_delta) }}%</b>
+      {% if hi.lasts %}lasts past {{ end_age }}{% else %}runs out at {{ hi.depletion_age }}{% endif %}
+    </span>
+  </div>
+</section>
+
+{# --- The chart -------------------------------------------------------------- #}
+<section class="dash-card plan-chart-card">
+  <div class="card-head">
+    <h2>Projected net worth by age</h2>
+    <span class="muted plan-legend">
+      in today's money · shaded band = returns ±{{ "%g"|format(band_delta) }}%
+    </span>
+  </div>
+  <div id="plan-chart"></div>
+  <p class="muted stand-note">
+    Starting from today's net worth of ₹{{ "{:,.0f}".format(corpus) }}
+    {%- if annual_expense %}, drawing ₹{{ "{:,.0f}".format(annual_expense) }}/yr
+    once you retire{% endif %}. Dots mark a goal falling due.
+    <strong>Plotted in today's rupees</strong> — the nominal balance decades out is
+    mostly inflation, and a number like ₹580 crore at 95 tells you nothing about
+    whether the plan works.
+  </p>
+</section>
+
+{# --- What's flowing in and out ---------------------------------------------- #}
+<section class="dash-card plan-flows">
+  <h2>What this plan spends</h2>
+  {% if dated_goals %}
+  <table class="holdings">
+    <thead>
+      <tr><th>Goal</th><th>When</th><th class="num">Amount</th></tr>
+    </thead>
+    <tbody>
+      {% for g in dated_goals %}
+      <tr>
+        <td class="h-name">{{ g.name }}</td>
+        <td>{{ g.target_date }}</td>
+        <td class="num">₹{{ "{:,.0f}".format(g.target_amount) }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="row-total">
+        <td class="h-name"><strong>Total one-off spending</strong></td>
+        <td></td>
+        <td class="num"><strong>₹{{ "{:,.0f}".format(s.total_outflows) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">
+    No dated goals yet. Add one on <a href="/goals">Goals</a> — a child's college,
+    a wedding, a house deposit — and it'll land on this curve in the year it's due.
+  </p>
+  {% endif %}
+  {% if undated_goals %}
+  <p class="muted stand-note">
+    {{ undated_goals|length }} goal{{ '' if undated_goals|length == 1 else 's' }} without a
+    target date {{ 'is' if undated_goals|length == 1 else 'are' }} not on this curve —
+    there's no year to spend {{ 'it' if undated_goals|length == 1 else 'them' }} in.
+  </p>
+  {% endif %}
+</section>
+
+{# --- Year by year, every fifth year ----------------------------------------- #}
+<section class="dash-card plan-table-card">
+  <h2>Year by year</h2>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>Age</th><th>Year</th>
+          <th class="num">Added</th><th class="num">Drawn</th>
+          <th class="num">Goals</th><th class="num">Balance (today's ₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% if r.age % 5 == 0 or r.outflows or r.age == retire_age or loop.last %}
+        <tr{% if r.closing <= 0 %} class="plan-row-empty"{% endif %}>
+          <th scope="row">{{ r.age }}{% if r.age == retire_age %} <span class="plan-tag">retires</span>{% endif %}</th>
+          <td>{{ r.year }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(r.savings) if r.savings else "—" }}</td>
+          <td class="num">{{ "₹{:,.0f}".format(r.expenses) if r.expenses else "—" }}</td>
+          <td class="num">
+            {%- if r.outflows %}₹{{ "{:,.0f}".format(r.outflows) }}
+            <span class="muted">{{ r.outflow_labels|join(", ") }}</span>{% else %}—{% endif -%}
+          </td>
+          <td class="num">₹{{ "{:,.0f}".format(r.real_closing) }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Every fifth year, plus retirement and any year a goal lands. <strong>Added</strong>,
+    <strong>Drawn</strong> and <strong>Goals</strong> are in that year's rupees — what
+    you'd actually pay or save then; <strong>Balance</strong> is deflated to today's
+    money so it's comparable to your net worth now.
+  </p>
+</section>
+
+{{ fine_print("This projection assumes steady returns and steady inflation. Real
+markets deliver neither, and the order in which good and bad years arrive changes
+the answer a lot. It also models no tax at all — so every figure here is somewhat
+optimistic. Use it to compare choices, not to predict a balance.") }}
+
+<script src="/static/plan-chart.js?v={{ version }}"></script>
+<script>
+  (function () {
+    var PLAN = {{ chart | tojson }};
+    drawPlanChart(PLAN);
+    var t; window.addEventListener("resize", function () {
+      clearTimeout(t); t = setTimeout(function () { drawPlanChart(PLAN); }, 150);
+    });
+  })();
+</script>
+{% endif %}
+
+{% endblock %}
