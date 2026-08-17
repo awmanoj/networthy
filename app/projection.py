@@ -184,6 +184,7 @@ def project_band(p: PlanInputs, today: date | None = None,
     base = at(p.return_pct)
     low = at(max(0.0, p.return_pct - delta_pct))
     high = at(p.return_pct + delta_pct)
+    lo_pct = max(0.0, p.return_pct - delta_pct)
     return {
         "base": base,
         "low": low,
@@ -191,8 +192,68 @@ def project_band(p: PlanInputs, today: date | None = None,
         "summary": summarise(base, p),
         "low_summary": summarise(low, p),
         "high_summary": summarise(high, p),
+        # What it would take to reach end_age at each return assumption — the
+        # spread between these is usually the most decision-useful thing here.
+        "need": corpus_requirement(p, today),
+        "need_low": corpus_requirement(_with_return(p, lo_pct), today),
+        "need_high": corpus_requirement(_with_return(p, p.return_pct + delta_pct), today),
         "delta_pct": delta_pct,
     }
+
+
+def corpus_requirement(p: PlanInputs, today: date | None = None,
+                       tolerance: float = 1_000.0) -> dict:
+    """How much you'd need **today** for the plan to reach `end_age`.
+
+    Answers the question the depletion age raises but doesn't settle: "runs out
+    at 75" is a diagnosis, "you're ₹94 lakh short today" is something you can act
+    on. Returns the same shape whichever side of the line you're on — a negative
+    `gap` is the cushion you're carrying above the minimum.
+
+    Solved by bisection rather than algebra: the year loop clamps at zero, mixes
+    inflating flows with fixed-date outflows, and switches regime at retirement,
+    none of which invert cleanly. It is monotonic in the starting corpus though
+    (more money is never worse), which is all bisection needs. Each probe is a
+    56-year loop, so a solve is a few thousand operations.
+    """
+    today = today or date.today()
+
+    def lasts(corpus: float) -> bool:
+        return depletion_age(project(_with_corpus(p, corpus), today)) is None
+
+    if lasts(0.0):
+        # Savings alone carry the plan — no starting corpus is required at all.
+        return {"needed": 0.0, "gap": -p.corpus, "lasts": True}
+
+    # Bracket the answer: double until the plan survives. Bounded by construction
+    # (a finite horizon is always satisfiable with enough money), but capped so a
+    # pathological input can't spin.
+    hi = max(p.corpus, abs(p.annual_expense), 1.0)
+    for _ in range(200):
+        if lasts(hi):
+            break
+        hi *= 2
+    else:                                     # pragma: no cover - unreachable
+        return {"needed": float("inf"), "gap": float("inf"), "lasts": False}
+
+    lo = 0.0
+    while hi - lo > tolerance:
+        mid = (lo + hi) / 2
+        if lasts(mid):
+            hi = mid
+        else:
+            lo = mid
+
+    return {"needed": hi, "gap": hi - p.corpus, "lasts": lasts(p.corpus)}
+
+
+def _with_corpus(p: PlanInputs, corpus: float) -> PlanInputs:
+    return PlanInputs(
+        current_age=p.current_age, retire_age=p.retire_age,
+        annual_savings=p.annual_savings, corpus=corpus,
+        annual_expense=p.annual_expense, return_pct=p.return_pct,
+        inflation_pct=p.inflation_pct, outflows=p.outflows, end_age=p.end_age,
+    )
 
 
 def _with_return(p: PlanInputs, return_pct: float) -> PlanInputs:

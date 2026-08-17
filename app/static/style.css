@@ -667,6 +667,19 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 }
 .plan-sub { margin: 0; font-size: 0.92rem; }
 .plan-sub strong { color: var(--text); font-variant-numeric: tabular-nums; }
+/* The actionable number: what it would take today to reach the end age. */
+.plan-gap {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 16px; padding: 14px 16px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.plan-gap--short { border-color: color-mix(in srgb, var(--loss) 40%, var(--border)); }
+.plan-gap--clear { border-color: color-mix(in srgb, var(--gain) 40%, var(--border)); }
+.pgap-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.pgap-figure { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
+.pgap-figure em { font-style: normal; font-size: 0.6em; font-family: var(--sans, inherit); color: var(--muted); }
+.pgap-note { font-size: 0.85rem; line-height: 1.5; margin-top: 4px; max-width: 62ch; }
+
 /* The two alternate-return readouts, so the base case never reads as the answer. */
 .plan-range {
   display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 16px;

@@ -76,14 +76,44 @@
   </p>
   {% endif %}
 
+  {# The number the depletion age raises but doesn't answer: what would fix it. #}
+  <div class="plan-gap {{ 'plan-gap--short' if band.need.gap > 0 else 'plan-gap--clear' }}">
+    {% if band.need.gap > 0 %}
+    <span class="pgap-label">To make it to {{ end_age }} you'd need about</span>
+    <span class="pgap-figure num">₹{{ "{:,.0f}".format(band.need.gap) }} <em>more today</em></span>
+    <span class="pgap-note muted">
+      — a starting corpus of ₹{{ "{:,.0f}".format(band.need.needed) }} against your
+      ₹{{ "{:,.0f}".format(corpus) }}. Saving more, spending less or retiring later
+      moves this too; it's the lump sum that would do it on its own.
+    </span>
+    {% elif band.need.needed <= 0 %}
+    <span class="pgap-label">Your savings alone get you there</span>
+    <span class="pgap-figure num">₹{{ "{:,.0f}".format(corpus) }} <em>is all cushion</em></span>
+    <span class="pgap-note muted">
+      — at {{ "%g"|format(return_pct) }}% you'd reach {{ end_age }} starting from nothing,
+      on what you put away each year. Worth re-checking against the lower return below.
+    </span>
+    {% else %}
+    <span class="pgap-label">You're clear by about</span>
+    <span class="pgap-figure num">₹{{ "{:,.0f}".format(-band.need.gap) }}</span>
+    <span class="pgap-note muted">
+      — the plan still reaches {{ end_age }} starting from
+      ₹{{ "{:,.0f}".format(band.need.needed) }}, and you have
+      ₹{{ "{:,.0f}".format(corpus) }}. That's the cushion, not a surplus to spend.
+    </span>
+    {% endif %}
+  </div>
+
   <div class="plan-range">
     <span class="prange-item">
       <b>If returns are {{ "%g"|format(return_pct - band_delta) }}%</b>
       {% if lo.lasts %}lasts past {{ end_age }}{% else %}runs out at {{ lo.depletion_age }}{% endif %}
+      {%- if band.need_low.gap > 0 %} · needs ₹{{ "{:,.0f}".format(band.need_low.gap) }} more{% endif %}
     </span>
     <span class="prange-item">
       <b>If returns are {{ "%g"|format(return_pct + band_delta) }}%</b>
       {% if hi.lasts %}lasts past {{ end_age }}{% else %}runs out at {{ hi.depletion_age }}{% endif %}
+      {%- if band.need_high.gap > 0 %} · needs ₹{{ "{:,.0f}".format(band.need_high.gap) }} more{% endif %}
     </span>
   </div>
 </section>

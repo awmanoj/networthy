@@ -180,6 +180,66 @@ def test_band_summaries_can_disagree_about_lasting():
     assert band["high_summary"]["depletion_age"] is None
 
 
+# --- "How much would I need today?" -----------------------------------------
+
+def _short_plan(**over):
+    """A plan that doesn't reach 95: retired, no savings, drawing hard."""
+    base = dict(current_age=60, retire_age=60, corpus=20_000_000.0,
+                annual_savings=0.0, annual_expense=2_400_000.0)
+    base.update(over)
+    return _inputs(**base)
+
+
+def test_gap_is_the_amount_that_actually_fixes_the_plan():
+    """The property that matters: add exactly the gap and the plan reaches 95;
+    add a little less and it still doesn't."""
+    p = _short_plan()
+    need = projection.corpus_requirement(p, TODAY)
+    assert need["lasts"] is False and need["gap"] > 0
+
+    fixed = _short_plan(corpus=p.corpus + need["gap"])
+    assert projection.depletion_age(projection.project(fixed, TODAY)) is None
+
+    just_short = _short_plan(corpus=p.corpus + need["gap"] - 100_000)
+    assert projection.depletion_age(projection.project(just_short, TODAY)) is not None
+
+
+def test_surplus_reads_as_a_negative_gap():
+    """A plan that already works reports the cushion instead of a shortfall, so
+    the same figure answers both 'am I short?' and 'by how much am I clear?'."""
+    p = _inputs()                                    # healthy: saving, 20 yrs to go
+    need = projection.corpus_requirement(p, TODAY)
+    assert need["lasts"] is True
+    assert need["gap"] <= 0
+    assert need["needed"] < p.corpus or need["needed"] == 0.0
+
+
+def test_needed_corpus_is_zero_when_savings_alone_carry_it():
+    p = _inputs(corpus=0.0, annual_savings=5_000_000.0)
+    need = projection.corpus_requirement(p, TODAY)
+    assert need["needed"] == 0.0
+
+
+def test_a_better_return_needs_less_money_today():
+    lo = projection.corpus_requirement(_short_plan(return_pct=8.0), TODAY)["needed"]
+    mid = projection.corpus_requirement(_short_plan(return_pct=10.0), TODAY)["needed"]
+    hi = projection.corpus_requirement(_short_plan(return_pct=12.0), TODAY)["needed"]
+    assert lo > mid > hi
+
+
+def test_a_goal_raises_what_you_need_today():
+    without = projection.corpus_requirement(_short_plan(), TODAY)["needed"]
+    with_goal = projection.corpus_requirement(
+        _short_plan(outflows=((5, 5_000_000.0, "Wedding"),)), TODAY)["needed"]
+    assert with_goal > without
+
+
+def test_band_carries_the_requirement_at_all_three_returns():
+    band = projection.project_band(_short_plan(), TODAY)
+    # Worse returns -> you need more today. This spread is the decision-useful bit.
+    assert band["need_low"]["needed"] > band["need"]["needed"] > band["need_high"]["needed"]
+
+
 # --- Reading goals off the Goals page ---------------------------------------
 
 def test_outflows_from_goals_maps_dates_to_year_offsets():
@@ -277,3 +337,20 @@ def test_plan_renders_a_projection_and_lands_dated_goals_on_it(client):
     # Both ends of the band are reported, so the base case can't read as the answer.
     assert "If returns are 8%" in page and "If returns are 12%" in page
     assert "models no tax at all" in page
+
+
+def test_plan_shows_what_it_would_take_to_reach_95(client):
+    """A depletion age is a diagnosis; the gap is the actionable number."""
+    from app import storage
+    uid, ck = _login("gap@test.com")
+    storage.add_expense(uid, "Living", "housing", 200000.0, "monthly")
+    storage.add_bank_cash(uid, "bank-accounts", 5_000_000.0, "HDFC", "savings", "main")
+    client.post("/plan/settings", data={"current_age": "60", "retire_age": "60",
+                                        "annual_savings": "0", "return_pct": "10",
+                                        "inflation_pct": "6"},
+                cookies=ck, follow_redirects=False)
+
+    page = client.get("/plan", cookies=ck).text
+    assert "To make it to 95 you'd need about" in page
+    assert "more today" in page
+    assert "a starting corpus of" in page

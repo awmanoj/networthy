@@ -200,9 +200,15 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   is *not* modelled as acquiring one, and the UI says to enter the deposit as the goal and the EMI
   under Expenses; (3) **the UI shows today's money** (`YearPoint.real_closing`, `*_real` summary
   keys) — a nominal balance 50 years out is mostly inflation and reads as a bug ("₹581 crore at 95"),
-  while the per-year Added/Drawn/Goals columns stay in that year's rupees. `project_band()` runs the
-  model at return **±`BAND_DELTA_PCT`** and the page reports all three outcomes, because a single
-  line to 95 reads as a forecast; a plan can last past 95 at 10% and run dry at 90 at 8%, and that
+  while the per-year Added/Drawn/Goals columns stay in that year's rupees. `corpus_requirement()` answers the
+  question the depletion age raises but doesn't settle — "runs out at 75" vs "you're ₹94 lakh short
+  **today**" — by **bisecting** on the starting corpus (the year loop clamps at zero, mixes inflating
+  flows with fixed-date outflows and switches regime at retirement, so it doesn't invert cleanly; it
+  *is* monotonic in corpus, which is all bisection needs). It returns the same shape either way: a
+  negative `gap` is the cushion above the minimum. The test that matters is the round-trip — topping
+  the corpus up by exactly `gap` makes the plan reach 95, and a little less doesn't. `project_band()`
+  runs the model at return **±`BAND_DELTA_PCT`** and the page reports all three outcomes plus the
+  requirement at each, because a single line to 95 reads as a forecast; a plan can last past 95 at 10% and run dry at 90 at 8%, and that
   disagreement is the output. **No tax is modelled at all** — disclosed on the page via
   `fine_print`. Chart is `static/plan-chart.js` (deliberately separate from `chart.js`: age-indexed,
   three series, event markers).
