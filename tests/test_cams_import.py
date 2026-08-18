@@ -1,5 +1,11 @@
-"""Tests for the assisted CAMS import: per-user PAN/email settings, the personalised
-auto-fill bookmarklet, and the PAN-as-password fallback on upload."""
+"""Tests for the CAMS / MF Central import: the saved PAN, the instructions page,
+and the PAN-as-password fallback on upload.
+
+The page used to ship a personalised auto-fill bookmarklet for the CAMS form.
+That's gone — it asked the user to drag something to their bookmarks bar for a
+task they do twice a year, and it broke whenever the target form changed. These
+tests pin the simpler contract that replaced it: read the steps, upload the PDF
+that lands in your inbox."""
 
 from datetime import datetime, timedelta
 
@@ -46,25 +52,25 @@ def test_user_settings_upsert_and_isolation(tmp_path, monkeypatch):
 
 # --- Routes -----------------------------------------------------------------
 
-def test_settings_save_uppercases_pan_and_builds_bookmarklet(client):
+def test_settings_save_uppercases_pan_and_prefills_the_password(client):
     uid, ck = _login()
-    r = client.post("/networth/settings/cams",
-                    data={"pan": "abcde1234f", "cams_email": "reg@cams.com"},
+    r = client.post("/networth/settings/cams", data={"pan": "abcde1234f"},
                     cookies=ck, follow_redirects=False)
     assert r.status_code == 303
-    assert storage.get_user_settings(uid) == {"pan": "ABCDE1234F", "cams_email": "reg@cams.com"}
+    assert storage.get_user_settings(uid)["pan"] == "ABCDE1234F"
 
     page = client.get("/networth/import/cams", cookies=ck).text
-    assert "javascript:(function()" in page              # bookmarklet rendered
-    assert "ABCDE1234F" in page and "reg@cams.com" in page  # personalised
     assert 'value="ABCDE1234F"' in page                  # upload password pre-filled
 
 
-def test_no_bookmarklet_before_pan_saved(client):
+def test_page_is_instructions_and_an_upload_with_no_bookmarklet(client):
     _uid, ck = _login()
     page = client.get("/networth/import/cams", cookies=ck).text
-    assert "javascript:(function()" not in page
-    assert "Save your PAN above" in page
+    assert "javascript:(function()" not in page          # the bookmarklet is gone
+    # Both request routes are offered, and the step people get wrong is called out.
+    assert "mfcentral.com" in page and "camsonline.com" in page
+    assert "password to your PAN in capitals" in page
+    assert 'action="/networth/import/cams"' in page      # the upload form
 
 
 def test_import_falls_back_to_saved_pan_when_password_blank(client, monkeypatch):

@@ -190,8 +190,6 @@ main.wide { max-width: 1120px; }
   border: 1px solid var(--brand);
 }
 .btn.btn-outline:hover { filter: none; background: var(--brand); color: var(--btn-fg); }
-/* The draggable auto-fill bookmarklet reads as a grab handle. */
-.bookmarklet { cursor: grab; }
 
 .card {
   background: var(--surface);
@@ -653,6 +651,18 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table tbody tr + tr th, .stand-table tbody tr + tr td { border-top: 1px solid var(--border); }
 .stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
+
+/* --- CAMS / MF Central import: instructions + upload ----------------------- */
+.cams-step { margin-top: 22px; }
+.cams-step h2 { color: var(--ink); font-size: 1.05rem; margin: 0 0 6px; }
+.cams-lead { margin: 0 0 14px; font-size: 0.9rem; max-width: 62ch; }
+.cams-routes { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.cams-steps { max-width: 68ch; }
+.cams-steps li { margin-bottom: 10px; line-height: 1.55; }
+.cams-note { margin-top: 14px; }
+.cams-pan-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.cams-pan-form input { max-width: 200px; }
+.cams-footnote { font-size: 0.85rem; margin: 18px 2px 0; }
 
 /* --- Plan: the lifetime projection ---------------------------------------- */
 .plan-inputs { padding: 20px 24px; margin-bottom: 20px; }

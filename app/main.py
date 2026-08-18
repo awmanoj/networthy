@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import time
 from datetime import date
@@ -312,46 +311,29 @@ def networth_overview(request: Request):
 
 
 CAMS_IMPORT_URL = "/networth/import/cams"
-# The live CAMS "CAS – CAMS + KFintech" mailback form.
+# The two places a consolidated MF statement can be requested. Both mail a
+# password-protected PDF that `parse_cams` reads; MF Central is the CAMS+KFintech
+# joint portal, camsonline is the older direct route.
+MFCENTRAL_PAGE = "https://www.mfcentral.com/investor/statements"
 CAMS_CAS_PAGE = (
     "https://www.camsonline.com/Investors/Statements/Consolidated-Account-Statement"
 )
 
 
-def _cams_bookmarklet(email: str, pan: str) -> str:
-    """A one-click auto-fill bookmarklet for the CAMS CAS form, personalised with the
-    user's email + PAN. It sets the Angular Material inputs via the native value setter
-    and dispatches `input` so the reactive form registers them; the user just presses
-    Submit. Runs only in the user's own browser (so reCAPTCHA, if any, sees a real user).
-    Email/PAN are embedded as JSON literals — the template attribute-escapes the whole
-    string, and the browser decodes it back on click."""
-    e, p = json.dumps(email or ""), json.dumps(pan or "")
-    return (
-        "javascript:(function(){var E=%s,P=%s;"
-        "function s(el,v){if(!el)return;var d=Object.getOwnPropertyDescriptor("
-        "HTMLInputElement.prototype,'value').set;d.call(el,v);"
-        "el.dispatchEvent(new Event('input',{bubbles:true}));"
-        "el.dispatchEvent(new Event('blur',{bubbles:true}));}"
-        "s(document.querySelector('input[placeholder=\"Email\"]'),E);"
-        "s(document.querySelector('input[placeholder=\"PAN\"]'),P);"
-        "s(document.querySelector('#password'),P);"
-        "s(document.querySelector('#confirmPassword'),P);"
-        "alert('Networthy filled Email, PAN and Password (=PAN). "
-        "Choose Summary or Detailed if you like, then press Submit.');})();" % (e, p)
-    )
-
-
 def _cams_ctx(user, *, error=None, result=None) -> dict:
-    """Shared template context for the CAMS import page: saved settings, the
-    personalised bookmarklet, and the deep link to the CAMS form."""
-    s = storage.get_user_settings(user.id)
-    email = s["cams_email"] or user.email
+    """Shared template context for the CAMS import page.
+
+    Deliberately thin: the page is instructions plus an upload. We used to ship a
+    personalised auto-fill bookmarklet for the CAMS form; it worked, but "drag
+    this to your bookmarks bar" is a lot to ask for something the user does two
+    or three times a year, and the form it targeted can change under us. Reading
+    five steps and uploading the emailed PDF is the simpler contract.
+    """
     return {
         "user": user,
-        "settings": s,
-        "cams_email": email,
+        "settings": storage.get_user_settings(user.id),
         "cams_page": CAMS_CAS_PAGE,
-        "bookmarklet": _cams_bookmarklet(email, s["pan"]),
+        "mfcentral_page": MFCENTRAL_PAGE,
         "error": error,
         "result": result,
     }
@@ -359,22 +341,19 @@ def _cams_ctx(user, *, error=None, result=None) -> dict:
 
 @app.get(CAMS_IMPORT_URL, response_class=HTMLResponse)
 def cams_import_form(request: Request):
-    """How to generate a CAMS CAS (with a one-click auto-fill bookmarklet) + an upload
-    form to import it."""
+    """How to request a consolidated MF statement, and the form to upload it."""
     return templates.TemplateResponse(
         "cams_import.html", {"request": request, **_cams_ctx(request.state.user)}
     )
 
 
 @app.post("/networth/settings/cams")
-def cams_settings_save(
-    request: Request, pan: str = Form(""), cams_email: str = Form("")
-):
-    """Remember the user's PAN (= CAS PDF password) and CAS-registered email so they
-    don't retype them, and to build the personalised auto-fill bookmarklet."""
-    storage.save_user_settings(
-        request.state.user.id, pan.strip().upper(), cams_email.strip()
-    )
+def cams_settings_save(request: Request, pan: str = Form("")):
+    """Remember the PAN so the PDF password is pre-filled next time.
+
+    Opt-in and local-only — the PAN is the statement's password, nothing more.
+    """
+    storage.save_user_settings(request.state.user.id, pan.strip().upper(), "")
     return RedirectResponse(url=CAMS_IMPORT_URL, status_code=303)
 
 

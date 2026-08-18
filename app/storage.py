@@ -424,10 +424,10 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_bank_cash_user_leaf "
             "ON bank_cash(user_id, leaf_slug)"
         )
-        # Per-user convenience settings for the CAMS import: the PAN (which doubles as
-        # the CAS PDF password) and the CAS-registered email. Stored deliberately, opt-in,
-        # so the user doesn't retype the PAN on every upload and we can build a personal
-        # auto-fill bookmarklet for the CAMS form. Local-only — never egresses.
+        # Per-user convenience settings. `pan` doubles as the CAS PDF password and is
+        # stored opt-in so the user doesn't retype it on every upload; `cams_email` is
+        # vestigial (it fed the removed CAMS auto-fill bookmarklet) and is kept only so
+        # older rows don't need a migration. Local-only — never egresses.
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS user_settings (

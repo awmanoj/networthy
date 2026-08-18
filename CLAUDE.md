@@ -115,17 +115,17 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   a CAMS import is NOT a `Snapshot`** — it lives in its own `networth_holdings` table so it can
   never land on the dashboard net-worth timeline (a snapshot means *total* net worth; CAMS is
   MF-only). MF precedence: CAMS supersedes NSDL (avoids double-count); Gold & Silver unions both,
-  deduped by ISIN. **CAMS import assist** (`cams_import.html`): the page (1) saves the user's PAN +
-  CAS-registered email once (`user_settings` table, `get`/`save_user_settings`; PAN uppercased,
-  stored **local-only** and used as the PDF password), (2) builds a **personalised auto-fill
-  bookmarklet** (`_cams_bookmarklet`) that fills the live CAMS CAS form
-  (`CAMS_CAS_PAGE`) in the user's own browser — reCAPTCHA Enterprise is bundled on that form but only
-  loads on submit, so filling from the user's real browser (not a headless server) is the point — and
-  (3) uploads the emailed PDF, where `password` **falls back to the saved PAN** when blank. Manual
-  step-by-step is kept for anyone the bookmarklet doesn't suit. CAMS mails the PDF to the *registered*
-  email asynchronously; the **Summary** statement (balances + valuation, as-on today) is enough for
-  `parse_cams`. (We deliberately did **not** build Gmail auto-ingest — the receiving side stays a
-  manual upload by choice.)
+  deduped by ISIN. **MF import** (`cams_import.html`) is deliberately just **instructions + an
+  upload**: request a consolidated statement from **MF Central** (`MFCENTRAL_PAGE`) or **CAMS**
+  (`CAMS_CAS_PAGE`) — both mail the same CAMS+KFintech CAS — set its password to your PAN, then
+  upload the emailed PDF, where `password` **falls back to the saved PAN** when blank. The PAN is
+  saved opt-in (`user_settings`, `get`/`save_user_settings`, uppercased, **local-only**) purely to
+  pre-fill that password field; `cams_email` is now vestigial (kept as a column, no longer written
+  from the UI). The **Summary** statement (balances + valuation, as-on today) is enough for
+  `parse_cams`. *Removed by choice*: the personalised auto-fill **bookmarklet** that used to drive
+  the live CAMS form. It worked, but "drag this to your bookmarks bar" is too much ceremony for a
+  twice-a-year task, and it broke whenever the target form changed — don't reintroduce it. (We also
+  deliberately did **not** build Gmail auto-ingest — the receiving side stays a manual upload.)
 
 - **`app/storage.py`** — SQLite persistence. `upsert_snapshot()` keys on `statement_date`, so
   **re-uploading a statement for the same date replaces the existing snapshot** rather than

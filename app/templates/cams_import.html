@@ -1,17 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Import from CAMS · Networth{% endblock %}
+{% block title %}Import mutual funds · Networthy HQ{% endblock %}
 {% block content %}
 
 <nav class="crumbs" aria-label="Breadcrumb">
   <a href="/networth">Net worth</a><span class="crumb-sep">/</span>
-  <span class="crumb-current">Import from CAMS</span>
+  <span class="crumb-current">Import mutual funds</span>
 </nav>
 
 <section class="nw-page-head">
-  <h1>Import mutual funds from CAMS</h1>
+  <h1>Import mutual funds</h1>
   <p class="muted">
-    A CAMS statement lists every mutual-fund folio across all AMCs. Upload it to fill
-    in your <strong>Mutual Funds</strong> page — and any gold/silver funds are routed to
+    A consolidated statement lists every mutual-fund folio across all AMCs. Request one,
+    it arrives by email as a password-protected PDF, and you upload it here. That fills
+    your <strong>Mutual Funds</strong> page — with gold and silver funds routed to
     <strong>Gold &amp; Silver</strong> — with scheme, units, NAV and current value.
   </p>
 </section>
@@ -44,89 +45,45 @@
 </section>
 {% endif %}
 
-<!-- Step 1 — save PAN + registered email once -->
-<section class="card narrow" style="margin-top:22px;">
-  <h2 style="color:var(--ink);font-size:1.05rem;">1 · Your details</h2>
-  <p class="muted" style="margin:-4px 0 4px;font-size:0.9rem;">
-    Saved so you don't retype them, and to build your one-click auto-fill below. Your
-    PAN doubles as the CAS PDF password. Stored on this server only — it never leaves it.
+<section class="card cams-step">
+  <h2>1 · Request your statement</h2>
+  <p class="muted cams-lead">
+    Either site works — both mail the same consolidated statement covering CAMS and
+    KFintech-serviced funds. Use whichever you can sign in to.
   </p>
-  <form method="post" action="/networth/settings/cams">
-    <label>
-      PAN
-      <input name="pan" value="{{ settings.pan }}" placeholder="ABCDE1234F"
-             style="text-transform:uppercase;" maxlength="10" />
-    </label>
-    <label>
-      Email registered with CAMS
-      <input name="cams_email" type="email" value="{{ settings.cams_email }}"
-             placeholder="{{ user.email }}" />
-    </label>
-    <button class="btn" type="submit">Save details</button>
-  </form>
-</section>
 
-<!-- Step 2 — get the statement (bookmarklet + deep link + manual steps) -->
-<section class="card">
-  <h2>2 · Get your CAMS statement</h2>
+  <div class="cams-routes">
+    <a class="btn" href="{{ mfcentral_page }}" target="_blank" rel="noopener">Open MF Central ↗</a>
+    <a class="btn btn-outline" href="{{ cams_page }}" target="_blank" rel="noopener">Open CAMS ↗</a>
+  </div>
 
-  {% if settings.pan %}
-  <p class="muted" style="margin-top:-4px;">
-    Drag this button to your bookmarks bar. Then open the CAMS form and click it —
-    it fills your email, PAN and password automatically. You just press <strong>Submit</strong>.
-  </p>
-  <p style="margin:14px 0;">
-    <a class="btn bookmarklet" href="{{ bookmarklet }}"
-       onclick="alert('Drag me to your bookmarks bar, then click me on the CAMS page.');return false;"
-       draggable="true">📌 Autofill CAMS (drag me up)</a>
-    <a class="btn btn-outline" href="{{ cams_page }}" target="_blank" rel="noopener"
-       style="margin-left:8px;">Open CAMS form ↗</a>
-  </p>
-  <details style="margin-top:6px;">
-    <summary class="muted" style="cursor:pointer;font-size:0.85rem;">
-      Bookmarklet won't drag? Copy the code instead
-    </summary>
-    <textarea readonly rows="4" onclick="this.select();"
-              style="width:100%;margin-top:8px;font-family:var(--mono,monospace);font-size:0.75rem;
-                     padding:10px;border:1px solid var(--line,#d8dde4);border-radius:8px;
-                     background:var(--surface);color:var(--ink);">{{ bookmarklet }}</textarea>
-    <p class="muted" style="font-size:0.8rem;margin:6px 0 0;">
-      Create a new bookmark and paste this as its URL.
-    </p>
-  </details>
-  {% else %}
-  <p class="muted" style="margin-top:-4px;">
-    Save your PAN above to unlock the one-click auto-fill. Or fill the CAMS form by hand —
-    <a href="{{ cams_page }}" target="_blank" rel="noopener">open it here ↗</a>.
-  </p>
-  {% endif %}
-
-  <h3 style="margin:20px 0 6px;font-size:0.95rem;color:var(--ink);">Doing it by hand</h3>
-  <ol class="steps">
+  <ol class="steps cams-steps">
     <li>
-      Open <strong>CAMS → Statements → CAS – CAMS + KFintech</strong>
-      (<a href="{{ cams_page }}" target="_blank" rel="noopener">direct link</a>).
+      Open <strong>MF Central</strong> (Statements → Consolidated Account Statement) or
+      <strong>CAMS</strong> (Statements → CAS – CAMS + KFintech).
     </li>
     <li>
-      <strong>Statement type</strong>: <em>Summary</em> (balances &amp; valuation) is enough;
-      <em>Detailed</em> also works. Leave the <em>as-on</em> date as today.
+      Enter the <strong>email registered with your folios</strong>. The PDF is mailed
+      only to that address, so it has to be the registered one.
     </li>
     <li>
-      Enter your <strong>registered email</strong> (the one your folios are registered
-      under — the PDF is mailed only there). PAN is optional. Set <strong>Password</strong>
-      and <strong>Confirm Password</strong> to your <strong>PAN in CAPITALS</strong>.
+      Choose <strong>Summary</strong> — balances and valuation is all we need.
+      Detailed works too, it's just longer. Leave the <em>as-on</em> date as today.
     </li>
     <li>
-      Press <strong>Submit</strong> (complete an <strong>OTP</strong> if asked). The
-      password-protected PDF arrives in your email within a few minutes.
+      Set the <strong>password to your PAN in capitals</strong> (e.g. ABCDE1234F), in both
+      the password and confirm boxes. This is the one step worth double-checking — the
+      upload below assumes it.
     </li>
-    <li>Come back and upload it below.</li>
+    <li>
+      Submit, and complete the <strong>OTP</strong> if asked. The PDF usually arrives
+      within a few minutes; sometimes it takes an hour. Then come back and upload it.
+    </li>
   </ol>
 </section>
 
-<!-- Step 3 — upload -->
-<section class="card narrow" style="margin-top:22px;">
-  <h2 style="color:var(--ink);font-size:1.05rem;">3 · Upload the PDF</h2>
+<section class="card cams-step">
+  <h2>2 · Upload the PDF</h2>
 
   {% if error %}
   <div class="alert">{{ error }}</div>
@@ -134,25 +91,39 @@
 
   <form method="post" action="/networth/import/cams" enctype="multipart/form-data">
     <label>
-      CAMS CAS PDF
+      The statement PDF
       <input type="file" name="file" accept="application/pdf" required />
     </label>
     <label>
       PDF password
       <input type="password" name="password" value="{{ settings.pan }}"
-             placeholder="usually your PAN (CAPITALS)" />
+             placeholder="your PAN, in capitals" />
     </label>
     <button class="btn btn-lg" type="submit">Import</button>
   </form>
-  <p class="auth-sub muted" style="margin-top:14px;">
+  <p class="auth-sub muted cams-note">
     {% if settings.pan %}Pre-filled with your saved PAN.{% endif %}
-    The password decrypts the PDF in memory; the file itself is never stored.
+    The password decrypts the PDF in memory — the file itself is never stored, and a new
+    import replaces the previous one.
   </p>
 </section>
 
-<p class="muted" style="font-size:0.85rem;margin:18px 2px 0;">
-  Note: a CAMS statement covers mutual funds only. Direct stocks, bonds and SGBs come
-  from your NSDL CAS (via <a href="/upload">Upload CAS</a>).
+<section class="card cams-step cams-pan">
+  <h2>Save your PAN (optional)</h2>
+  <p class="muted cams-lead">
+    Only so the password above is filled in next time. Stored on this server, used for
+    nothing else, and never sent anywhere.
+  </p>
+  <form method="post" action="/networth/settings/cams" class="cams-pan-form">
+    <input name="pan" value="{{ settings.pan }}" placeholder="ABCDE1234F"
+           maxlength="10" aria-label="PAN" style="text-transform:uppercase;" />
+    <button class="btn" type="submit">{{ "Update" if settings.pan else "Save" }}</button>
+  </form>
+</section>
+
+<p class="muted cams-footnote">
+  A consolidated MF statement covers mutual funds only. Direct stocks, bonds and SGBs
+  come from your NSDL CAS (via <a href="/upload">Upload CAS</a>).
 </p>
 
 {% endblock %}
