@@ -653,13 +653,54 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
 
 /* --- Public retirement-corpus page ----------------------------------------- */
-.r-controls { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 20px; align-items: flex-end; }
-.r-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 190px; }
-.r-field > span { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
-.r-field--sm { flex: 0 0 110px; }
-.r-field--unit { flex: 0 0 110px; }
+/* The two money fields are the primary interaction, so they get the same
+   prominent treatment as the ranking page's amount box (₹ prefix, large
+   tabular figures); the rate fields stay small because they're assumptions,
+   not the question. */
+.r-controls { display: flex; flex-wrap: wrap; gap: 18px 22px; margin-top: 22px; align-items: flex-end; }
+.r-money { display: flex; flex-direction: column; gap: 7px; flex: 1 1 260px; max-width: 340px; }
+.r-money-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.r-opt { font-weight: 400; opacity: 0.7; }
+.r-money-box {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px 6px 4px 14px;
+  transition: border-color 0.15s ease;
+}
+.r-money-box:focus-within { border-color: var(--accent); }
+.r-rs { font-size: 1.2rem; font-weight: 600; color: var(--muted); }
+.r-money-box input {
+  flex: 1; min-width: 0; background: none; border: none; font: inherit;
+  font-size: 1.35rem; font-weight: 700; padding: 6px 8px; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.r-money-box input:focus { outline: none; }
+.r-money-box input::placeholder { font-weight: 500; color: var(--faint); }
+.r-money-box select {
+  border: none; background: var(--surface); border-radius: 8px; padding: 8px 10px;
+  font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.r-assume { display: flex; gap: 14px; align-items: flex-end; }
+.r-small { display: flex; flex-direction: column; gap: 7px; }
+.r-small > span { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.r-small-box {
+  display: flex; align-items: center; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 10px; padding: 0 12px 0 4px;
+}
+.r-small-box:focus-within { border-color: var(--accent); }
+.r-small-box input {
+  width: 62px; background: none; border: none; font: inherit; font-weight: 600;
+  padding: 12px 4px 12px 8px; color: var(--text); font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.r-small-box input:focus { outline: none; }
+.r-small-box i { font-style: normal; color: var(--muted); font-size: 0.9rem; }
+
 .r-results { margin-top: 20px; }
-.r-results h2 { margin: 0 0 14px; font-size: 1.05rem; }
+/* Match the serif h2 the reference sections use — the page had two competing
+   heading styles before. */
+.r-results h2 { margin: 0 0 4px; font-family: var(--serif); font-weight: 600; font-size: 1.25rem; letter-spacing: -0.01em; }
+.r-results-lead { margin: 0 0 16px; font-size: 0.88rem; max-width: 60ch; }
 .r-rows { display: flex; flex-direction: column; gap: 2px; }
 .r-row {
   display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 16px;
@@ -677,10 +718,18 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .r-gap { font-weight: 600; white-space: nowrap; }
 .r-row--ok .r-gap { color: var(--gain); }
 .r-row--short .r-gap { color: var(--loss); }
-.r-verdict { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-.r-implied { margin: 0; font-size: 1rem; line-height: 1.6; }
-.r-implied strong { font-family: var(--serif); font-size: 1.08em; }
-.r-implied-note { margin: 8px 0 0; font-size: 0.85rem; line-height: 1.55; max-width: 68ch; }
+/* The reverse read — the rate you'd actually be running. It's the punchline of
+   the page, so it gets a tinted panel rather than another paragraph. */
+.r-verdict:not(:empty) {
+  margin-top: 20px; padding: 16px 18px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.r-implied { margin: 0; font-size: 1rem; line-height: 1.65; max-width: 72ch; }
+.r-implied strong { font-family: var(--serif); font-size: 1.1em; color: var(--text); }
+.r-implied-note {
+  margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 0.85rem; line-height: 1.55; max-width: 72ch;
+}
 .r-per { color: var(--faint); font-weight: 400; font-size: 0.85em; }
 .r-forever { color: var(--gain); font-weight: 600; }
 @media (max-width: 640px) {
@@ -699,7 +748,8 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .cams-note { margin-top: 14px; }
 .cams-pan-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .cams-pan-form input { max-width: 200px; }
-.cams-footnote { font-size: 0.85rem; margin: 18px 2px 0; }
+.cams-footnote,
+.page-footnote { font-size: 0.85rem; margin: 18px 2px 0; }
 
 /* --- Plan: the lifetime projection ---------------------------------------- */
 .plan-inputs { padding: 20px 24px; margin-bottom: 20px; }

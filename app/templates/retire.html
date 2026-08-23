@@ -21,36 +21,54 @@
   </p>
 
   <div class="r-controls">
-    <label class="r-field">
-      <span>What you have today</span>
-      <input id="r-networth" type="text" inputmode="decimal" autocomplete="off"
-             value="{{ my_net_worth|round|int if my_net_worth else '' }}" placeholder="₹ net worth">
+    <label class="r-money">
+      <span class="r-money-label">What you spend</span>
+      <span class="r-money-box">
+        <span class="r-rs">₹</span>
+        <input id="r-spend" type="text" inputmode="decimal" autocomplete="off"
+               value="{{ my_monthly_expense|round|int if my_monthly_expense else '' }}"
+               placeholder="1,00,000" aria-label="Amount you spend">
+        <select id="r-unit" aria-label="Per month or per year">
+          <option value="month" selected>/ month</option>
+          <option value="year">/ year</option>
+        </select>
+      </span>
     </label>
-    <label class="r-field">
-      <span>What you spend</span>
-      <input id="r-spend" type="text" inputmode="decimal" autocomplete="off"
-             value="{{ my_monthly_expense|round|int if my_monthly_expense else '' }}" placeholder="₹ amount">
+
+    <label class="r-money">
+      <span class="r-money-label">What you have today <span class="r-opt">optional</span></span>
+      <span class="r-money-box">
+        <span class="r-rs">₹</span>
+        <input id="r-networth" type="text" inputmode="decimal" autocomplete="off"
+               value="{{ my_net_worth|round|int if my_net_worth else '' }}"
+               placeholder="net worth" aria-label="Your net worth today">
+      </span>
     </label>
-    <label class="r-field r-field--unit">
-      <span>per</span>
-      <select id="r-unit">
-        <option value="month" selected>month</option>
-        <option value="year">year</option>
-      </select>
-    </label>
-    <label class="r-field r-field--sm">
-      <span>Return %</span>
-      <input id="r-return" type="number" step="0.5" min="0" value="{{ '%g'|format(default_return) }}">
-    </label>
-    <label class="r-field r-field--sm">
-      <span>Inflation %</span>
-      <input id="r-inflation" type="number" step="0.5" min="0" value="{{ '%g'|format(default_inflation) }}">
-    </label>
+
+    <div class="r-assume">
+      <label class="r-small">
+        <span>Return</span>
+        <span class="r-small-box">
+          <input id="r-return" type="number" step="0.5" min="0"
+                 value="{{ '%g'|format(default_return) }}"><i>%</i>
+        </span>
+      </label>
+      <label class="r-small">
+        <span>Inflation</span>
+        <span class="r-small-box">
+          <input id="r-inflation" type="number" step="0.5" min="0"
+                 value="{{ '%g'|format(default_inflation) }}"><i>%</i>
+        </span>
+      </label>
+    </div>
   </div>
 </section>
 
 <section class="card r-results">
   <h2>What retiring today costs</h2>
+  <p class="muted r-results-lead">
+    The corpus you'd need at each withdrawal rate, and where you stand against it.
+  </p>
   <div id="r-rows" class="r-rows"></div>
   <div id="r-verdict" class="r-verdict"></div>
 </section>
@@ -180,7 +198,7 @@
 </section>
 {% endif %}
 
-<p class="muted cams-footnote">
+<p class="muted page-footnote">
   Also useful: <a href="/how-rich-am-i">where your net worth ranks</a> among adults in
   India and worldwide.
 </p>
