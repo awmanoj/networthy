@@ -652,6 +652,43 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
 
+/* --- Public retirement-corpus page ----------------------------------------- */
+.r-controls { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 20px; align-items: flex-end; }
+.r-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 190px; }
+.r-field > span { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+.r-field--sm { flex: 0 0 110px; }
+.r-field--unit { flex: 0 0 110px; }
+.r-results { margin-top: 20px; }
+.r-results h2 { margin: 0 0 14px; font-size: 1.05rem; }
+.r-rows { display: flex; flex-direction: column; gap: 2px; }
+.r-row {
+  display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 16px;
+  padding: 12px 14px; border-radius: 10px; border: 1px solid transparent;
+}
+.r-row:hover { background: var(--surface-2); }
+.r-row--ok { border-color: color-mix(in srgb, var(--gain) 35%, var(--border)); }
+.r-rate { display: flex; flex-direction: column; line-height: 1.2; }
+.r-rate b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+.r-mult { font-size: 0.8rem; color: var(--faint); }
+.r-head, .r-foot { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+.r-label { font-size: 0.9rem; font-weight: 600; }
+.r-corpus { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.r-foot { font-size: 0.8rem; }
+.r-gap { font-weight: 600; white-space: nowrap; }
+.r-row--ok .r-gap { color: var(--gain); }
+.r-row--short .r-gap { color: var(--loss); }
+.r-verdict { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.r-implied { margin: 0; font-size: 1rem; line-height: 1.6; }
+.r-implied strong { font-family: var(--serif); font-size: 1.08em; }
+.r-implied-note { margin: 8px 0 0; font-size: 0.85rem; line-height: 1.55; max-width: 68ch; }
+.r-per { color: var(--faint); font-weight: 400; font-size: 0.85em; }
+.r-forever { color: var(--gain); font-weight: 600; }
+@media (max-width: 640px) {
+  .r-row { grid-template-columns: 1fr; gap: 8px; }
+  .r-rate { flex-direction: row; align-items: baseline; gap: 8px; }
+  .r-foot { flex-direction: column; align-items: flex-start; gap: 2px; }
+}
+
 /* --- CAMS / MF Central import: instructions + upload ----------------------- */
 .cams-step { margin-top: 22px; }
 .cams-step h2 { color: var(--ink); font-size: 1.05rem; margin: 0 0 6px; }

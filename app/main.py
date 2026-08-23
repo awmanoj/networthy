@@ -1424,6 +1424,111 @@ def _share_display(pct: float) -> str:
     return f"1 in {round(100.0 / pct):,}" if pct > 0 else "—"
 
 
+RETIRE_PATH = "/how-much-do-i-need-to-retire"
+
+# Monthly spends the reference table prices a corpus for — the range Indian
+# households actually ask about, stated per month because that's how people
+# think about spending (the maths annualises it).
+_RETIRE_MONTHLY = [25_000, 50_000, 75_000, 100_000, 150_000, 200_000, 300_000, 500_000]
+
+# The "how long does it last" grid: withdrawal rate down, return across. Goes
+# past the sustainable rates on purpose — 6-8% is what people actually plan on,
+# and seeing it run dry is the point of the table.
+_RETIRE_DRAW_RATES = [3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+_RETIRE_RETURNS = [8.0, 10.0, 12.0]
+# Horizon for "how long does it last". 60 years past a retirement date is already
+# generous, and capping there keeps the claim honest: the table says "60+ years",
+# not "forever". Matches the cap retire.js uses.
+_RETIRE_HORIZON = 60
+
+
+@app.get(RETIRE_PATH, response_class=HTMLResponse)
+def how_much_to_retire(request: Request):
+    """Public SWP / retirement-corpus page: what does retiring today cost?
+
+    Same shape as the ranking page — the interactive calculator runs entirely in
+    the browser (`static/retire.js`), so a visitor's net worth and spending never
+    reach us, and the tables below are server-rendered so there's something to
+    index and something to read without JS.
+    """
+    user = request.state.user
+    my_nw = my_expense = None
+    if user:
+        dash = _dashboard(user)
+        my_nw = dash["net_worth"] if dash["has_data"] else None
+        annual = sum(
+            expenses.annual_amount(e["amount"], e["count"], e["frequency"])
+            for e in storage.list_expenses(user.id)
+        )
+        my_expense = annual / 12.0 if annual else None
+
+    return templates.TemplateResponse(
+        "retire.html",
+        {
+            "request": request,
+            "user": user,
+            "presets": expenses.SWR_PRESETS,
+            "default_swr": expenses.DEFAULT_SWR_PCT,
+            "corpus_rows": _retire_corpus_table(),
+            "duration_rows": _retire_duration_table(),
+            "returns": _RETIRE_RETURNS,
+            "horizon": _RETIRE_HORIZON,
+            "my_net_worth": my_nw,
+            "my_monthly_expense": my_expense,
+            "default_inflation": projection.DEFAULT_INFLATION_PCT,
+            "default_return": projection.DEFAULT_RETURN_PCT,
+            "page_title": "How much do I need to retire in India?",
+            "page_description": (
+                "Work out the corpus that funds your retirement. Enter your monthly "
+                "spending and see what you'd need at a 2.5%, 3%, 3.5% or 4% withdrawal "
+                "rate — and how long a corpus really lasts once inflation is counted. "
+                "Nothing you type leaves your browser."
+            ),
+            "canonical_path": RETIRE_PATH,
+        },
+    )
+
+
+def _retire_corpus_table() -> list[dict]:
+    """Corpus needed per monthly spend, at each preset withdrawal rate."""
+    rows = []
+    for monthly in _RETIRE_MONTHLY:
+        annual = monthly * 12
+        rows.append({
+            "monthly": monthly,
+            "monthly_label": _inr_short(monthly),
+            "annual": annual,
+            "needed": [
+                {"pct": p["pct"],
+                 "corpus": expenses.fire_target(annual, p["pct"]),
+                 "label": _inr_short(expenses.fire_target(annual, p["pct"]))}
+                for p in expenses.SWR_PRESETS
+            ],
+        })
+    return rows
+
+
+def _retire_duration_table() -> list[dict]:
+    """How long a corpus survives at each withdrawal rate, across return
+    assumptions — the answer to "is my SWP percentage safe?"."""
+    rows = []
+    for draw in _RETIRE_DRAW_RATES:
+        # Rate-only question, so the corpus is arbitrary: withdraw `draw`% of it.
+        corpus = 10_000_000.0
+        rows.append({
+            "draw": draw,
+            "multiple": 100.0 / draw,
+            "years": [
+                projection.years_corpus_lasts(
+                    corpus, corpus * draw / 100.0, r,
+                    projection.DEFAULT_INFLATION_PCT, _RETIRE_HORIZON
+                )
+                for r in _RETIRE_RETURNS
+            ],
+        })
+    return rows
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots_txt():
     """Allow the public pages, keep the whole logged-in app out of the index.
@@ -1437,6 +1542,7 @@ def robots_txt():
         "User-agent: *\n"
         "Allow: /$\n"
         f"Allow: {STANDING_PATH}\n"
+        f"Allow: {RETIRE_PATH}\n"
         "Allow: /about\n"
         "Allow: /privacy\n"
         "Allow: /terms\n"
@@ -1455,8 +1561,8 @@ def robots_txt():
 
 
 # The public, indexable surface. Everything else is behind the session gate.
-_SITEMAP_PATHS = [("/", "1.0"), (STANDING_PATH, "0.9"), ("/about", "0.5"),
-                  ("/privacy", "0.3"), ("/terms", "0.3")]
+_SITEMAP_PATHS = [("/", "1.0"), (STANDING_PATH, "0.9"), (RETIRE_PATH, "0.9"),
+                  ("/about", "0.5"), ("/privacy", "0.3"), ("/terms", "0.3")]
 
 
 @app.get("/sitemap.xml")

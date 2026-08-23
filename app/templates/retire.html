@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}{{ page_title }} · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+{% if user %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/">Dashboard</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">How much do I need to retire?</span>
+</nav>
+{% endif %}
+
+<section class="card stand-intro">
+  <h1>How much do I need to retire?</h1>
+  <p class="muted">
+    Enough that what you withdraw each year, rising with inflation, doesn't outrun what
+    the corpus earns. Put in your monthly spending and see the number at each withdrawal
+    rate — and, if you add what you already have, how long it would actually last.
+    {% if not user %}It's all worked out in your browser: nothing you type is sent to us.{% endif %}
+  </p>
+
+  <div class="r-controls">
+    <label class="r-field">
+      <span>What you have today</span>
+      <input id="r-networth" type="text" inputmode="decimal" autocomplete="off"
+             value="{{ my_net_worth|round|int if my_net_worth else '' }}" placeholder="₹ net worth">
+    </label>
+    <label class="r-field">
+      <span>What you spend</span>
+      <input id="r-spend" type="text" inputmode="decimal" autocomplete="off"
+             value="{{ my_monthly_expense|round|int if my_monthly_expense else '' }}" placeholder="₹ amount">
+    </label>
+    <label class="r-field r-field--unit">
+      <span>per</span>
+      <select id="r-unit">
+        <option value="month" selected>month</option>
+        <option value="year">year</option>
+      </select>
+    </label>
+    <label class="r-field r-field--sm">
+      <span>Return %</span>
+      <input id="r-return" type="number" step="0.5" min="0" value="{{ '%g'|format(default_return) }}">
+    </label>
+    <label class="r-field r-field--sm">
+      <span>Inflation %</span>
+      <input id="r-inflation" type="number" step="0.5" min="0" value="{{ '%g'|format(default_inflation) }}">
+    </label>
+  </div>
+</section>
+
+<section class="card r-results">
+  <h2>What retiring today costs</h2>
+  <div id="r-rows" class="r-rows"></div>
+  <div id="r-verdict" class="r-verdict"></div>
+</section>
+
+{# ---------------------------------------------------------------------------
+   Server-rendered reference tables: the indexable half of the page, and what a
+   reader without JS sees. Same maths as the calculator above.
+   --------------------------------------------------------------------------- #}
+<section class="card stand-ref">
+  <h2>Corpus needed by monthly spending</h2>
+  <p class="stand-answer">
+    At a <strong>3% withdrawal rate</strong> — the defensible assumption for India —
+    retiring on <strong>₹1 lakh a month</strong> takes about
+    <strong>₹4 crore</strong>. At the American 4% rule it's ₹3 crore; at a cautious
+    2.5% it's ₹4.8 crore.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>You spend</th>
+          {% for p in presets %}
+          <th class="num">{{ "%g"|format(p.pct) }}% ({{ "%.0f"|format(100 / p.pct) }}×)</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in corpus_rows %}
+        <tr>
+          <th scope="row">{{ row.monthly_label }}<span class="r-per">/month</span></th>
+          {% for n in row.needed %}
+          <td class="num">{{ n.label }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Corpus = a year's spending ÷ the withdrawal rate. A 4% rate is 25× your annual
+    spending, 3% is 33×, 2.5% is 40×.
+  </p>
+</section>
+
+<section class="card stand-ref">
+  <h2>SWP: how long does the money actually last?</h2>
+  <p class="muted stand-ref-lead">
+    Withdrawal calculators usually assume you take out the same rupee amount forever.
+    You don't — you spend to live, and living gets dearer. These are years-until-empty
+    with the withdrawal <strong>rising at {{ "%g"|format(default_inflation) }}% a
+    year</strong>, which is what changes the answer.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>Withdraw each year</th>
+          {% for r in returns %}
+          <th class="num">if returns are {{ "%g"|format(r) }}%</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in duration_rows %}
+        <tr>
+          <th scope="row">{{ "%g"|format(row.draw) }}%<span class="r-per"> · {{ "%.0f"|format(row.multiple) }}× corpus</span></th>
+          {% for y in row.years %}
+          <td class="num">{% if y is none %}<span class="r-forever">{{ horizon }}+ years</span>{% else %}{{ y }} years{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Read the row you're planning on, then read the column to its left. A 4% withdrawal
+    outlives {{ horizon }} years at 10% returns and empties in 37 years at 8% — the plan didn't
+    change, the returns did. That gap is the argument for a lower rate.
+  </p>
+</section>
+
+<section class="card stand-sources">
+  <h2>Where these numbers come from</h2>
+
+  <h3>The arithmetic</h3>
+  <p class="muted">
+    The corpus figure is a year's spending divided by the withdrawal rate — the standard
+    rule-of-thumb inversion, nothing more. The duration table runs a year-by-year loop:
+    the balance earns the return, then the year's spending is withdrawn, and that
+    spending rises with inflation each year. No tax is modelled, so every figure here is
+    somewhat optimistic.
+  </p>
+
+  <h3>Why 3% and not 4%</h3>
+  <p class="muted">
+    The famous <strong>4% rule</strong> comes from the Trinity study — US stocks and
+    bonds over 1926–1995, a 30-year retirement, roughly 3% inflation, with Social
+    Security underneath it. India matches none of those: general inflation runs nearer
+    6%, healthcare costs rise faster still, the reliable return history is shorter, and
+    there is no state pension floor to catch you. <strong>2.5–3%</strong> is the
+    defensible range here, which means <strong>33–40×</strong> your annual spending
+    rather than 25×.
+  </p>
+
+  <h3>What this can't tell you</h3>
+  <p class="muted">
+    Averages, not sequences. A retirement that meets a 10% average return but takes its
+    bad years first can fail where the same average in a kinder order succeeds — and
+    nobody gets to choose the order. Treat these as the floor of what you need, not a
+    target to just reach.
+  </p>
+  {{ fine_print("Estimates for planning, not a retirement plan.") }}
+</section>
+
+{% if not user %}
+<section class="card stand-cta">
+  <h2>Then check it against your real numbers</h2>
+  <p class="muted">
+    This works off two figures you typed. Networthy HQ tracks the actual ones — every
+    asset priced live, your real spending by category, and a year-by-year projection to
+    95 that counts your goals along the way.
+  </p>
+  <p>
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-outline btn-lg">Explore the live demo</a>
+  </p>
+</section>
+{% endif %}
+
+<p class="muted cams-footnote">
+  Also useful: <a href="/how-rich-am-i">where your net worth ranks</a> among adults in
+  India and worldwide.
+</p>
+
+<script src="/static/retire.js?v={{ version }}"></script>
+<script>
+  initRetire({
+    rates: {{ presets | tojson }},
+    defaultReturn: {{ '%g'|format(default_return) }},
+    defaultInflation: {{ '%g'|format(default_inflation) }}
+  });
+</script>
+
+{% endblock %}

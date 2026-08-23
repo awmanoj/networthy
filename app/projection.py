@@ -201,6 +201,29 @@ def project_band(p: PlanInputs, today: date | None = None,
     }
 
 
+def years_corpus_lasts(corpus: float, annual_expense: float,
+                       return_pct: float = DEFAULT_RETURN_PCT,
+                       inflation_pct: float = DEFAULT_INFLATION_PCT,
+                       max_years: int = END_AGE) -> int | None:
+    """How many years a corpus survives being drawn on, or None if it outlives
+    `max_years`.
+
+    This is the SWP question — "I stop earning today and withdraw my expenses,
+    when does it run out?" — so it reuses the same year loop the Plan page runs
+    rather than a second implementation: no savings, retired from year one, and
+    the draw inflating each year. That last part is what most withdrawal
+    calculators leave out, and it's the whole story: at 6% inflation the amount
+    you withdraw doubles every twelve years.
+    """
+    p = PlanInputs(
+        current_age=0, retire_age=0, annual_savings=0.0, corpus=corpus,
+        annual_expense=annual_expense, return_pct=return_pct,
+        inflation_pct=inflation_pct, end_age=max_years,
+    )
+    # With current_age 0, a row's `age` is just the number of years elapsed.
+    return depletion_age(project(p))
+
+
 def corpus_requirement(p: PlanInputs, today: date | None = None,
                        tolerance: float = 1_000.0) -> dict:
     """How much you'd need **today** for the plan to reach `end_age`.

@@ -168,3 +168,49 @@ def test_sitemap_only_lists_public_paths(client):
     """Every URL in the sitemap must actually be crawlable by an anonymous client."""
     for path, _ in main._SITEMAP_PATHS:
         assert auth._is_public(path), f"{path} is in the sitemap but gated"
+
+
+# --- The retirement-corpus page ---------------------------------------------
+
+def test_retirement_page_is_public_and_indexable(client):
+    r = client.get("/how-much-do-i-need-to-retire", follow_redirects=False)
+    assert r.status_code == 200
+    page = r.text
+    assert "<title>How much do I need to retire in India? · Networthy HQ</title>" in page
+    assert ('<link rel="canonical" '
+            'href="https://networthyhq.com/how-much-do-i-need-to-retire" />') in page
+    assert page.count('name="description"') == 1
+
+
+def test_retirement_page_answers_the_query_without_js(client):
+    """The calculator is client-side, so the tables have to carry the answer."""
+    page = client.get("/how-much-do-i-need-to-retire").text
+    assert "Corpus needed by monthly spending" in page
+    assert "₹1 lakh" in page and "₹4 crore" in page        # ₹1L/mo at 3% = ₹4 cr
+    assert "₹3 crore" in page                              # ...and ₹3 cr at the US 4%
+    assert "₹24 crore" in page                             # ₹5L/mo at 2.5%
+    assert "Why 3% and not 4%" in page
+    assert "isn't financial advice" in page
+
+
+def test_duration_table_counts_inflation_and_caps_its_claim(client):
+    """The differentiator: most SWP calculators hold the withdrawal flat. And a
+    corpus that outlives the horizon is reported as '60+ years', not 'forever'."""
+    page = client.get("/how-much-do-i-need-to-retire").text
+    assert "how long does the money actually last" in page
+    assert "60+ years" in page and "37 years" in page      # 4% at 10% vs at 8%
+    assert "rising at 6% a" in page
+
+
+def test_retirement_page_is_in_robots_and_sitemap(client):
+    assert "Allow: /how-much-do-i-need-to-retire" in client.get("/robots.txt").text
+    sm = client.get("/sitemap.xml").text
+    assert "<loc>https://networthyhq.com/how-much-do-i-need-to-retire</loc>" in sm
+
+
+def test_the_two_public_tools_link_to_each_other(client):
+    """Internal links are the crawl path between them — and the natural next
+    question in both directions."""
+    assert "/how-much-do-i-need-to-retire" in client.get("/how-rich-am-i").text
+    assert "/how-rich-am-i" in client.get("/how-much-do-i-need-to-retire").text
+    assert "/how-much-do-i-need-to-retire" in client.get("/").text   # footer

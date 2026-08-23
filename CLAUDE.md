@@ -249,8 +249,23 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   provenance is separate and already per-leaf (`main._LIVE_NOTES`). `test_seo.py` pins all three
   layers.
 
-- **SEO / the indexable surface** — the ranking page is the one piece of top-of-funnel content, so
-  it is **public** (in `auth._PUBLIC_PATHS`) and deliberately crawlable. A crawler is an anonymous
+- **`GET /how-much-do-i-need-to-retire`** (`main.how_much_to_retire`, template `retire.html`,
+  `RETIRE_PATH`) — the **second public page**, same shape as the ranking one: an interactive
+  calculator that runs entirely in `static/retire.js` (a visitor types their net worth and spending,
+  and neither leaves the tab) over **server-rendered reference tables** that carry the indexable
+  answer. Two tables: *corpus needed per monthly spend* at each `expenses.SWR_PRESETS` rate
+  (`_retire_corpus_table`, plain `annual / rate` via `expenses.fire_target` — so the app's 3%
+  India-realistic opinion has one source of truth), and *how long a corpus lasts*
+  (`_retire_duration_table` → `projection.years_corpus_lasts`, which **reuses the Plan page's year
+  loop** rather than a second implementation). The duration table is the differentiator: it inflates
+  the withdrawal each year, which most SWP calculators don't, and that's what turns "4% is fine" into
+  "4% empties in 37 years if returns are 8%". Claims are capped at `_RETIRE_HORIZON` (60) and read
+  "60+ years", never "forever" — `retire.js` uses the same cap. Signed in, the inputs pre-fill from
+  live net worth and the Expenses burn. The **two public tools cross-link** each other (plus the
+  footer) — that's the crawl path and the natural next question in both directions.
+
+- **SEO / the indexable surface** — the two public tools are the top-of-funnel content, so each is
+  **public** (in `auth._PUBLIC_PATHS`) and deliberately crawlable. A crawler is an anonymous
   client with no JS, which drives three constraints: (1) the page must not slip back behind the
   session gate; (2) the explorer paints into empty divs from `standing.js`, so `main._standing_levels`
   / `_standing_bands` / `_standing_thresholds` **server-render** the reference tables — that's the
