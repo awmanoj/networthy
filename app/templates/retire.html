@@ -60,6 +60,13 @@
                  value="{{ '%g'|format(default_inflation) }}"><i>%</i>
         </span>
       </label>
+      <label class="r-small">
+        <span>Must last</span>
+        <span class="r-small-box">
+          <input id="r-years" type="number" step="1" min="1" max="{{ horizon }}"
+                 value="{{ default_years }}"><i>yrs</i>
+        </span>
+      </label>
     </div>
   </div>
 </section>
@@ -207,6 +214,8 @@
 <script>
   initRetire({
     rates: {{ presets | tojson }},
+    cap: {{ horizon }},
+    defaultYears: {{ default_years }},
     defaultReturn: {{ '%g'|format(default_return) }},
     defaultInflation: {{ '%g'|format(default_inflation) }}
   });

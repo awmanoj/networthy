@@ -12,6 +12,7 @@ function initRetire(cfg) {
   const unitEl = document.getElementById("r-unit");
   const retEl = document.getElementById("r-return");
   const inflEl = document.getElementById("r-inflation");
+  const yearsEl = document.getElementById("r-years");
   const rowsEl = document.getElementById("r-rows");
   const verdictEl = document.getElementById("r-verdict");
   if (!nwEl || !spendEl || !rowsEl) return;
@@ -41,6 +42,24 @@ function initRetire(cfg) {
     return null;
   }
 
+  // The corpus that survives exactly `years` at these assumptions — the mirror
+  // of projection.corpus_requirement(), bisected for the same reason: the loop
+  // is monotonic in the starting corpus but doesn't invert cleanly.
+  function corpusFor(annualDraw, returnPct, inflPct, years) {
+    const survives = (c) => {
+      const n = yearsLasting(c, annualDraw, returnPct, inflPct, years);
+      return n === null;
+    };
+    let hi = Math.max(annualDraw, 1);
+    for (let i = 0; i < 200 && !survives(hi); i++) hi *= 2;
+    let lo = 0;
+    while (hi - lo > Math.max(1000, hi * 1e-6)) {
+      const mid = (lo + hi) / 2;
+      if (survives(mid)) hi = mid; else lo = mid;
+    }
+    return hi;
+  }
+
   function render() {
     const netWorth = num(nwEl);
     const perMonth = unitEl.value === "year" ? num(spendEl) / 12 : num(spendEl);
@@ -55,11 +74,20 @@ function initRetire(cfg) {
       return;
     }
 
+    const horizon = Math.max(1, Math.round(num(yearsEl) || cfg.defaultYears));
+
     rowsEl.innerHTML = RATES.map((rate) => {
       const needed = annual / (rate.pct / 100);
       const gap = needed - netWorth;
       const pctThere = needed ? Math.min(100, (netWorth / needed) * 100) : 0;
       const state = gap <= 0 ? "ok" : "short";
+      // How that rule-of-thumb corpus actually behaves under the assumptions the
+      // visitor entered. This is what makes the return/inflation inputs bite on
+      // every row — the multiple itself never moves, but its consequence does.
+      const lasts = yearsLasting(needed, annual, returnPct, inflPct, cfg.cap);
+      const lastsLabel =
+        lasts === null ? `lasts ${cfg.cap}+ yrs` : `lasts ~${lasts} yrs`;
+      const lastsClass = lasts === null || lasts >= horizon ? "ok" : "short";
       return `
         <div class="r-row r-row--${state}">
           <div class="r-rate">
@@ -69,7 +97,9 @@ function initRetire(cfg) {
           <div class="r-meat">
             <div class="r-head">
               <span class="r-label">${rate.label}</span>
-              <span class="r-corpus num">${compact(needed)}</span>
+              <span class="r-corpus num">${compact(needed)}
+                <em class="r-lasts r-lasts--${lastsClass}">${lastsLabel}</em>
+              </span>
             </div>
             <div class="fire-bar"><span style="width:${pctThere.toFixed(1)}%"></span></div>
             <div class="r-foot">
@@ -84,33 +114,50 @@ function initRetire(cfg) {
         </div>`;
     }).join("");
 
+    // The modelled answer, as opposed to the rule of thumb above: the corpus
+    // that actually funds this spending for `horizon` years at the entered
+    // return and inflation. Unlike the multiples, this moves with every input —
+    // which is the point of having the inputs on the page.
+    const modelled = corpusFor(annual, returnPct, inflPct, horizon);
+    const modelledRate = (annual / modelled) * 100;
+    let out = `
+      <p class="r-implied">
+        At <strong>${returnPct}%</strong> returns and <strong>${inflPct}%</strong>
+        inflation, funding ${inr(perMonth)} a month for <strong>${horizon} years</strong>
+        takes about <strong>${compact(modelled)}</strong> — a
+        ${modelledRate.toFixed(1)}% withdrawal rate.
+      </p>`;
+
     // The reverse read: what rate is this person actually running today? It's
     // the number they didn't ask for and usually the one that matters.
     if (netWorth > 0) {
       const impliedRate = (annual / netWorth) * 100;
-      const lasts = yearsLasting(netWorth, annual, returnPct, inflPct, 60);
+      const lasts = yearsLasting(netWorth, annual, returnPct, inflPct, cfg.cap);
       const verdict =
         lasts === null
-          ? `at ${returnPct}% returns and ${inflPct}% inflation it outlasts 60 years`
-          : `at ${returnPct}% returns and ${inflPct}% inflation it runs dry in about <strong>${lasts} years</strong>`;
-      verdictEl.innerHTML = `
-        <p class="r-implied">
+          ? `it outlasts ${cfg.cap} years`
+          : `it runs dry in about <strong>${lasts} years</strong>`;
+      out += `
+        <p class="r-implied r-implied--second">
           Retiring today on ${compact(netWorth)} while spending ${inr(perMonth)} a month
-          means withdrawing <strong>${impliedRate.toFixed(1)}%</strong> a year —
-          ${verdict}.
-        </p>
-        <p class="muted r-implied-note">
-          Anything at or under 3% is the defensible range for India. Above 4% you are
-          relying on returns showing up in the right order, which is not something you
-          control.
+          means withdrawing <strong>${impliedRate.toFixed(1)}%</strong> a year — at these
+          assumptions ${verdict}.
         </p>`;
-    } else {
-      verdictEl.innerHTML =
-        '<p class="muted">Add what you have saved to see where you stand against each line.</p>';
     }
+
+    out += `
+      <p class="muted r-implied-note">
+        Why this figure is usually smaller than the multiples above: it spends the corpus
+        down to nothing at the end of ${horizon} years, while 25×/33×/40× aim to leave it
+        intact indefinitely. And the multiples are fixed rules of thumb, so they don't move
+        when you change the boxes — what moves is this figure, and how long each of those
+        corpuses actually survives.
+      </p>`;
+    verdictEl.innerHTML = out;
   }
 
-  [nwEl, spendEl, unitEl, retEl, inflEl].forEach((el) => {
+  [nwEl, spendEl, unitEl, retEl, inflEl, yearsEl].forEach((el) => {
+    if (!el) return;
     el.addEventListener("input", render);
     el.addEventListener("change", render);
   });

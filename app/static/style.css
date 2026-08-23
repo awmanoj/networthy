@@ -713,7 +713,16 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .r-mult { font-size: 0.8rem; color: var(--faint); }
 .r-head, .r-foot { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
 .r-label { font-size: 0.9rem; font-weight: 600; }
-.r-corpus { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.r-corpus { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; text-align: right; }
+/* How long that corpus survives the visitor's own return/inflation — the bit
+   that makes those inputs visibly matter on every row. */
+.r-lasts {
+  display: block; font-family: var(--sans, inherit); font-style: normal;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+}
+.r-lasts--ok { color: var(--gain); }
+.r-lasts--short { color: var(--loss); }
+.r-implied--second { margin-top: 10px; }
 .r-foot { font-size: 0.8rem; }
 .r-gap { font-weight: 600; white-space: nowrap; }
 .r-row--ok .r-gap { color: var(--gain); }

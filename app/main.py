@@ -1440,6 +1440,9 @@ _RETIRE_RETURNS = [8.0, 10.0, 12.0]
 # generous, and capping there keeps the claim honest: the table says "60+ years",
 # not "forever". Matches the cap retire.js uses.
 _RETIRE_HORIZON = 60
+# Default "how long must it last" for the calculator: a retirement at ~55-60
+# that runs to ~95. Adjustable on the page.
+_RETIRE_DEFAULT_YEARS = 40
 
 
 @app.get(RETIRE_PATH, response_class=HTMLResponse)
@@ -1473,6 +1476,7 @@ def how_much_to_retire(request: Request):
             "duration_rows": _retire_duration_table(),
             "returns": _RETIRE_RETURNS,
             "horizon": _RETIRE_HORIZON,
+            "default_years": _RETIRE_DEFAULT_YEARS,
             "my_net_worth": my_nw,
             "my_monthly_expense": my_expense,
             "default_inflation": projection.DEFAULT_INFLATION_PCT,
