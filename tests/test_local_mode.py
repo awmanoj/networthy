@@ -200,11 +200,9 @@ def test_local_install_says_the_data_stays_put(local_client):
     including the path, so it's checkable rather than a promise."""
     page = local_client.get("/").text
     assert "This stays on your computer" in page
-    # The real database path, so the claim is checkable rather than a promise.
-    assert str(storage.DB_PATH) in page
+    assert "No account, no server" in page
     # The live-price caveat is load-bearing: without it the claim is false.
     assert "ticker symbol" in page
-    assert "never a holding" in page
 
 
 def test_hosted_never_claims_the_data_is_local(tmp_path, monkeypatch):

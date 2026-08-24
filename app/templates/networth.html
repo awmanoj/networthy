@@ -15,26 +15,6 @@
   <h1>Let's find your number</h1>
   <p class="dash-empty-lead">List what you own and owe — we'll do the rest.</p>
 
-  {% if local_mode() %}
-  {# Local install only. The hosted app genuinely does keep data on a server, so
-     showing this there would be a lie. Naming the actual file is the point: a
-     path the reader can go and look at beats an assurance they have to take on
-     faith. The live-price caveat is not optional — without it the claim is
-     false, and one overstated privacy promise costs more than it buys. #}
-  <div class="local-note">
-    <span class="local-note-icon" aria-hidden="true">🔒</span>
-    <div>
-      <p class="local-note-head">This stays on your computer. All of it.</p>
-      <p class="local-note-body">
-        There's no account and no server. Statements are decrypted and parsed here, and
-        everything is saved to a single file you can open, copy or delete:
-        <code>{{ local_db_path() }}</code>.
-        The only thing that ever leaves this machine is a <strong>ticker symbol</strong>
-        when a live price is fetched — never a holding, a value, or your PAN.
-      </p>
-    </div>
-  </div>
-  {% endif %}
   <p>
     Investments, property, gold, bank balances, loans. Networthy HQ tallies your
     <strong>net worth</strong>, prices it live where it can, and shows how it's
@@ -91,6 +71,19 @@
       <a href="/demo">Explore the live demo →</a>
     </p>
   </div>
+
+  {% if local_mode() %}
+  {# Local install only — on networthyhq.com the data really is on a server, so
+     the same sentence there would be a lie. Kept to two centred lines and placed
+     last: it's the closing reassurance, not the first thing to read. The
+     live-price caveat stays inside it, because without that the claim is false. #}
+  <p class="local-note">
+    <b class="local-note-head">🔒 This stays on your computer. All of it.</b>
+    <span class="local-note-body">
+      No account, no server. The only thing that ever leaves is a ticker symbol, to fetch a live price.
+    </span>
+  </p>
+  {% endif %}
 </section>
 
 {% else %}
