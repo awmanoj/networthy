@@ -1,0 +1,103 @@
+# Publish `networthy` to PyPI when a GitHub Release is published.
+#
+# Uses PyPI Trusted Publishing (OIDC) rather than an API token: nothing secret
+# is stored in this repo, and PyPI verifies the release came from this workflow
+# in this repository. Configure the matching publisher on PyPI with:
+#
+#   Owner:            awmanoj
+#   Repository:       networthy
+#   Workflow name:    publish.yml      <- this file's name, must match exactly
+#   Environment name: pypi             <- must match `environment:` below
+#
+# Tests run first and the publish job depends on them, because a version pushed
+# to PyPI can be yanked but never truly replaced.
+
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  # Lets you rehearse the build (and the tests) without publishing anything.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      # `python -m pytest`, not bare `pytest`: the repo root has to be on
+      # sys.path for `from app import ...` to resolve.
+      - name: Run tests
+        run: python -m pytest -q
+
+  build:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      # A wheel that ships the Python but none of the templates or static files
+      # installs cleanly and then 500s on the first page — check before publishing.
+      - name: Verify the wheel carries templates and static assets
+        run: |
+          python -m pip install --upgrade twine
+          twine check dist/*
+          python - <<'PY'
+          import glob, zipfile, sys
+          wheel = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(wheel).namelist()
+          need = ["app/templates/plan.html", "app/static/style.css",
+                  "app/static/retire.js", "app/launcher.py"]
+          missing = [n for n in need if n not in names]
+          if missing:
+              sys.exit(f"wheel is missing: {missing}")
+          print(f"{wheel}: {len(names)} files, templates and static assets present")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: [build]
+    runs-on: ubuntu-latest
+    # Only publish for a real release; workflow_dispatch stops at build.
+    if: github.event_name == 'release'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/networthy
+    permissions:
+      id-token: write        # required for Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
