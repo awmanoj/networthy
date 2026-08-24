@@ -213,8 +213,14 @@ def start_session(user_id: int) -> str:
 
 
 def owner_email() -> str:
-    """The single admin account allowed to see business analytics."""
-    return os.environ.get("OWNER_EMAIL", "awasthi.manoj@gmail.com").strip().lower()
+    """The single admin account allowed to see business analytics.
+
+    Empty unless `OWNER_EMAIL` is set, which closes `/admin` to everyone —
+    fail-closed is the right default for an unconfigured deployment. It also
+    keeps a real address out of a public repo: hardcoding one would publish
+    *which* inbox to target in order to reach the admin surface.
+    """
+    return os.environ.get("OWNER_EMAIL", "").strip().lower()
 
 
 def logout(token: str | None) -> None:

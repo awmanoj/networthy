@@ -283,7 +283,11 @@ def admin_analytics(request: Request):
     at analytics.networthyhq.com via a Caddy vhost. 404 for anyone who isn't the owner,
     so the route's existence isn't revealed."""
     user = request.state.user
-    if user is None or user.email != auth.owner_email():
+    owner = auth.owner_email()
+    # `not owner` is the load-bearing clause: with OWNER_EMAIL unset the owner is
+    # the empty string, and without this an account somehow holding an empty
+    # email would match it. Unconfigured must mean closed, not open.
+    if user is None or not owner or user.email != owner:
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
         "admin.html", {"request": request, "user": user, **analytics.overview()}

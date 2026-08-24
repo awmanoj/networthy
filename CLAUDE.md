@@ -339,7 +339,9 @@ duplicated and pinned to the same versions — keep them in step.
   users/email listing. **First-party and metadata-only by design**: it reads the app's own tables,
   nothing egresses, and it deliberately carries **no financial values** (counts, not amounts) — so this
   surface leaks no holdings even if breached. The **demo account is excluded** from every number. Gate:
-  `user.email == auth.owner_email()` (env `OWNER_EMAIL`, default `awasthi.manoj@gmail.com`); non-owners
+  `user.email == auth.owner_email()` (env `OWNER_EMAIL`; **unset means unset** — the gate
+  fails closed and `/admin` 404s for everyone, so a deployment that wants analytics must set
+  it explicitly); non-owners
   get a 404 (existence hidden), anonymous → `/login`. Disclosed on the Privacy page. Served at
   **analytics.networthyhq.com** via a Caddy vhost that redirects to `/admin` on the apex (so the owner's
   session cookie — set host-only on the apex — is valid; a subdomain reverse-proxy would need a

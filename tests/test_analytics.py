@@ -98,6 +98,19 @@ def test_admin_requires_owner(client, monkeypatch):
     assert "visible@user.com" in r.text            # the email listing
 
 
-def test_owner_email_default(monkeypatch):
+def test_admin_is_closed_when_no_owner_is_configured(client, monkeypatch):
+    """Unconfigured must mean closed. With OWNER_EMAIL unset the owner is the
+    empty string, and /admin has to 404 for everyone rather than match anyone."""
+    monkeypatch.setattr(auth, "owner_email", lambda: "")
+    uid = storage.get_or_create_user("anyone@example.com").id
+    assert client.get("/admin", cookies=_session(uid, "t9")).status_code == 404
+
+
+def test_owner_email_is_unset_by_default(monkeypatch):
+    """No hardcoded address: a real one in a public repo would advertise which
+    inbox to target to reach /admin."""
     monkeypatch.delenv("OWNER_EMAIL", raising=False)
-    assert auth.owner_email() == "awasthi.manoj@gmail.com"
+    assert auth.owner_email() == ""
+
+    monkeypatch.setenv("OWNER_EMAIL", "  Owner@Example.COM ")
+    assert auth.owner_email() == "owner@example.com"      # trimmed, lowercased
