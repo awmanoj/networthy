@@ -16,7 +16,24 @@ from pathlib import Path
 
 from .models import Account, Holding, Snapshot, User
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+def _default_data_dir() -> Path:
+    """Where the SQLite DB lives.
+
+    `NETWORTHY_DATA_DIR` wins if set — that's how the desktop/`uvx` launcher
+    points at the OS user-data directory, since a pip-installed package has no
+    writable directory of its own. Otherwise it's `data/` beside the repo, which
+    is what the server deployment and dev loop have always used.
+
+    Kept as module-level `DATA_DIR` / `DB_PATH` names on purpose: tests
+    monkeypatch them per-test to get an isolated database.
+    """
+    env = os.environ.get("NETWORTHY_DATA_DIR")
+    if env:
+        return Path(env).expanduser()
+    return Path(__file__).resolve().parent.parent / "data"
+
+
+DATA_DIR = _default_data_dir()
 DB_PATH = DATA_DIR / "networthy.db"
 
 # Store timestamps in the same format sqlite's datetime('now') emits (UTC), so

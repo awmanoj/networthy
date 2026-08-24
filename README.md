@@ -73,18 +73,65 @@ Server-rendered **FastAPI + Jinja2**, **SQLite** (stdlib `sqlite3`), no frontend
 framework and a single hand-written CSS design system ("Ink Navy & Copper", light + dark).
 PDF parsing via **pikepdf** (decrypt) + **pdfplumber** (text). Python 3.11+.
 
-## Getting started
+## Run it on your own machine
+
+One command. No account, no sign-in, no server — your statements are parsed on your
+laptop and the database never leaves it.
+
+```bash
+uvx networthy
+```
+
+That's it: it starts on `http://127.0.0.1:8321`, opens your browser, and signs you in
+automatically (there's nobody else to authenticate against on your own machine).
+
+<details>
+<summary>Don't have <code>uv</code>?</summary>
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
+# Windows: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Or use pipx: `pipx run networthy`. Or plain pip: `pip install networthy && networthy`.
+</details>
+
+**Options**
+
+```bash
+networthy --port 9000              # pick a port (default 8321, or any free one)
+networthy --data-dir ~/my-finances # where the database lives
+networthy --no-browser             # don't open a tab
+```
+
+Your data is stored at:
+
+| macOS   | `~/Library/Application Support/Networthy/` |
+|---------|--------------------------------------------|
+| Linux   | `~/.local/share/networthy/`                |
+| Windows | `%APPDATA%\Networthy\`                     |
+
+It's a single SQLite file — back it up by copying it, move machines by moving it.
+
+### With Docker instead
+
+```bash
+docker run -p 8321:8321 -v networthy:/app/data \
+  -e NETWORTHY_LOCAL=1 -e APP_PORT=8321 awmanoj/networthy
+```
+
+### Developing on it
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-uvicorn app.main:app --reload      # http://127.0.0.1:8000
+NETWORTHY_LOCAL=1 uvicorn app.main:app --reload    # http://127.0.0.1:8000
 ```
 
-On first run, sign in with your email; the one-time code is printed to the server log
-(no email provider needed for local dev).
+Without `NETWORTHY_LOCAL=1` you get the hosted behaviour — sign in with your email, and
+the one-time code is printed to the server log (no email provider needed).
 
 ## Testing
 

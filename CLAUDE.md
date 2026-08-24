@@ -296,6 +296,36 @@ Tests target the fragile logic directly, without needing a real password-protect
 
 If you rename or change the signature of a `_`-prefixed parser helper, the tests break by design.
 
+## Running locally (`uvx networthy`)
+
+The app ships as a PyPI package so anyone can run it on their own machine — the answer
+to "why would I upload my CAS to your server?". `pyproject.toml` defines the package
+(console script `networthy` → `app.launcher:main`, and **`package-data` must keep
+shipping `templates/*.html` + `static/*`** or the wheel installs the Python and none of
+the pages). Three things make it work, each also a way the hosted deploy could regress:
+
+- **`NETWORTHY_DATA_DIR`** — `storage.DATA_DIR`/`DB_PATH` read it at import; a
+  pip-installed package can't write to site-packages, so the launcher points it at the
+  OS user-data dir (`launcher.user_data_dir()`). The names stay module-level because
+  tests monkeypatch them.
+- **`NETWORTHY_LOCAL=1`** (`auth.local_mode()`) — signs the single local user
+  (`auth.local_email()`, default `you@localhost`) in from the middleware instead of an
+  email OTP, which is meaningless on your own laptop and, with no `RESEND_API_KEY`,
+  would mean reading a code out of the console. **Also gated on `auth._is_loopback()`**:
+  if this env var ever leaked into the hosted deployment it would otherwise disable auth
+  for the whole internet, so a remote request is still gated.
+- **`COOKIE_SECURE`** defaults to *false* under local mode — a `Secure` cookie is never
+  sent over `http://127.0.0.1`, so the session would silently never stick.
+
+`app/launcher.py` owns the env contract (set it *before* the app imports), picks a free
+port rather than dying on a busy 8321, and waits for the socket before opening a browser.
+`test_local_mode.py` pins all of it — including that local mode is **off** unless asked
+for, and that `launcher.main()`'s direct `os.environ` writes are restored, since leaking
+them un-gates the app for every later test.
+
+Note `requirements.txt` (used by the Dockerfile) and `pyproject.toml` dependencies are
+duplicated and pinned to the same versions — keep them in step.
+
 ## Deployment notes
 
 - The container port is parameterized by the `APP_PORT` env var (default 8000); `run.sh` sets it

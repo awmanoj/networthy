@@ -47,8 +47,31 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def local_mode() -> bool:
+    """True when running as a personal app on the user's own machine.
+
+    Email one-time codes exist to prove you own an inbox, which is meaningless
+    on your own laptop — and with no RESEND_API_KEY the code only reaches the
+    terminal log, so a "one-click" local build would end with "now read the
+    six-digit code out of your console". In local mode the middleware signs the
+    single local user in automatically instead.
+
+    This is deliberately opt-in via env: the hosted deployment must never take
+    this path, so it can't be reached by anything a request controls.
+    """
+    return os.environ.get("NETWORTHY_LOCAL", "").lower() in ("1", "true", "yes")
+
+
+def local_email() -> str:
+    """The single account a local install uses."""
+    return os.environ.get("NETWORTHY_LOCAL_EMAIL", "you@localhost").strip().lower()
+
+
 def cookie_secure() -> bool:
-    return os.environ.get("COOKIE_SECURE", "true").lower() != "false"
+    # A Secure cookie is never sent over http://127.0.0.1, so local mode would
+    # log in on every request and never stick. Default off there, on everywhere.
+    default = "false" if local_mode() else "true"
+    return os.environ.get("COOKIE_SECURE", default).lower() != "false"
 
 
 # --- OTP --------------------------------------------------------------------
@@ -205,6 +228,17 @@ def _is_public(path: str) -> bool:
     return path in _PUBLIC_PATHS or path.startswith(_PUBLIC_PREFIXES)
 
 
+def _is_loopback(request: Request) -> bool:
+    """Did this request come from the same machine?
+
+    Used to bound local mode's auto-login. TestClient reports "testclient",
+    which counts — the tests exercise the same in-process path a local install
+    does.
+    """
+    host = getattr(request.client, "host", None) if request.client else None
+    return host in ("127.0.0.1", "::1", "localhost", "testclient")
+
+
 class SessionMiddleware(BaseHTTPMiddleware):
     """Resolve the session cookie to a user; gate non-public routes behind it."""
 
@@ -212,7 +246,27 @@ class SessionMiddleware(BaseHTTPMiddleware):
         token = request.cookies.get(SESSION_COOKIE)
         request.state.user = storage.get_session_user(token) if token else None
 
+        # Local install: sign the single local user in on first request rather
+        # than sending them through an email code they can't receive.
+        #
+        # Gated on the request coming from this machine as well as on the env
+        # var. If NETWORTHY_LOCAL ever leaks into a hosted environment, that
+        # would otherwise disable authentication for the entire internet; this
+        # way the blast radius is someone with shell access to the box.
+        fresh_token = None
+        if request.state.user is None and local_mode() and _is_loopback(request):
+            user = storage.get_or_create_user(local_email())
+            fresh_token = start_session(user.id)
+            request.state.user = user
+
         if not _is_public(request.url.path) and request.state.user is None:
             return RedirectResponse(url="/login", status_code=303)
 
-        return await call_next(request)
+        response = await call_next(request)
+        if fresh_token:
+            response.set_cookie(
+                SESSION_COOKIE, fresh_token,
+                max_age=int(SESSION_TTL.total_seconds()),
+                httponly=True, secure=cookie_secure(), samesite="lax",
+            )
+        return response
