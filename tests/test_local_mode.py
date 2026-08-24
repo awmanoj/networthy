@@ -191,3 +191,38 @@ def test_local_auto_login_only_applies_to_this_machine(tmp_path, monkeypatch):
     for host in ("127.0.0.1", "::1", "testclient"):
         Remote.host = host
         assert auth._is_loopback(Req()) is True
+
+
+# --- The privacy note on the empty dashboard --------------------------------
+
+def test_local_install_says_the_data_stays_put(local_client):
+    """The reason someone chose to run it themselves, confirmed on arrival —
+    including the path, so it's checkable rather than a promise."""
+    page = local_client.get("/").text
+    assert "This stays on your computer" in page
+    # The real database path, so the claim is checkable rather than a promise.
+    assert str(storage.DB_PATH) in page
+    # The live-price caveat is load-bearing: without it the claim is false.
+    assert "ticker symbol" in page
+    assert "never a holding" in page
+
+
+def test_hosted_never_claims_the_data_is_local(tmp_path, monkeypatch):
+    """networthyhq.com stores data on a server. Showing the local note there
+    would be a straightforward lie, so it must be impossible."""
+    monkeypatch.setattr(storage, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(storage, "DB_PATH", tmp_path / "t.db")
+    storage.init_db()
+    monkeypatch.setattr(prices, "quotes_for_tickers", lambda t: {})
+    monkeypatch.setattr(prices, "navs_for_isins", lambda i: {})
+    monkeypatch.setattr(prices, "get_quote", lambda s: None)
+    monkeypatch.delenv("NETWORTHY_LOCAL", raising=False)
+
+    from datetime import datetime, timedelta
+    uid = storage.get_or_create_user("hosted@test.com").id
+    storage.create_session(uid, "hosted-tok", datetime.utcnow() + timedelta(hours=1))
+
+    import app.main as m
+    page = TestClient(m.app).get("/", cookies={auth.SESSION_COOKIE: "hosted-tok"}).text
+    assert "This stays on your computer" not in page
+    assert "Let's find your number" in page           # same empty state otherwise

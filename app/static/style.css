@@ -1181,6 +1181,38 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
 .dash-empty-alt a { color: var(--accent); text-decoration: none; }
 .dash-empty-alt a:hover { text-decoration: underline; }
 
+/* Local-install privacy note. Deliberately the loudest thing on the empty
+   dashboard: it's the reason someone chose to run it themselves, and it should
+   be confirmed the moment they arrive rather than left implicit. */
+.local-note {
+  display: flex; gap: 14px; align-items: flex-start; text-align: left;
+  max-width: 640px; margin: 0 auto 26px; padding: 16px 18px;
+  border-radius: 12px; background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--gain) 45%, var(--border));
+}
+.local-note-icon { font-size: 1.3rem; line-height: 1.4; flex: none; }
+/* A flex item defaults to min-width:auto, so the 70-character database path
+   below would refuse to shrink and push the page into horizontal scroll on a
+   phone. This is the fix; the wrapping rules on the <code> only work once the
+   container is allowed to be narrower than its content. */
+.local-note > div { min-width: 0; }
+.dash-empty p.local-note-head {
+  margin: 0 0 6px; font-family: var(--serif); font-size: 1.08rem; font-weight: 600;
+  color: var(--text); max-width: none; letter-spacing: -0.01em;
+}
+.dash-empty p.local-note-body {
+  margin: 0; font-size: 0.87rem; line-height: 1.6; color: var(--muted); max-width: none;
+}
+.local-note-body code {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px;
+  padding: 1px 5px; font-size: 0.92em; color: var(--text);
+  /* `anywhere` rather than `break-all`: it only breaks when the path would
+     actually overflow, and prefers the slashes, so it doesn't chop the path
+     mid-word on a wide screen the way break-all does. */
+  overflow-wrap: anywhere;
+}
+.local-note-body strong { color: var(--text); }
+
 /* Quickest-start chips: one number someone can enter from memory, so the hero
    stops reading ₹0 before they've gone anywhere near a statement download. */
 .dash-quick { margin: 26px auto 24px; max-width: 640px; }
