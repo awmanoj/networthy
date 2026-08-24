@@ -36,6 +36,11 @@ templates.env.globals["version"] = str(int(time.time()))
 # Absolute base URL for social-share tags (og:image must be absolute). Override
 # with SITE_URL if the app runs on a different domain.
 templates.env.globals["site_url"] = os.environ.get("SITE_URL", "https://networthyhq.com")
+# Templates that say something different when the app is running on the user's own
+# machine. Callables, not values: `local_mode` reads the environment per call, and
+# the DB path is only meaningful (and only shown) in that case.
+templates.env.globals["local_mode"] = auth.local_mode
+templates.env.globals["local_db_path"] = lambda: str(storage.DB_PATH)
 
 app = FastAPI(title="Networthy", version=__version__)
 app.add_middleware(SessionMiddleware)
