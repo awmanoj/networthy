@@ -40,6 +40,21 @@ templates.env.globals["site_url"] = os.environ.get("SITE_URL", "https://networth
 # own machine. A callable, not a value: it reads the environment per call.
 templates.env.globals["local_mode"] = auth.local_mode
 
+
+def _display_db_path() -> str:
+    """The database path with the home directory as `~`.
+
+    Shown to local users so "your data stays here" is something they can go and
+    verify rather than take on trust. Abbreviated because the literal path is
+    ~70 characters and reads as noise; `~/Library/...` is both shorter and the
+    form people recognise.
+    """
+    path, home = str(storage.DB_PATH), str(Path.home())
+    return "~" + path[len(home):] if path.startswith(home) else path
+
+
+templates.env.globals["local_db_path"] = _display_db_path
+
 app = FastAPI(title="Networthy", version=__version__)
 app.add_middleware(SessionMiddleware)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

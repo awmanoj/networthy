@@ -203,6 +203,8 @@ def test_local_install_says_the_data_stays_put(local_client):
     assert "No account, no server" in page
     # The live-price caveat is load-bearing: without it the claim is false.
     assert "ticker symbol" in page
+    # And the file itself, so the claim is checkable rather than a promise.
+    assert "networthy.db" in page or str(storage.DB_PATH.name) in page
 
 
 def test_hosted_never_claims_the_data_is_local(tmp_path, monkeypatch):

@@ -1197,9 +1197,24 @@ a.cta-tile:hover { filter: brightness(1.06); border: none; }
   color: var(--text); letter-spacing: -0.01em; margin-bottom: 3px;
 }
 .local-note-body { display: block; font-size: 0.86rem; line-height: 1.5; color: var(--muted); }
+/* The database file as a chip rather than a third sentence — it reads as a
+   thing you own, which is the point being made. */
+.local-note-path {
+  display: inline-block; margin-top: 9px; padding: 6px 14px; max-width: 100%;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  font-size: 0.79rem; line-height: 1.45; color: var(--text);
+  /* Long path, narrow phone: wrap inside the chip instead of widening the page.
+     `anywhere` breaks only when it must, and prefers the slashes. */
+  overflow-wrap: anywhere;
+}
+.local-note-path code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: inherit; background: none; border: none; padding: 0 0 0 7px;
+}
 @media (max-width: 640px) {
   .local-note { padding: 13px 16px; }
   .local-note-head { font-size: 0.98rem; }
+  .local-note-path { border-radius: 10px; }   /* a pill full of wrapped text looks odd */
 }
 
 /* Quickest-start chips: one number someone can enter from memory, so the hero

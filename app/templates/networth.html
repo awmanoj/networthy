@@ -80,8 +80,14 @@
   <p class="local-note">
     <b class="local-note-head">🔒 This stays on your computer. All of it.</b>
     <span class="local-note-body">
-      No account, no server. The only thing that ever leaves is a ticker symbol, to fetch a live price.
+      No account, no server. Only a ticker symbol ever leaves, to fetch a live price.
+      Everything else is in one file you can open, copy or delete:
     </span>
+    {# The path is the whole point of the claim — it turns "trust us" into
+       something the reader can go and look at, and doubles as telling them
+       what to back up. Rendered as a file chip so it reads as an object
+       rather than as a third sentence. #}
+    <span class="local-note-path"><span aria-hidden="true">🗄️</span><code>{{ local_db_path() }}</code></span>
   </p>
   {% endif %}
 </section>
