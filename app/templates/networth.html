@@ -5,19 +5,71 @@
 {% set d = dash %}
 
 {% if not d.has_data %}
+{# The first screen after signing up. It used to be a paragraph and one button,
+   which read as a let-down straight after the landing page — so it borrows the
+   landing page's mockup components (.shot / .ms-*, pure CSS, no image assets)
+   to show what a filled-in dashboard looks like. The preview is labelled as an
+   example in three places: this is a financial app, and a plausible ₹ figure
+   that someone mistakes for their own would be far worse than a dull page. #}
 <section class="dash-empty">
-  <h1>See where you stand</h1>
-  <p class="dash-empty-lead">List what you own and owe.</p>
+  <h1>Let's find your number</h1>
+  <p class="dash-empty-lead">List what you own and owe — we'll do the rest.</p>
   <p>
-    Investments, property, gold, bank balances, loans — Networthy HQ tallies your
-    <strong>net worth</strong>, shows how it's allocated, and where you rank.
-    Start under <strong>Net worth</strong>.
+    Investments, property, gold, bank balances, loans. Networthy HQ tallies your
+    <strong>net worth</strong>, prices it live where it can, and shows how it's
+    allocated and where you rank.
   </p>
-  <a href="/networth" class="btn btn-lg">Add your assets &amp; liabilities</a>
+
+  <div class="dash-quick">
+    <span class="dash-quick-label">Quickest start — one number, thirty seconds:</span>
+    <div class="dash-quick-row">
+      <a href="/networth/assets/financial-assets/bank-cash/bank-accounts" class="quick-chip">
+        <b>🏦 Bank balance</b><span>What's in your accounts</span>
+      </a>
+      <a href="/networth/assets/non-financial-assets/real-estate/primary-residence" class="quick-chip">
+        <b>🏠 Your home</b><span>Roughly what it's worth</span>
+      </a>
+      <a href="/networth/assets/non-financial-assets/physical-gold" class="quick-chip">
+        <b>🪙 Gold</b><span>Jewellery, coins, bars</span>
+      </a>
+    </div>
+  </div>
+
+  <p class="dash-empty-actions">
+    <a href="/networth" class="btn btn-lg">Add everything else</a>
+    <a href="/upload" class="btn btn-outline btn-lg">Import an NSDL CAS</a>
+  </p>
   <p class="dash-empty-alt muted">
-    Have an NSDL CAS? <a href="/upload">Import it</a> to pull in your demat &amp;
-    mutual-fund holdings automatically.
+    A CAS pulls in your demat &amp; mutual-fund holdings automatically — you request it
+    from NSDL and it arrives by email, so it's worth starting one now and adding the
+    rest by hand meanwhile.
   </p>
+
+  {# What it looks like once there's data in it. #}
+  <div class="dash-preview">
+    <div class="dash-preview-head">
+      <span class="eyebrow">A worked example</span>
+      <span class="dash-preview-tag">not your data</span>
+    </div>
+    <div class="shot" aria-label="Example of a filled-in dashboard">
+      <div class="shot-bar"><i></i><i></i><i></i><span class="shot-url">example figures</span></div>
+      <div class="shot-body">
+        <div class="ms-eyebrow">Total net worth</div>
+        <div class="ms-nw">₹1,84,20,000</div>
+        <div class="ms-rows">
+          <div class="ms-row"><i style="background:var(--c-equity)"></i><b>Indian Equity</b><em class="up">▲ 4.2%</em><span>₹52,00,000</span></div>
+          <div class="ms-row"><i style="background:var(--c-mf)"></i><b>Mutual Funds</b><em class="down">▼ 0.8%</em><span>₹46,50,000</span></div>
+          <div class="ms-row"><i style="background:var(--c-fixed)"></i><b>Fixed Income</b><em class="flat">—</em><span>₹41,00,000</span></div>
+          <div class="ms-row"><i style="background:var(--c-realty)"></i><b>Real Estate</b><em class="flat">—</em><span>₹22,00,000</span></div>
+          <div class="ms-row"><i style="background:var(--c-us)"></i><b>US Equity</b><em class="up">▲ 11.3%</em><span>₹18,30,000</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="dash-preview-note muted">
+      Example figures, not yours. Want to poke at a real one?
+      <a href="/demo">Explore the live demo →</a>
+    </p>
+  </div>
 </section>
 
 {% else %}
