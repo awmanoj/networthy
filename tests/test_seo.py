@@ -214,3 +214,39 @@ def test_the_two_public_tools_link_to_each_other(client):
     assert "/how-much-do-i-need-to-retire" in client.get("/how-rich-am-i").text
     assert "/how-rich-am-i" in client.get("/how-much-do-i-need-to-retire").text
     assert "/how-much-do-i-need-to-retire" in client.get("/").text   # footer
+
+
+# --- The cookie disclosure ---------------------------------------------------
+
+def test_privacy_page_documents_the_one_cookie(client):
+    page = client.get("/privacy").text
+    assert "Cookies — there's one" in page
+    assert "<code>session</code>" in page
+    assert "HttpOnly" in page and "SameSite=Lax" in page
+    assert "no tracking, advertising, or analytics cookies" in page
+
+
+def test_the_page_is_telling_the_truth_about_cookies(client):
+    """The claim is only worth making if it stays true — so check the app against
+    it rather than trusting the prose. Exactly one cookie, only after sign-in."""
+    anon = client.get("/how-rich-am-i")
+    assert not anon.cookies, f"a public page set cookies: {dict(anon.cookies)}"
+
+    uid = storage.get_or_create_user("cookie@test.com").id
+    storage.create_session(uid, "ctok", datetime.utcnow() + timedelta(hours=1))
+    signed_in = client.get("/networth", cookies={auth.SESSION_COOKIE: "ctok"})
+    assert set(signed_in.cookies) <= {auth.SESSION_COOKIE}
+
+
+def test_no_third_party_scripts_anywhere(client):
+    """'No third-party scripts of any kind' — a CDN font or an analytics snippet
+    slipping in would quietly make the privacy page false."""
+    import re
+    for path in ("/", "/how-rich-am-i", "/how-much-do-i-need-to-retire",
+                 "/privacy", "/about", "/terms"):
+        page = client.get(path).text
+        external = [
+            u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page)
+            if "networthyhq.com" not in u
+        ]
+        assert not external, f"{path} loads third-party resources: {external}"

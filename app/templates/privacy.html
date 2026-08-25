@@ -41,6 +41,29 @@
     server-side; the cookie in your browser is just a random token.
   </p>
 
+  <h2>Cookies — there's one</h2>
+  <p>
+    Networthy HQ sets a <strong>single cookie</strong>, named <code>session</code>, and only
+    once you sign in. It holds a random token and nothing else — not your email, not an
+    identifier, nothing readable. The session itself lives on the server; the cookie is
+    just the key that points at it. It's marked <code>HttpOnly</code> (scripts can't read
+    it), <code>Secure</code> (sent over HTTPS only), and <code>SameSite=Lax</code>. It
+    lasts 30 days, and signing out deletes it.
+  </p>
+  <p>
+    There are <strong>no tracking, advertising, or analytics cookies</strong>, and no
+    third-party scripts of any kind — no Google Analytics, no pixels, no fonts or
+    libraries loaded from someone else's server. Nothing about your visit is shared with
+    anyone. That's also why you don't see a cookie-consent banner: consent is required for
+    tracking, and a strictly necessary sign-in cookie is exempt. We'd rather not have the
+    banner than have the tracking.
+  </p>
+  <p>
+    Your browser also remembers one preference locally — whether you chose the light or
+    dark theme — using <code>localStorage</code>, not a cookie. It never reaches the
+    server.
+  </p>
+
   <h2>Usage &amp; adoption</h2>
   <p>
     So we can understand how Networthy HQ is used, the operator sees basic account and
