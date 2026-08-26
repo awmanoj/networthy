@@ -13,6 +13,29 @@ in one place, priced live where it can be.
 **Try it without signing up:** the landing page has an **Explore the live demo** button
 (`GET /demo`) that drops you into a fully-loaded demo account — no email required.
 
+## Run it on your own machine
+
+One command. No account, no sign-in, no server — your statements are parsed on your
+laptop and the database never leaves it.
+
+```bash
+uvx networthy
+```
+
+That's it: it starts on `http://127.0.0.1:8321`, opens your browser, and signs you in
+automatically (there's nobody else to authenticate against on your own machine).
+
+<details>
+<summary>Don't have <code>uv</code>?</summary>
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
+# Windows: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Or use pipx: `pipx run networthy`. Or plain pip: `pip install networthy && networthy`.
+</details>
+
 ![Dashboard](docs/screenshots/dashboard.png)
 
 ---
@@ -38,28 +61,6 @@ in one place, priced live where it can be.
 - **Multi-user** — sign in with email + a one-time code. Each account's data is isolated.
 - **Email digests** — an optional daily net-worth pulse and a weekly breakdown.
 
-## Run it on your own machine
-
-One command. No account, no sign-in, no server — your statements are parsed on your
-laptop and the database never leaves it.
-
-```bash
-uvx networthy
-```
-
-That's it: it starts on `http://127.0.0.1:8321`, opens your browser, and signs you in
-automatically (there's nobody else to authenticate against on your own machine).
-
-<details>
-<summary>Don't have <code>uv</code>?</summary>
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
-# Windows: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-Or use pipx: `pipx run networthy`. Or plain pip: `pip install networthy && networthy`.
-</details>
 
 ## Screens
 
