@@ -1,9 +1,10 @@
 """The public demo account.
 
 `demo@networthyhq.com` is a shared, always-populated account people can explore in
-one click from the landing page — no sign-up. Each entry into `/demo` **resets** the
-account to this fixture, so however the last visitor poked at it, the next one gets a
-clean, coherent portfolio. Values are deliberately fake but realistic; the live-priced
+one click from the landing page — no sign-up. Entering `/demo` re-seeds the account
+from this fixture when it has gone stale (see `reset_if_stale`), so a visitor finds a
+coherent portfolio without the account being yanked out from under whoever else is
+browsing it. Values are deliberately fake but realistic; the live-priced
 bits (US equity, crypto) really do price live on the server, which shows the feature off.
 """
 
@@ -35,6 +36,43 @@ def reset(user_id: int) -> None:
     """Wipe the demo account and rebuild it from the fixture below."""
     storage.clear_user_tables(user_id, _TABLES)
     _seed(user_id)
+
+
+# How long a freshly-seeded demo is left alone. Resetting on *every* entry was
+# fine for a trickle of visitors and actively broken for a crowd: the account is
+# shared, so a burst of arrivals would wipe and re-seed it under each other,
+# mid-browse, and it would look broken exactly when the most people were looking.
+# Ten minutes keeps it coherent for a visitor while bounding the damage anyone
+# can do to it — and someone else's stray edit mostly just makes it feel alive.
+RESET_INTERVAL_SECONDS = 600
+
+
+def reset_if_stale(user_id: int) -> bool:
+    """Reset the demo only if it needs it. True if it was reset.
+
+    The throttle is claimed atomically in SQLite, so of N simultaneous visitors
+    exactly one reseeds and the rest walk into the account it just prepared.
+
+    An *empty* demo bypasses the throttle: visitors can delete rows, so one
+    person clearing the account out would otherwise serve everyone a blank page
+    for the rest of the cooldown. Re-seeding is cheap, so this heals itself.
+    """
+    if not _looks_seeded(user_id):
+        # Stamp the throttle too: this counts as the reset for this interval, or
+        # the next visitor reads a stale timestamp and immediately reseeds again.
+        storage.touch_throttled_action("demo_reset")
+        reset(user_id)
+        return True
+    if storage.claim_throttled_action("demo_reset", RESET_INTERVAL_SECONDS):
+        reset(user_id)
+        return True
+    return False
+
+
+def _looks_seeded(user_id: int) -> bool:
+    """Cheap sanity check that the fixture is still there. Expenses are used as
+    the canary because every seeding writes several and nothing else does."""
+    return bool(storage.list_expenses(user_id))
 
 
 def _seed(user_id: int) -> None:

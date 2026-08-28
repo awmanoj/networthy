@@ -132,10 +132,15 @@ def logout(request: Request):
 
 @app.get("/demo")
 def enter_demo(request: Request):
-    """One-click entry into the shared demo account — no sign-up. Resets the demo
-    data to a clean fixture, opens a session, and drops the visitor on the dashboard."""
+    """One-click entry into the shared demo account — no sign-up.
+
+    Re-seeds the fixture only if it's gone stale (see `demo.reset_if_stale`), then
+    opens a session and drops the visitor on the dashboard. It used to reset on
+    every entry, which quietly falls apart the moment more than one person is
+    looking: they'd wipe the shared account under each other mid-browse.
+    """
     user = storage.get_or_create_user(demo.DEMO_EMAIL)
-    demo.reset(user.id)
+    demo.reset_if_stale(user.id)
     token = auth.start_session(user.id)
     resp = RedirectResponse(url="/", status_code=303)
     resp.set_cookie(

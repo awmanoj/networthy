@@ -441,6 +441,16 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_bank_cash_user_leaf "
             "ON bank_cash(user_id, leaf_slug)"
         )
+        # Small key/value store for app-wide state that isn't tied to a user —
+        # currently just when the shared demo was last re-seeded.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_state (
+                key        TEXT PRIMARY KEY,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
         # Per-user convenience settings. `pan` doubles as the CAS PDF password and is
         # stored opt-in so the user doesn't retype it on every upload; `cams_email` is
         # vestigial (it fed the removed CAMS auto-fill bookmarklet) and is kept only so
@@ -560,6 +570,46 @@ def update_row(table: str, row_id: int, user_id: int, **fields) -> None:
         conn.execute(
             f"UPDATE {table} SET {cols} WHERE id = ? AND user_id = ?",
             (*fields.values(), row_id, user_id),
+        )
+
+
+def claim_throttled_action(key: str, min_interval_seconds: int) -> bool:
+    """True for at most one caller per `min_interval_seconds`, across processes.
+
+    A conditional upsert rather than read-then-write: under a burst of concurrent
+    requests, every caller would otherwise read the same stale timestamp and all
+    of them would proceed. Here SQLite serialises the statement, so exactly one
+    row-change happens and exactly one caller is told to go ahead.
+
+    Used to stop the shared demo account being wiped and re-seeded on every
+    single visit — see `demo.reset_if_stale`.
+    """
+    with _connect() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO app_state (key, updated_at) VALUES (?, datetime('now'))
+            ON CONFLICT(key) DO UPDATE SET updated_at = datetime('now')
+             WHERE app_state.updated_at <= datetime('now', ?)
+            """,
+            (key, f"-{int(min_interval_seconds)} seconds"),
+        )
+        return cur.rowcount > 0
+
+
+def touch_throttled_action(key: str) -> None:
+    """Stamp `key` as having just happened, without asking permission.
+
+    For the case where something ran for a reason other than the timer — the
+    throttle still needs to know, or the next caller sees a stale timestamp and
+    immediately repeats the work.
+    """
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO app_state (key, updated_at) VALUES (?, datetime('now'))
+            ON CONFLICT(key) DO UPDATE SET updated_at = datetime('now')
+            """,
+            (key,),
         )
 
 
