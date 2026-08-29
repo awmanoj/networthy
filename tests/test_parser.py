@@ -16,7 +16,7 @@ from app.parser.nsdl_cas import (
     _parse_holding_line,
     _to_float,
 )
-from app.classify import Section
+from app.classify import AssetClass, Section
 
 
 def test_to_float_strips_indian_grouping():
@@ -208,3 +208,54 @@ def test_find_accounts_stitches_wrapped_names_but_skips_tickers():
     assert names[0] == "E2E NETWORKS LIMITED"
     # …but a wrapped scheme name spilling onto the next line is stitched back on.
     assert names[1] == "NIPPON INDIA LARGE CAP FUND GROWTH PLAN GROWTH OPTION"
+
+
+# --- AIF rows: face value written into the security name ---------------------
+#
+# NSDL puts an AIF's face value inside the name — "…-FACE VALUE INR 100.0/- AND
+# PAID UP" — so the name carries digits immediately before the real columns. An
+# unlisted AIF has no market price, so its row has only two of them, and the
+# positional read would otherwise take the face value as units and shift
+# everything along.
+
+_AIF_ROWS = [
+    "AL TRUST NUCLEON HEALTH CATEGORY-I-CLASS NUCLEON HEALTH 2 FACE VALUE INR 100.0/- AND PAID UP",
+    "AL TRUST BASIL-CATEGORY-I-CLASS BASIL -FACE VALUE INR 100.0/- AND PAID UP",
+    "AL TRUST KIVI AGROSPERITY-CATEGORY-I CLASS KIVI AGROSPERITY -FACE VALUE INR 100.0/- AND PAID UP VALUE INR 100.0/",
+    "LV FARMDIDI PI-CATEGORY-I-CLASS A FACE VALUE INR 100000.0/- AND PAID UP",
+    "INFINYTE ALLINCAPITAL-CATEGORY-I CLASS A -SR 0109-FACE VALUE INR 1000.0/ AND PAID UP VALUE INR 1000.0/- DATE OF",
+]
+
+
+@pytest.mark.parametrize("name", _AIF_ROWS)
+def test_aif_row_with_two_columns_reads_units_not_face_value(name):
+    """units + value only, as an unlisted holding has."""
+    line = f"INE002A08534 {name} 1000.000 100000.00"
+    h = _parse_holding_line(line, Section.DEMAT)
+    assert h is not None
+    assert h.units == 1000.0, "face value was read as units"
+    assert h.price is None
+    assert h.value == 100000.0
+    assert h.asset_class == AssetClass.PRIVATE_EQUITY.value
+
+
+@pytest.mark.parametrize("name", _AIF_ROWS)
+def test_aif_row_with_three_columns(name):
+    line = f"INE002A08534 {name} 500.000 200.0000 100000.00"
+    h = _parse_holding_line(line, Section.DEMAT)
+    assert (h.units, h.price, h.value) == (500.0, 200.0, 100000.0)
+
+
+@pytest.mark.parametrize("name", _AIF_ROWS)
+def test_the_name_survives_masking_intact(name):
+    """The face value is hidden from the *column scan* only — the name is sliced
+    from the original text and must still read as the statement wrote it."""
+    line = f"INE002A08534 {name} 1000.000 100000.00"
+    h = _parse_holding_line(line, Section.DEMAT)
+    assert h.name == name
+
+
+def test_ordinary_rows_are_unaffected_by_the_masking():
+    h = _parse_holding_line(
+        "INE002A08534 HDFC LTD EQUITY SHARES 100.000 2500.0000 250000.00", Section.DEMAT)
+    assert (h.units, h.price, h.value) == (100.0, 2500.0, 250000.0)

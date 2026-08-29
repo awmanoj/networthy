@@ -187,6 +187,51 @@ def account_delete(request: Request, confirm: str = Form("")):
     return resp
 
 
+# Classes a statement holding can be re-filed into. Deliberately short: these are
+# the confusions that actually happen — an AIF that looks like a fund, an NCD that
+# looks like a share — not the whole taxonomy.
+RECLASS_CHOICES = [
+    (AssetClass.MUTUAL_FUND.value, "Mutual Fund"),
+    (AssetClass.PRIVATE_EQUITY.value, "AIF / PE / VC"),
+    (AssetClass.DIRECT_EQUITY.value, "Direct Equity"),
+    (AssetClass.DEBT.value, "Bond / NCD"),
+    (AssetClass.GOVT_SECURITY.value, "Govt Security"),
+    (AssetClass.GOLD.value, "Gold"),
+    (AssetClass.ETF.value, "ETF"),
+]
+
+
+@app.post("/networth/holding/reclassify")
+def holding_reclassify(
+    request: Request,
+    isin: str = Form(""),
+    name: str = Form(""),
+    asset_class: str = Form(""),
+    redirect: str = Form("/networth"),
+):
+    """Re-file a statement holding into a different asset class.
+
+    Classification is a guess from the security's name, and for AIF units the name
+    usually gives nothing away — "True North Fund VI" reads exactly like a mutual
+    fund. So the rules will always miss some, and this is the escape hatch that
+    doesn't depend on us predicting the naming.
+
+    The override is remembered against the ISIN (or the name, when there isn't
+    one), *not* the row id — re-uploading a statement rebuilds those rows, and an
+    id-keyed override would silently vanish at exactly the wrong moment.
+    """
+    user = request.state.user
+    key = storage.override_key(isin, name)
+    valid = {c for c, _ in RECLASS_CHOICES}
+    if key:
+        if asset_class in valid:
+            storage.set_holding_override(user.id, key, asset_class)
+        elif asset_class == "auto":
+            storage.clear_holding_override(user.id, key)
+    target = redirect if redirect.startswith("/networth") else "/networth"
+    return RedirectResponse(url=target, status_code=303)
+
+
 @app.post("/logout")
 def logout(request: Request):
     auth.logout(request.cookies.get(SESSION_COOKIE))
@@ -1451,6 +1496,7 @@ def networth_node(request: Request, path: str):
             "edit_id": _opt_int(request.query_params.get("edit", "")),
             "breadcrumbs": networth.breadcrumbs(chain),
             "leaf_data": leaf_data,
+            "reclass_choices": RECLASS_CHOICES,
             "import_url": CAMS_IMPORT_URL,
         },
     )

@@ -316,7 +316,8 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
     before = line[: m.start()].strip(" .:-\t")
     after = line[m.end():]
 
-    num_start = _trailing_numbers_start(after)
+    masked = _mask_face_values(after)
+    num_start = _trailing_numbers_start(masked)
     numbers = _amounts(after[num_start:]) if num_start is not None else []
 
     if before:
@@ -350,6 +351,27 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
         price=price,
         value=value,
     )
+
+
+# NSDL writes an AIF's face value into the security name itself — "…-FACE VALUE
+# INR 100.0/- AND PAID UP". Those digits sit immediately before the real data
+# columns, and when a row carries only two of them (units and value: an unlisted
+# AIF has no market price) the positional read takes the face value as units and
+# shifts everything along by one.
+#
+# Masking the digits inside that idiom — same-length, so every index still lines
+# up — makes them invisible to the column scan. The name is sliced from the
+# original text, so it keeps the real wording.
+# "FACE VALUE INR 100.0/-" and the bare "…AND PAID UP VALUE INR 100.0/" that can
+# follow it — both are name text, neither is a column.
+_FACE_VALUE_RE = re.compile(
+    r"((?:face\s+)?value\s*(?:inr|rs\.?)\s*)([\d][\d.,]*)", re.I
+)
+
+
+def _mask_face_values(text: str) -> str:
+    """Hide face-value digits from the column scan, preserving string length."""
+    return _FACE_VALUE_RE.sub(lambda m: m.group(1) + "x" * len(m.group(2)), text)
 
 
 def _trailing_numbers_start(text: str) -> int | None:

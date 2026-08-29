@@ -163,3 +163,103 @@ def test_migration_covers_cams_imports_too(client):
         id = uid
 
     assert m._leaf_value(U, m.ALT_LEAF) == 750_000.0
+
+
+# --- Manual re-filing --------------------------------------------------------
+#
+# The rules can't win this one on their own: most real AIF names carry no marker
+# at all — "True North Fund VI", "IIFL Special Opportunities Fund Series 7" — and
+# read exactly like mutual funds. So there has to be a way to correct it by hand.
+
+def _unmarked_aif(uid):
+    """An AIF whose name gives nothing away, as most real ones don't."""
+    sid = storage.upsert_snapshot(uid, Snapshot(
+        statement_date=date(2026, 6, 30), total_value=0.0,
+        holding_count=1, source_filename="cas.pdf"))
+    storage.replace_holdings(sid, [Account(kind="demat", name="NSDL", holdings=[
+        Holding("TRUE NORTH FUND VI", "mutual_fund", "INF777", 100.0, 1.0, 5_000_000.0),
+    ])])
+
+
+def test_an_unmarked_aif_can_be_re_filed_by_hand(client):
+    uid, ck = _login("refile@test.com")
+    _unmarked_aif(uid)
+    import app.main as m
+
+    class U:
+        id = uid
+
+    assert m._leaf_value(U, "mutual-funds") == 5_000_000.0     # the rules miss it
+
+    r = client.post("/networth/holding/reclassify", cookies=ck, follow_redirects=False,
+                    data={"isin": "INF777", "name": "TRUE NORTH FUND VI",
+                          "asset_class": "private_equity",
+                          "redirect": "/networth/assets/financial-assets/mutual-funds"})
+    assert r.status_code == 303
+
+    assert m._leaf_value(U, "mutual-funds") == 0.0
+    assert m._leaf_value(U, m.ALT_LEAF) == 5_000_000.0
+
+
+def test_an_override_survives_re_uploading_the_statement(client):
+    """Keyed by ISIN, not row id: re-uploading rebuilds the holdings table, and an
+    id-keyed override would vanish exactly when the user has stopped watching."""
+    uid, ck = _login("survive@test.com")
+    _unmarked_aif(uid)
+    client.post("/networth/holding/reclassify", cookies=ck, follow_redirects=False,
+                data={"isin": "INF777", "name": "TRUE NORTH FUND VI",
+                      "asset_class": "private_equity"})
+
+    _unmarked_aif(uid)          # the same statement, uploaded again
+    import app.main as m
+
+    class U:
+        id = uid
+
+    assert m._leaf_value(U, m.ALT_LEAF) == 5_000_000.0
+    assert m._leaf_value(U, "mutual-funds") == 0.0
+
+
+def test_an_override_can_be_undone(client):
+    uid, ck = _login("undo@test.com")
+    _unmarked_aif(uid)
+    import app.main as m
+
+    class U:
+        id = uid
+
+    client.post("/networth/holding/reclassify", cookies=ck, follow_redirects=False,
+                data={"isin": "INF777", "name": "TRUE NORTH FUND VI",
+                      "asset_class": "private_equity"})
+    assert m._leaf_value(U, m.ALT_LEAF) == 5_000_000.0
+
+    client.post("/networth/holding/reclassify", cookies=ck, follow_redirects=False,
+                data={"isin": "INF777", "name": "TRUE NORTH FUND VI",
+                      "asset_class": "auto"})
+    assert m._leaf_value(U, "mutual-funds") == 5_000_000.0
+
+
+def test_overrides_are_per_user(client):
+    uid, ck = _login("mine2@test.com")
+    _unmarked_aif(uid)
+    other = storage.get_or_create_user("other2@test.com").id
+    _unmarked_aif(other)
+
+    client.post("/networth/holding/reclassify", cookies=ck, follow_redirects=False,
+                data={"isin": "INF777", "name": "TRUE NORTH FUND VI",
+                      "asset_class": "private_equity"})
+    import app.main as m
+
+    class Other:
+        id = other
+
+    assert m._leaf_value(Other, "mutual-funds") == 5_000_000.0   # untouched
+
+
+def test_a_bogus_target_class_is_ignored(client):
+    uid, ck = _login("bogus@test.com")
+    _unmarked_aif(uid)
+    client.post("/networth/holding/reclassify", cookies=ck, follow_redirects=False,
+                data={"isin": "INF777", "name": "TRUE NORTH FUND VI",
+                      "asset_class": "../../etc/passwd"})
+    assert storage.get_holding_overrides(uid) == {}

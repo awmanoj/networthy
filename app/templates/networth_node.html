@@ -872,6 +872,24 @@
                so saying which one won makes the de-duplication visible rather
                than something the reader has to trust. #}
             {% if h.source %}<span class="src-chip src-{{ h.source|lower }}">{{ h.source }}</span>{% endif %}
+            {% if h.overridden %}<span class="src-chip src-fixed" title="You re-filed this">moved</span>{% endif %}
+            {# Classification is a guess from the security's name, and AIF names
+               mostly give nothing away — "True North Fund VI" reads like any
+               mutual fund. This is the escape hatch that doesn't rely on us
+               predicting how a fund is named. #}
+            <form class="reclass" method="post" action="/networth/holding/reclassify">
+              <input type="hidden" name="isin" value="{{ h.isin or '' }}">
+              <input type="hidden" name="name" value="{{ h.name }}">
+              <input type="hidden" name="redirect" value="{{ node_path }}">
+              <select name="asset_class" onchange="this.form.submit()"
+                      aria-label="Re-file {{ h.name }}">
+                <option value="">move to…</option>
+                {% for value, label in reclass_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+                {% if h.overridden %}<option value="auto">↺ back to automatic</option>{% endif %}
+              </select>
+            </form>
           </td>
           <td class="num">{{ "{:,.3f}".format(h.units) if h.units is not none else "—" }}</td>
           <td class="num">{{ "{:,.4f}".format(h.price) if h.price is not none else "—" }}</td>

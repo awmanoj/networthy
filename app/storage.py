@@ -10,6 +10,7 @@ by user_id so accounts can't see or mutate each other's data.
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
@@ -441,6 +442,24 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_bank_cash_user_leaf "
             "ON bank_cash(user_id, leaf_slug)"
         )
+        # Per-user corrections to a holding's asset class.
+        #
+        # Keyed by ISIN (or, failing that, the holding's name) rather than by row
+        # id **on purpose**: re-uploading a statement rebuilds `holdings`
+        # wholesale, so a row-id override would silently evaporate on the next
+        # upload — exactly when the user has stopped thinking about it.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS holding_overrides (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                match_key   TEXT NOT NULL,
+                asset_class TEXT NOT NULL,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(user_id, match_key)
+            )
+            """
+        )
         # Small key/value store for app-wide state that isn't tied to a user —
         # currently just when the shared demo was last re-seeded.
         conn.execute(
@@ -616,6 +635,63 @@ def touch_throttled_action(key: str) -> None:
             """,
             (key,),
         )
+
+
+def override_key(isin: str | None, name: str | None) -> str:
+    """The identity an override is remembered against.
+
+    ISIN when there is one — it's stable across statements and issuers. Otherwise
+    the name, normalised, which is the best available handle for the rows that
+    arrive without an ISIN.
+    """
+    if isin and isin.strip():
+        return isin.strip().upper()
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def get_holding_overrides(user_id: int) -> dict[str, str]:
+    """{match_key: asset_class} for a user."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT match_key, asset_class FROM holding_overrides WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+    return {r["match_key"]: r["asset_class"] for r in rows}
+
+
+def set_holding_override(user_id: int, match_key: str, asset_class: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO holding_overrides (user_id, match_key, asset_class)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, match_key) DO UPDATE SET asset_class = excluded.asset_class
+            """,
+            (user_id, match_key, asset_class),
+        )
+
+
+def clear_holding_override(user_id: int, match_key: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM holding_overrides WHERE user_id = ? AND match_key = ?",
+            (user_id, match_key),
+        )
+
+
+def apply_overrides(user_id: int, rows: list[dict]) -> list[dict]:
+    """Re-file rows the user has corrected, tagging them so the UI can say so."""
+    overrides = get_holding_overrides(user_id)
+    if not overrides:
+        return rows
+    out = []
+    for r in rows:
+        key = override_key(r.get("isin"), r.get("name"))
+        target = overrides.get(key)
+        if target and target != r.get("asset_class"):
+            r = dict(r, asset_class=target, overridden=True)
+        out.append(r)
+    return out
 
 
 def reclassify_private_equity() -> int:
@@ -1052,18 +1128,16 @@ def list_networth_holdings(user_id: int, asset_classes: set[str]) -> list[dict]:
     """
     if not asset_classes:
         return []
-    classes = sorted(asset_classes)
-    placeholders = ",".join("?" for _ in classes)
     with _connect() as conn:
         rows = conn.execute(
-            f"""
-            SELECT * FROM networth_holdings
-            WHERE user_id = ? AND asset_class IN ({placeholders})
-            ORDER BY position ASC, id ASC
-            """,
-            (user_id, *classes),
+            "SELECT * FROM networth_holdings WHERE user_id = ? "
+            "ORDER BY position ASC, id ASC",
+            (user_id,),
         ).fetchall()
-    return [_row_to_networth_holding(r) for r in rows]
+    # Filtered in Python, not SQL: a user override can move a row into a
+    # different class, so it has to be applied before deciding what belongs here.
+    everything = apply_overrides(user_id, [_row_to_networth_holding(r) for r in rows])
+    return [h for h in everything if h["asset_class"] in asset_classes]
 
 
 def latest_holdings_by_class(user_id: int, asset_classes: set[str]) -> list[dict]:
@@ -1083,7 +1157,7 @@ def latest_holdings_by_class(user_id: int, asset_classes: set[str]) -> list[dict
             (snap.id,),
         ).fetchall()
     as_of = snap.statement_date.isoformat()
-    return [
+    everything = apply_overrides(user_id, [
         {
             "name": r["name"],
             "isin": r["isin"],
@@ -1099,8 +1173,10 @@ def latest_holdings_by_class(user_id: int, asset_classes: set[str]) -> list[dict
         # Skip value-less rows (blank ISIN lines a prior parse stored) so they
         # don't clutter the Networth page for statements uploaded before the
         # parser started dropping them. They contribute nothing to totals anyway.
-        if r["asset_class"] in asset_classes and r["value"] is not None
-    ]
+        if r["value"] is not None
+    ])
+    # Class filter runs after overrides, so a re-filed holding lands in its new leaf.
+    return [h for h in everything if h["asset_class"] in asset_classes]
 
 
 def delete_networth_import(user_id: int, source: str) -> None:

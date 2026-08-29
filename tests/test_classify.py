@@ -95,3 +95,54 @@ def test_ordinary_mutual_funds_still_classify_as_mutual_funds(name):
     """The AIF rules must not swallow the liquid funds they sit next to."""
     assert classify(section=Section.DEMAT, isin="INF1234567890",
                     description=name) is AssetClass.MUTUAL_FUND
+
+
+# --- The signal that actually works: the statement says so -------------------
+#
+# Name patterns were always a guess. NSDL writes the thing that genuinely makes
+# these holdings different into the security name itself:
+#
+#   "AL Trust - Slang Labs 2-Category I-Slang Labs 2 Close ended -
+#    Restricted Transferability"
+#
+# AIF and PE units are non-transferable and no mutual fund is, so this beats
+# every convention-matching rule — it's structural rather than editorial.
+
+REAL_AIF_NAMES = [
+    "AL Trust - Slang Labs 2-Category I-Slang Labs 2 Close ended - Restricted Transferability",
+    "AL Trust - Teachmint 2-Category I-Teachmint Close ended - Restricted Transferability",
+]
+
+
+@pytest.mark.parametrize("name", REAL_AIF_NAMES)
+def test_real_aif_names_from_a_statement(name):
+    """These carry an INF prefix, so without a name rule they read as mutual funds."""
+    assert classify(section=Section.DEMAT, isin="INF1234567890",
+                    description=name) is AssetClass.PRIVATE_EQUITY
+
+
+def test_restricted_transferability_alone_is_enough():
+    assert classify(section=Section.DEMAT, isin="INF1234567890",
+                    description="Some Fund - Restricted Transferability"
+                    ) is AssetClass.PRIVATE_EQUITY
+
+
+def test_sebi_category_does_not_need_the_word_fund_nearby():
+    """The first version of this rule required "fund" next to "Category", which
+    is exactly why the real names above slipped through — they have no "fund"."""
+    assert classify(section=Section.DEMAT, isin="INF1234567890",
+                    description="AL Trust - Teachmint 2-Category I-Teachmint"
+                    ) is AssetClass.PRIVATE_EQUITY
+
+
+@pytest.mark.parametrize("name", [
+    "NIPPON INDIA FIXED MATURITY PLAN SERIES 44",   # genuinely close-ended, but an MF
+    "ADITYA BIRLA SUN LIFE FRONTLINE EQUITY FUND",
+    "ICICI PRU VALUE DISCOVERY FUND",
+    "UTI NIFTY 50 INDEX FUND",
+])
+def test_the_new_rules_do_not_swallow_ordinary_funds(name):
+    """Close-ended mutual funds exist, so "close ended" is deliberately *not* a
+    signal on its own — only restricted transferability and the SEBI category."""
+    assert classify(section=Section.DEMAT, isin="INF1234567890",
+                    description=name) is AssetClass.MUTUAL_FUND

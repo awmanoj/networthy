@@ -664,6 +664,20 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .src-chip.src-cams { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 40%, var(--border)); }
 .src-chip.src-cas { color: var(--copper); border-color: color-mix(in srgb, var(--copper) 40%, var(--border)); }
 
+/* Re-file control on a statement holding. Kept quiet until hover: it's an
+   escape hatch for the rows the classifier guessed wrong, not a primary action. */
+.reclass { display: inline; margin-left: 6px; }
+.reclass select {
+  border: 1px solid transparent; background: none; color: var(--faint);
+  font: inherit; font-size: 0.7rem; padding: 0 2px; border-radius: 4px;
+  cursor: pointer; opacity: 0; transition: opacity 0.12s ease;
+}
+tr:hover .reclass select, .reclass select:focus { opacity: 1; }
+.reclass select:hover, .reclass select:focus {
+  border-color: var(--border); background: var(--surface-2); color: var(--text); outline: none;
+}
+.src-chip.src-fixed { color: var(--gain); border-color: color-mix(in srgb, var(--gain) 40%, var(--border)); }
+
 /* AIF/VC/PE units arriving from a CAS, shown apart from the hand-entered rows on
    the Alternate Investments leaf so a duplicate is visible rather than silent. */
 .alt-cas { margin: 18px 0 6px; padding-top: 16px; border-top: 1px solid var(--border); }

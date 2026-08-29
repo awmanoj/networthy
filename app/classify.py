@@ -71,9 +71,23 @@ _KEYWORD_RULES: list[tuple[re.Pattern[str], AssetClass]] = [
      AssetClass.PRIVATE_EQUITY),
     (re.compile(r"\b(ventures?\s+(capital|fund|partners)|vcf|private\s+equity)\b", re.I),
      AssetClass.PRIVATE_EQUITY),
-    # "Category I/II/III" is AIF-specific regulatory wording; no mutual fund
-    # scheme name carries it.
-    (re.compile(r"\bcategory\s+(i{1,3}|1|2|3)\b.*\bfund\b|\bfund\b.*\bcategory\s+(i{1,3}|1|2|3)\b", re.I),
+    # The strongest signal there is, and it comes from the statement rather than
+    # from naming convention: AIF and PE units are non-transferable, and NSDL
+    # writes that into the security name —
+    #   "AL Trust - Slang Labs 2-Category I-Slang Labs 2 Close ended -
+    #    Restricted Transferability"
+    # No mutual fund carries it. This beats every name-pattern guess because it
+    # describes the thing that actually makes the holding different.
+    #
+    # Known edge: IPO anchor lock-ins and partly-paid shares can also be
+    # restricted. Filing those as alternate rather than liquid equity is the
+    # lesser error — they're genuinely not sellable — and the per-holding
+    # override handles the rest.
+    (re.compile(r"restricted\s+transferab", re.I), AssetClass.PRIVATE_EQUITY),
+    # SEBI's AIF categories. Deliberately *not* requiring the word "fund"
+    # nearby: the real names above carry "Category I" with no "fund" anywhere,
+    # which is exactly how the first version of this rule missed them.
+    (re.compile(r"\bcategory\s*[- ]\s*(i{1,3}|1|2|3)\b", re.I),
      AssetClass.PRIVATE_EQUITY),
     (re.compile(r"\b(ncd|debenture|bond)\b", re.I), AssetClass.DEBT),
     (re.compile(r"\b(g-?sec|govt?\.?\s+stock|treasury|t-?bill|gilt)\b", re.I), AssetClass.GOVT_SECURITY),
