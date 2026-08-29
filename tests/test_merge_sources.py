@@ -131,3 +131,59 @@ def test_the_leaf_page_shows_where_each_row_came_from(client):
 
     page = client.get("/networth/assets/financial-assets/mutual-funds", cookies=ck).text
     assert "src-cams" in page and "src-cas" in page
+
+
+# --- Gold funds counted twice across two leaves ------------------------------
+#
+# The subtle one. merge_sources de-duplicates *within* a leaf, so it can't help
+# when the same holding is filed into two different leaves — and that's exactly
+# what happened: classify() returned early on the mutual-fund section context, so
+# an NSDL MF-folio section called a gold fund `mutual_fund` while CAMS (which
+# passes section=UNKNOWN on purpose) called the same fund `gold`.
+
+def test_the_same_gold_fund_is_not_counted_in_two_leaves(client):
+    uid, _ck = _login("gold@test.com")
+    import app.main as m
+
+    class U:
+        id = uid
+
+    sid = storage.upsert_snapshot(uid, Snapshot(
+        statement_date=date(2026, 6, 30), total_value=0.0,
+        holding_count=1, source_filename="cas.pdf"))
+    storage.replace_holdings(sid, [Account(kind="mutual_fund", name="MF Folios", holdings=[
+        Holding("SBI GOLD FUND - DIRECT GROWTH", "mutual_fund",
+                "INF200K01T28", 100.0, 60.0, 600_000.0),
+    ])])
+    storage.replace_networth_import(uid, "cams", date(2026, 7, 31), [
+        Holding("SBI GOLD FUND - DIRECT GROWTH", "gold",
+                "INF200K01T28", 100.0, 62.0, 620_000.0),
+    ])
+    storage.reclassify_holdings()
+
+    assert m._leaf_value(U, "mutual-funds") == 0.0        # was 600,000
+    assert m._leaf_value(U, "gold-silver") == 620_000.0   # CAMS wins, counted once
+
+
+def test_both_parsers_agree_on_a_gold_fund():
+    """The root cause in one line: the two sources must not disagree about what
+    a gold fund is, or it lands in two leaves and is counted twice."""
+    from app.classify import Section, classify
+    for name in ("SBI GOLD FUND - DIRECT GROWTH",
+                 "NIPPON INDIA SILVER ETF FOF",
+                 "HDFC GOLD ETF FUND OF FUND"):
+        nsdl = classify(section=Section.MUTUAL_FUND, isin="INF001", description=name)
+        cams = classify(section=Section.UNKNOWN, isin="INF001", description=name)
+        assert nsdl is cams, f"{name}: NSDL says {nsdl}, CAMS says {cams}"
+
+
+def test_debt_funds_are_still_mutual_funds_in_the_mf_section():
+    """Only gold/silver/PE may override the section context. Letting every
+    keyword through would turn "HDFC Corporate Bond Fund" into a bond."""
+    from app.classify import AssetClass, Section, classify
+    for name in ("HDFC CORPORATE BOND FUND - DIRECT",
+                 "SBI MAGNUM GILT FUND",
+                 "ICICI PRU SHORT TERM BOND FUND",
+                 "NIPPON INDIA ETF NIFTY BEES"):
+        assert classify(section=Section.MUTUAL_FUND, isin="INF001",
+                        description=name) is AssetClass.MUTUAL_FUND, name

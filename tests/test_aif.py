@@ -122,7 +122,7 @@ def test_migration_moves_old_aif_rows_out_of_mutual_funds(client):
     assert m._leaf_value(U, "mutual-funds") == 3_000_000.0      # AIF stuck in MF
     assert m._leaf_value(U, m.ALT_LEAF) == 0.0
 
-    assert storage.reclassify_private_equity() == 2
+    assert storage.reclassify_holdings() == 2
     assert m._leaf_value(U, "mutual-funds") == 1_000_000.0      # only the real fund
     assert m._leaf_value(U, m.ALT_LEAF) == 2_500_000.0          # AIF + VC
 
@@ -138,16 +138,16 @@ def test_migration_leaves_nps_alone(client):
     class U:
         id = uid
 
-    storage.reclassify_private_equity()
+    storage.reclassify_holdings()
     assert m._leaf_value(U, "nps") == 900_000.0
 
 
 def test_migration_is_idempotent(client):
     uid, _ck = _login("idem@test.com")
     _stored_as_parsed_before_the_fix(uid)
-    assert storage.reclassify_private_equity() == 2
-    assert storage.reclassify_private_equity() == 0
-    assert storage.reclassify_private_equity() == 0
+    assert storage.reclassify_holdings() == 2
+    assert storage.reclassify_holdings() == 0
+    assert storage.reclassify_holdings() == 0
 
 
 def test_migration_covers_cams_imports_too(client):
@@ -156,7 +156,7 @@ def test_migration_covers_cams_imports_too(client):
         Holding("XYZ ALTERNATIVE INVESTMENT FUND - CLASS A", "mutual_fund",
                 "INF555", 10.0, 1.0, 750_000.0),
     ])
-    assert storage.reclassify_private_equity() == 1
+    assert storage.reclassify_holdings() == 1
     import app.main as m
 
     class U:

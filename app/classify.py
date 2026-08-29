@@ -95,6 +95,16 @@ _KEYWORD_RULES: list[tuple[re.Pattern[str], AssetClass]] = [
 ]
 
 
+# Classes that describe *what kind of fund* something is, rather than contradicting
+# that it's a fund. Only these may override the mutual-fund section context — see
+# `classify`.
+_FUND_REFINING = {
+    AssetClass.GOLD,
+    AssetClass.SILVER,
+    AssetClass.PRIVATE_EQUITY,
+}
+
+
 def classify(
     *,
     section: Section = Section.UNKNOWN,
@@ -112,6 +122,20 @@ def classify(
     if section is Section.NPS:
         return AssetClass.NPS
     if section is Section.MUTUAL_FUND:
+        # ...with one exception. A gold or silver fund really is a mutual fund,
+        # but it belongs under Gold & Silver, and the CAMS parser already files it
+        # there (it passes section=UNKNOWN precisely so these rules run). Without
+        # the same treatment here, the *same fund* is `mutual_fund` from an NSDL
+        # MF-folio section and `gold` from CAMS — two different leaves, so the
+        # per-leaf de-duplication never compares them and the holding is counted
+        # twice in net worth.
+        #
+        # Only the classes that *refine* "a fund" are allowed to win; the debt and
+        # gilt keywords are not, or "HDFC Corporate Bond Fund" would stop being a
+        # mutual fund at all.
+        for pattern, asset_class in _KEYWORD_RULES:
+            if asset_class in _FUND_REFINING and pattern.search(desc):
+                return asset_class
         return AssetClass.MUTUAL_FUND
 
     # 2/3. Within the demat section (or unknown), combine ISIN + description.

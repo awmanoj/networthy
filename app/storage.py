@@ -503,7 +503,7 @@ def init_db() -> None:
     # Data migration, outside the schema block because it opens its own
     # connection: statements parsed before the classifier learned about AIF units
     # still file them as mutual funds. Idempotent and cheap.
-    reclassify_private_equity()
+    reclassify_holdings()
 
 
 def _add_column_if_missing(
@@ -694,9 +694,12 @@ def apply_overrides(user_id: int, rows: list[dict]) -> list[dict]:
     return out
 
 
-def reclassify_private_equity() -> int:
-    """Re-file already-stored AIF / VC / PE rows that were classified before the
-    rules knew about them. Returns the number of rows moved.
+def reclassify_holdings() -> int:
+    """Re-file already-stored rows the classifier would now place differently.
+
+    Two fixes need this: AIF units that were filed as mutual funds or equity, and
+    gold/silver funds that an NSDL MF-folio section called `mutual_fund` while
+    CAMS called them `gold` — the same fund in two leaves, counted twice.
 
     `asset_class` is computed at parse time and stored, so a classifier fix only
     reaches statements uploaded afterwards — everything already in the database
@@ -713,6 +716,9 @@ def reclassify_private_equity() -> int:
 
     moved = 0
     stale = (AssetClass.MUTUAL_FUND.value, AssetClass.DIRECT_EQUITY.value)
+    # Only these may be re-filed. Anything else and a blind re-run would start
+    # turning debt mutual funds into bonds.
+    targets = {AssetClass.PRIVATE_EQUITY, AssetClass.GOLD, AssetClass.SILVER}
     with _connect() as conn:
         for table in ("holdings", "networth_holdings"):
             rows = conn.execute(
@@ -720,9 +726,12 @@ def reclassify_private_equity() -> int:
                 f"WHERE asset_class IN (?, ?)", stale,
             ).fetchall()
             for r in rows:
-                now = classify(section=Section.UNKNOWN, isin=r["isin"],
+                # section=MUTUAL_FUND, not UNKNOWN: it keeps the debt/gilt keywords
+                # from firing on "HDFC Corporate Bond Fund", while still letting the
+                # gold/silver/PE refinements through.
+                now = classify(section=Section.MUTUAL_FUND, isin=r["isin"],
                                description=r["name"] or "")
-                if now is AssetClass.PRIVATE_EQUITY:
+                if now in targets:
                     conn.execute(
                         f"UPDATE {table} SET asset_class = ? WHERE id = ?",
                         (now.value, r["id"]),
