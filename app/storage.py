@@ -481,6 +481,11 @@ def init_db() -> None:
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
         _add_column_if_missing(conn, "manual_holdings", "maturity_date", "TEXT")
 
+    # Data migration, outside the schema block because it opens its own
+    # connection: statements parsed before the classifier learned about AIF units
+    # still file them as mutual funds. Idempotent and cheap.
+    reclassify_private_equity()
+
 
 def _add_column_if_missing(
     conn: sqlite3.Connection, table: str, column: str, decl: str
@@ -611,6 +616,43 @@ def touch_throttled_action(key: str) -> None:
             """,
             (key,),
         )
+
+
+def reclassify_private_equity() -> int:
+    """Re-file already-stored AIF / VC / PE rows that were classified before the
+    rules knew about them. Returns the number of rows moved.
+
+    `asset_class` is computed at parse time and stored, so a classifier fix only
+    reaches statements uploaded afterwards — everything already in the database
+    keeps its old answer. That left real AIF units sitting in Mutual Funds.
+
+    Deliberately *not* a blanket re-classify. Some classes come from CAS section
+    context (NPS especially), and the section isn't stored — re-running the rules
+    with an unknown section would look at an `INF` prefix and turn NPS holdings
+    into mutual funds. So this only touches rows that are currently mutual_fund or
+    direct_equity and that the current rules would call private_equity, which is
+    exactly the AIF gap and nothing else. Idempotent.
+    """
+    from .classify import AssetClass, Section, classify
+
+    moved = 0
+    stale = (AssetClass.MUTUAL_FUND.value, AssetClass.DIRECT_EQUITY.value)
+    with _connect() as conn:
+        for table in ("holdings", "networth_holdings"):
+            rows = conn.execute(
+                f"SELECT id, name, isin, asset_class FROM {table} "
+                f"WHERE asset_class IN (?, ?)", stale,
+            ).fetchall()
+            for r in rows:
+                now = classify(section=Section.UNKNOWN, isin=r["isin"],
+                               description=r["name"] or "")
+                if now is AssetClass.PRIVATE_EQUITY:
+                    conn.execute(
+                        f"UPDATE {table} SET asset_class = ? WHERE id = ?",
+                        (now.value, r["id"]),
+                    )
+                    moved += 1
+    return moved
 
 
 def clear_user_tables(user_id: int, tables: list[str]) -> None:

@@ -89,3 +89,77 @@ def test_hand_entered_and_cas_alt_investments_are_summed_not_replaced(client):
         id = uid
 
     assert m._leaf_value(U, m.ALT_LEAF) == 2_500_000.0
+
+
+# --- Re-filing rows classified before the rules knew about AIF ---------------
+#
+# asset_class is computed at parse time and stored, so fixing the classifier only
+# reaches statements uploaded afterwards. Everything already in the database keeps
+# its old answer, which left real AIF units sitting in Mutual Funds.
+
+def _stored_as_parsed_before_the_fix(uid):
+    sid = storage.upsert_snapshot(uid, Snapshot(
+        statement_date=date(2026, 6, 30), total_value=0.0,
+        holding_count=4, source_filename="old.pdf"))
+    storage.replace_holdings(sid, [Account(kind="demat", name="NSDL", holdings=[
+        Holding("ABC INDIA GROWTH FUND AIF CATEGORY II", "mutual_fund",
+                "INF111", 100.0, 1.0, 2_000_000.0),
+        Holding("BLUME VENTURES FUND IV UNITS", "direct_equity",
+                "INE222", 10.0, 1.0, 500_000.0),
+        Holding("HDFC FLEXI CAP FUND", "mutual_fund", "INF333", 100.0, 1.0, 1_000_000.0),
+        Holding("NPS TIER I SCHEME E", "nps", "INF444", 100.0, 1.0, 900_000.0),
+    ])])
+
+
+def test_migration_moves_old_aif_rows_out_of_mutual_funds(client):
+    uid, _ck = _login("migrate@test.com")
+    _stored_as_parsed_before_the_fix(uid)
+    import app.main as m
+
+    class U:
+        id = uid
+
+    assert m._leaf_value(U, "mutual-funds") == 3_000_000.0      # AIF stuck in MF
+    assert m._leaf_value(U, m.ALT_LEAF) == 0.0
+
+    assert storage.reclassify_private_equity() == 2
+    assert m._leaf_value(U, "mutual-funds") == 1_000_000.0      # only the real fund
+    assert m._leaf_value(U, m.ALT_LEAF) == 2_500_000.0          # AIF + VC
+
+
+def test_migration_leaves_nps_alone(client):
+    """The reason this isn't a blanket re-classify: NPS is classified from CAS
+    section context, and the section isn't stored. Re-running the rules blind
+    would see an INF prefix and turn NPS holdings into mutual funds."""
+    uid, _ck = _login("nps@test.com")
+    _stored_as_parsed_before_the_fix(uid)
+    import app.main as m
+
+    class U:
+        id = uid
+
+    storage.reclassify_private_equity()
+    assert m._leaf_value(U, "nps") == 900_000.0
+
+
+def test_migration_is_idempotent(client):
+    uid, _ck = _login("idem@test.com")
+    _stored_as_parsed_before_the_fix(uid)
+    assert storage.reclassify_private_equity() == 2
+    assert storage.reclassify_private_equity() == 0
+    assert storage.reclassify_private_equity() == 0
+
+
+def test_migration_covers_cams_imports_too(client):
+    uid, _ck = _login("cams-aif@test.com")
+    storage.replace_networth_import(uid, "cams", date(2026, 7, 31), [
+        Holding("XYZ ALTERNATIVE INVESTMENT FUND - CLASS A", "mutual_fund",
+                "INF555", 10.0, 1.0, 750_000.0),
+    ])
+    assert storage.reclassify_private_equity() == 1
+    import app.main as m
+
+    class U:
+        id = uid
+
+    assert m._leaf_value(U, m.ALT_LEAF) == 750_000.0

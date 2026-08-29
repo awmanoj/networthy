@@ -159,7 +159,7 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   deduped by ISIN, the same shape as Gold & Silver), rendered in their own "From your statements"
   block — deliberately *not* merged with the hand-entered rows, because seeing the two side by
   side is what makes a duplicate visible — with a warning to delete the hand-entered copy.
-  `test_aif.py` pins the routing and the double-count; the AIF keyword rules sit **before** the
+  **`asset_class` is computed at parse time and stored**, so a classifier fix only reaches statements uploaded *after* it — `storage.reclassify_private_equity()` (run from `init_db`, idempotent) re-files rows already in the database. It is deliberately **not** a blanket re-classify: NPS is classified from CAS *section* context and the section isn't stored, so re-running the rules blind would see an `INF` prefix and turn NPS holdings into mutual funds. It only touches rows currently `mutual_fund`/`direct_equity` that the current rules call `private_equity`. `test_aif.py` pins the routing, the double-count and the migration (including that NPS survives it); the AIF keyword rules sit **before** the
   debt/ETF rules in `_KEYWORD_RULES` and `test_classify.py` pins that ordinary mutual funds
   ("Flexi Cap Fund", "Nifty 50 Index Fund") are not swallowed by them.
 
