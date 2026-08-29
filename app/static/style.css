@@ -653,6 +653,26 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
 
+/* Which statement a holding came from. Both an NSDL CAS and a CAMS import can
+   carry the same fund; the merge keeps one row, and this says which won. */
+.src-chip {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.04em;
+  vertical-align: 1px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--muted);
+}
+.src-chip.src-cams { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 40%, var(--border)); }
+.src-chip.src-cas { color: var(--copper); border-color: color-mix(in srgb, var(--copper) 40%, var(--border)); }
+
+/* AIF/VC/PE units arriving from a CAS, shown apart from the hand-entered rows on
+   the Alternate Investments leaf so a duplicate is visible rather than silent. */
+.alt-cas { margin: 18px 0 6px; padding-top: 16px; border-top: 1px solid var(--border); }
+.alt-cas-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.alt-cas-head h3 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+.alt-cas-total { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.alt-cas-note { margin: 12px 0 0; font-size: 0.82rem; line-height: 1.55; max-width: 70ch; }
+.alt-cas-note strong { color: var(--text); }
+
 /* --- Account: export and delete -------------------------------------------- */
 .acct-card { padding: 22px 26px; margin-bottom: 20px; }
 .acct-card h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; letter-spacing: -0.01em; }

@@ -23,3 +23,4 @@ def test_enrich_alt_loss():
     _enrich_alt(rows)
     assert rows[0]["gain_pct"] == -60.0
     assert rows[0]["signal"] == "down"
+

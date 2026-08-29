@@ -5,6 +5,8 @@ silently regress the well-established rules (INF=MF, bond keywords beat the INE
 equity default, section context wins, etc.).
 """
 
+import pytest
+
 from app.classify import AssetClass, Section, classify
 
 
@@ -51,3 +53,45 @@ def test_etf_keyword():
 
 def test_unknown_falls_through_to_other():
     assert classify(isin="XX999", description="mystery instrument") == AssetClass.OTHER
+
+
+# --- AIF / VC / PE units ----------------------------------------------------
+#
+# SEBI mandated demat for AIF units, so angel/VC/PE commitments arrive in an NSDL
+# CAS alongside the liquid holdings. Their ISINs are indistinguishable from the
+# liquid stuff — INF like a mutual fund, INE like a share — so only the name
+# separates them, and getting it wrong parks a decade-locked commitment in the
+# Mutual Funds leaf looking redeemable.
+
+@pytest.mark.parametrize("name", [
+    "ABC INDIA GROWTH FUND AIF CATEGORY II",
+    "XYZ ALTERNATIVE INVESTMENT FUND - CLASS A",
+    "SOME ALTERNATE INVESTMENT FUND SCHEME I",
+    "ABC VENTURE CAPITAL FUND - CLASS B",
+    "BLUME VENTURES FUND IV UNITS",
+    "KOTAK PRIVATE EQUITY FUND SERIES 3",
+])
+def test_aif_and_pe_units_are_not_mutual_funds(name):
+    # The INF prefix would otherwise make every one of these a mutual fund.
+    assert classify(section=Section.DEMAT, isin="INF1234567890",
+                    description=name) is AssetClass.PRIVATE_EQUITY
+
+
+def test_aif_with_a_corporate_isin_is_not_equity():
+    """INE is an issuer prefix, so a VC fund can carry one — and would otherwise
+    fall through to the direct-equity default."""
+    assert classify(section=Section.DEMAT, isin="INE1234567890",
+                    description="BLUME VENTURES FUND IV UNITS") is AssetClass.PRIVATE_EQUITY
+
+
+@pytest.mark.parametrize("name", [
+    "HDFC FLEXI CAP FUND - DIRECT GROWTH",
+    "SBI SMALL CAP FUND REGULAR GROWTH",
+    "ICICI PRU VALUE DISCOVERY FUND",
+    "UTI NIFTY 50 INDEX FUND",
+    "PARAG PARIKH FLEXI CAP FUND",
+])
+def test_ordinary_mutual_funds_still_classify_as_mutual_funds(name):
+    """The AIF rules must not swallow the liquid funds they sit next to."""
+    assert classify(section=Section.DEMAT, isin="INF1234567890",
+                    description=name) is AssetClass.MUTUAL_FUND

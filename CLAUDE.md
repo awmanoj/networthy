@@ -114,8 +114,17 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   /networth/import/cams` parses a CAMS PDF and stores it via `replace_networth_import`. **Invariant:
   a CAMS import is NOT a `Snapshot`** — it lives in its own `networth_holdings` table so it can
   never land on the dashboard net-worth timeline (a snapshot means *total* net worth; CAMS is
-  MF-only). MF precedence: CAMS supersedes NSDL (avoids double-count); Gold & Silver unions both,
-  deduped by ISIN. **MF import** (`cams_import.html`) is deliberately just **instructions + an
+  MF-only). **Source merge** (`main.merge_sources`, used by every data-backed leaf *and* the
+  AIF path): both statements can carry the same instrument, so rows are merged **per
+  instrument** — matched on ISIN, then on a normalised name (`_norm_name`, so "HDFC Flexi Cap
+  Fund - Direct Growth" matches "HDFC FLEXI CAP FUND-DIRECT-GROWTH"). **CAMS wins a conflict**:
+  it's the registrar's own record and carries the NAV the AMC published. The name fallback is
+  load-bearing — a row with no ISIN would otherwise never match and would be added beside its own
+  duplicate. This replaced a wholesale `cams or nsdl` for Mutual Funds that **silently dropped
+  every NSDL-held fund** the moment any CAMS import existed; money vanishing is worse than money
+  duplicated, because nothing on screen says it happened (`test_merge_sources.py` pins it). Each
+  merged row carries `source` = `CAMS`/`CAS`, rendered as a chip beside the ISIN so the
+  de-duplication is visible rather than something the reader has to trust. **MF import** (`cams_import.html`) is deliberately just **instructions + an
   upload**: request a consolidated statement from **MF Central** (`MFCENTRAL_PAGE`) or **CAMS**
   (`CAMS_CAS_PAGE`) — both mail the same CAMS+KFintech CAS — set its password to your PAN, then
   upload the emailed PDF, where `password` **falls back to the saved PAN** when blank. The PAN is
@@ -138,9 +147,21 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 
 - **`app/classify.py`** — a layered, config-driven asset-class rule engine (section context >
   ISIN prefix > description keywords > manual override), **wired into `_find_accounts`** so each
-  stored holding carries an `asset_class`. The
-  deliberate trap it guards: corporate bonds/NCDs share the `INE` prefix with equity, so ISIN
-  alone can't separate them — description keywords must.
+  stored holding carries an `asset_class`. Two traps it guards, both cases where the ISIN
+  **cannot** decide and only the name can: (1) corporate bonds/NCDs share the `INE` prefix with
+  equity; (2) **AIF / VC / PE units** — SEBI mandated demat for AIF, so illiquid angel and
+  private-equity commitments arrive in an NSDL CAS carrying an `INF` prefix (identical to a
+  mutual fund) or `INE` (identical to a share). Misclassifying those isn't cosmetic: a
+  decade-locked commitment would sit in the **Mutual Funds** leaf looking redeemable, and since
+  people also record these by hand under Alternate Investments it would be **counted twice** in
+  net worth from two leaves they'd never see together. So `private_equity` rows from a statement
+  are routed to the **Alternate Investments** leaf (`main._alt_cas_rows`, unioned CAMS+NSDL and
+  deduped by ISIN, the same shape as Gold & Silver), rendered in their own "From your statements"
+  block — deliberately *not* merged with the hand-entered rows, because seeing the two side by
+  side is what makes a duplicate visible — with a warning to delete the hand-entered copy.
+  `test_aif.py` pins the routing and the double-count; the AIF keyword rules sit **before** the
+  debt/ETF rules in `_KEYWORD_RULES` and `test_classify.py` pins that ordinary mutual funds
+  ("Flexi Cap Fund", "Nifty 50 Index Fund") are not swallowed by them.
 
 - **`app/models.py`** — dataclasses shared across layers: `Holding`, `ParsedStatement` (parser
   output), `Snapshot` (stored row).

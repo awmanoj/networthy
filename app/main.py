@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from datetime import date
 from pathlib import Path
@@ -499,26 +500,71 @@ _IMPORT_CTA = {
 MIN_EQUITY_VALUE = 10_000.0
 
 
+SOURCE_CAMS = "CAMS"
+SOURCE_NSDL = "CAS"
+
+
+def _norm_name(name: str | None) -> str:
+    """A holding name reduced for comparison across two statements.
+
+    The same fund is written differently by different issuers — "HDFC Flexi Cap
+    Fund - Direct Growth" vs "HDFC FLEXI CAP FUND-DIRECT-GROWTH" — so casing,
+    punctuation and runs of whitespace all have to go before comparing.
+    """
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def merge_sources(cams: list[dict], nsdl: list[dict]) -> list[dict]:
+    """One row per instrument across both statements, tagged with its source.
+
+    **CAMS wins on conflict** — it's the registrar's own record, dated later in
+    practice, and it carries the NAV the AMC published rather than a depository's
+    copy of it.
+
+    Matching is by ISIN, then by normalised name. The name fallback matters: a
+    row missing an ISIN would otherwise never match anything and would be added
+    *alongside* its own duplicate, which is exactly the double-count this exists
+    to prevent.
+    """
+    out = [dict(h, source=SOURCE_CAMS) for h in cams]
+    seen_isin = {h["isin"] for h in cams if h.get("isin")}
+    seen_name = {_norm_name(h.get("name")) for h in cams}
+    for h in nsdl:
+        isin = h.get("isin")
+        if isin and isin in seen_isin:
+            continue
+        name = _norm_name(h.get("name"))
+        if name and name in seen_name:
+            continue
+        out.append(dict(h, source=SOURCE_NSDL))
+        if isin:
+            seen_isin.add(isin)
+        if name:
+            seen_name.add(name)
+    return out
+
+
 def _leaf_rows(user, slug: str) -> list[dict] | None:
     """Merged holding rows for a data-backed Networth leaf, or None if it isn't one.
 
-    Precedence: for Mutual Funds, a CAMS import supersedes NSDL-classified MFs (same
-    RTA feed — avoids double counting). For Gold & Silver the two sources are largely
-    disjoint (funds vs demat SGB/ETF), so union them, deduped by ISIN with CAMS winning.
-    Direct equity comes only from the NSDL CAS. No live enrichment here — callers add it.
-    Tiny direct-equity positions (< MIN_EQUITY_VALUE) are dropped as tracking-only.
+    Both statements are merged **per instrument** (see `merge_sources`), with CAMS
+    winning a conflict. It used to be wholesale for Mutual Funds — `cams or nsdl` —
+    which silently dropped every NSDL-held fund the moment any CAMS import existed.
+    That's an undercount, and money quietly going missing is worse than money
+    counted twice: nothing on screen tells you it happened.
+
+    Direct equity comes only from the NSDL CAS. No live enrichment here — callers
+    add it. Tiny direct-equity positions (< MIN_EQUITY_VALUE) are dropped as
+    tracking-only.
     """
     classes = networth.LEAF_ASSET_CLASSES.get(slug)
     if not classes:
         return None
 
-    cams = storage.list_networth_holdings(user.id, classes)
-    nsdl = storage.latest_holdings_by_class(user.id, classes)
-    if slug == "mutual-funds":
-        rows = cams or nsdl
-    else:
-        seen = {h["isin"] for h in cams if h["isin"]}
-        rows = cams + [h for h in nsdl if not h["isin"] or h["isin"] not in seen]
+    rows = merge_sources(
+        storage.list_networth_holdings(user.id, classes),
+        storage.latest_holdings_by_class(user.id, classes),
+    )
     return [
         r for r in rows
         if not (
@@ -668,6 +714,19 @@ def _price_foreign(rows: list[dict]) -> float | None:
     return fx
 
 
+def _alt_cas_rows(user) -> list[dict]:
+    """AIF / VC / PE units the statements carry, for the Alternate Investments leaf.
+
+    Unioned from a CAMS import and the latest NSDL snapshot, deduped by ISIN, the
+    same way the Gold & Silver leaf handles its two sources.
+    """
+    classes = {AssetClass.PRIVATE_EQUITY.value}
+    return merge_sources(
+        storage.list_networth_holdings(user.id, classes),
+        storage.latest_holdings_by_class(user.id, classes),
+    )
+
+
 def _leaf_value(user, slug: str) -> float | None:
     """A leaf's live-consistent total — CAS holdings (live) + manual entries — or
     None if the leaf is neither data-backed nor manual-enabled. Rolls up the tree."""
@@ -690,7 +749,13 @@ def _leaf_value(user, slug: str) -> float | None:
         return sum(r["value"] or 0.0 for r in rows)
 
     if slug == ALT_LEAF:
-        return sum(r["current_value"] or 0.0 for r in storage.list_alt_investments(user.id))
+        # Hand-entered positions, plus any AIF/VC/PE units the CAS carries: SEBI
+        # mandated demat for AIF, so those arrive classified as private_equity and
+        # belong here rather than sitting in Mutual Funds looking redeemable.
+        manual = sum(r["current_value"] or 0.0
+                     for r in storage.list_alt_investments(user.id))
+        from_cas = sum(r["value"] or 0.0 for r in _alt_cas_rows(user))
+        return manual + from_cas
 
     if slug in networth.REALTY_LEAVES:
         return sum(
@@ -783,10 +848,18 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         rows = storage.list_alt_investments(user.id)
         _enrich_alt(rows)
         cost_total = sum(r["cost"] or 0.0 for r in rows if r.get("cost"))
+        # AIF/VC/PE units the statements carry. Shown as a separate block rather
+        # than merged: these are from a statement and can't be edited here, and
+        # keeping them visibly distinct is what lets someone spot that they've
+        # also entered the same commitment by hand.
+        cas_rows = _alt_cas_rows(user)
+        cas_total = sum(r["value"] or 0.0 for r in cas_rows)
         return {
             "is_alt": True,
             "holdings": rows,
-            "live_total": sum(r["current_value"] or 0.0 for r in rows),
+            "cas_holdings": cas_rows,
+            "cas_total": cas_total,
+            "live_total": sum(r["current_value"] or 0.0 for r in rows) + cas_total,
             "cost_total": cost_total,
             "leaf_slug": slug,
         }

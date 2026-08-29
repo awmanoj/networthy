@@ -32,7 +32,9 @@ class AssetClass(str, Enum):
     SILVER = "silver"  # silver ETF/fund
     ETF = "etf"
     NPS = "nps"
-    # --- Manual entry (not in an NSDL CAS) ---
+    # --- Usually hand-entered, but PRIVATE_EQUITY can also arrive from a CAS:
+    #     SEBI mandated demat for AIF units, so AIF/VC/PE commitments show up in
+    #     an NSDL statement alongside the liquid holdings. ---
     PPF = "ppf"
     EPF = "epf"
     PRIVATE_EQUITY = "private_equity"
@@ -56,6 +58,23 @@ _KEYWORD_RULES: list[tuple[re.Pattern[str], AssetClass]] = [
     (re.compile(r"\b(sgb|sovereign\s+gold|gold\s+bond)\b", re.I), AssetClass.GOLD),
     (re.compile(r"\bgold\b.*\b(etf|fund)\b", re.I), AssetClass.GOLD),
     (re.compile(r"\bsilver\b.*\b(etf|fund)\b", re.I), AssetClass.SILVER),
+    # AIF / PE / VC units, *before* the debt and fund rules. SEBI mandated demat
+    # for AIF units, so angel, venture and private-equity commitments really do
+    # show up in an NSDL CAS — and their ISINs are indistinguishable from the
+    # liquid stuff (INF like a mutual fund, or INE like a share). Only the name
+    # gives them away. Getting this wrong doesn't just mislabel: an illiquid
+    # decade-locked commitment would sit in the Mutual Funds leaf looking like
+    # something you could redeem on Monday, and — because people also enter these
+    # by hand under Alternate Investments — it would be counted twice in net worth
+    # from two different leaves, where you'd never see the two rows together.
+    (re.compile(r"\b(aif|alternat(e|ive)\s+investment\s+fund)\b", re.I),
+     AssetClass.PRIVATE_EQUITY),
+    (re.compile(r"\b(ventures?\s+(capital|fund|partners)|vcf|private\s+equity)\b", re.I),
+     AssetClass.PRIVATE_EQUITY),
+    # "Category I/II/III" is AIF-specific regulatory wording; no mutual fund
+    # scheme name carries it.
+    (re.compile(r"\bcategory\s+(i{1,3}|1|2|3)\b.*\bfund\b|\bfund\b.*\bcategory\s+(i{1,3}|1|2|3)\b", re.I),
+     AssetClass.PRIVATE_EQUITY),
     (re.compile(r"\b(ncd|debenture|bond)\b", re.I), AssetClass.DEBT),
     (re.compile(r"\b(g-?sec|govt?\.?\s+stock|treasury|t-?bill|gilt)\b", re.I), AssetClass.GOVT_SECURITY),
     (re.compile(r"\betf\b", re.I), AssetClass.ETF),
