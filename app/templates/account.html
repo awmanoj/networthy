@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Your data · Networthy HQ{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <h1>Your data</h1>
+  <p class="muted">
+    Everything you've entered or imported, signed in as <strong>{{ user.email }}</strong>.
+    Take it with you whenever you like — no email, no waiting.
+  </p>
+</section>
+
+<section class="dash-card acct-card">
+  <h2>Download everything</h2>
+  <p class="muted acct-lead">
+    {% if total_rows %}
+    {{ "{:,}".format(total_rows) }} rows across {{ counts|length }} table{{ '' if counts|length == 1 else 's' }},
+    straight from the database — not a summary.
+    {% else %}
+    Nothing to export yet. Add a holding or import a statement first.
+    {% endif %}
+  </p>
+
+  {% if total_rows %}
+  <div class="acct-actions">
+    <a class="btn" href="/account/export.json">Download JSON</a>
+    <a class="btn btn-outline" href="/account/export.zip">Download CSVs (.zip)</a>
+  </div>
+  <p class="muted acct-note">
+    JSON keeps the full structure; the zip has one CSV per table for spreadsheets.
+    Session tokens and login codes are deliberately left out — they're credentials,
+    not your data.
+  </p>
+
+  <details class="acct-detail">
+    <summary>What's in it</summary>
+    <ul class="acct-tables">
+      {% for table, n in counts.items() %}
+      <li><code>{{ table }}</code><span>{{ "{:,}".format(n) }} row{{ '' if n == 1 else 's' }}</span></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>
+
+<section class="dash-card acct-card acct-danger">
+  <h2>Delete everything</h2>
+  {% if is_demo %}
+  <p class="muted acct-lead">
+    This is the shared demo account, so deletion is disabled — one visitor emptying
+    it would break it for everyone else. <a href="/login">Create your own account</a>
+    to try this.
+  </p>
+  {% else %}
+  <p class="muted acct-lead">
+    Erases every holding, statement, expense, goal and setting on this account.
+    <strong>This can't be undone</strong>, and there's no backup we can restore from —
+    that's rather the point of the privacy promise. Download a copy first if you might
+    want it.
+  </p>
+
+  {% if request.query_params.get('confirm') %}
+  <div class="alert">Type DELETE exactly to confirm. Nothing was deleted.</div>
+  {% endif %}
+
+  <form method="post" action="/account/delete" class="acct-delete-form"
+        onsubmit="return confirm('Delete all your data? This cannot be undone.');">
+    <label for="confirm-box">Type <strong>DELETE</strong> to confirm</label>
+    <input id="confirm-box" name="confirm" autocomplete="off" placeholder="DELETE" required>
+    <button class="btn btn-danger" type="submit">Delete my data</button>
+  </form>
+  {% endif %}
+</section>
+
+<p class="muted page-footnote">
+  Prefer your data never left your machine in the first place? Networthy runs locally:
+  <code>uvx networthy</code> — see <a href="/privacy">Privacy</a>.
+</p>
+
+{% endblock %}

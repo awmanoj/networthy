@@ -51,7 +51,7 @@ def test_demo_route_logs_in_and_seeds(client):
 
     client.cookies.update(r.cookies)
     dash = client.get("/")                               # now the Dashboard, not the landing
-    assert 'user-email">demo@networthyhq.com' in dash.text
+    assert 'class="user-email"' in dash.text and "demo@networthyhq.com" in dash.text
     assert "demo-banner" in dash.text                    # the "you're in the demo" banner
     assert client.get("/goals").status_code == 200
 

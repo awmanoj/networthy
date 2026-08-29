@@ -14,8 +14,8 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import (__version__, analytics, auth, demo, digest, expenses, goals,
-               networth, prices, projection, storage, wealth)
+from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
+               goals, networth, prices, projection, storage, wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -119,6 +119,70 @@ def verify_submit(request: Request, email: str = Form(...), code: str = Form(...
         samesite="lax",
         secure=auth.cookie_secure(),
     )
+    return resp
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page(request: Request):
+    """Your data: take it with you, or erase it."""
+    user = request.state.user
+    counts = {t: len(rows) for t, rows in exporter.collect(user.id).items() if rows}
+    return templates.TemplateResponse(
+        "account.html",
+        {
+            "request": request,
+            "user": user,
+            "counts": counts,
+            "total_rows": sum(counts.values()),
+            "is_demo": demo.is_demo(user),
+        },
+    )
+
+
+@app.get("/account/export.json")
+def export_json(request: Request):
+    user = request.state.user
+    body = exporter.as_json(user.id, user.email)
+    stamp = date.today().isoformat()
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition":
+                 f'attachment; filename="networthy-{stamp}.json"'},
+    )
+
+
+@app.get("/account/export.zip")
+def export_csv_zip(request: Request):
+    user = request.state.user
+    body = exporter.as_csv_zip(user.id, user.email)
+    stamp = date.today().isoformat()
+    return Response(
+        content=body,
+        media_type="application/zip",
+        headers={"Content-Disposition":
+                 f'attachment; filename="networthy-csv-{stamp}.zip"'},
+    )
+
+
+@app.post("/account/delete")
+def account_delete(request: Request, confirm: str = Form("")):
+    """Erase everything this account holds.
+
+    Guarded by typing DELETE rather than a checkbox — it's irreversible, and the
+    page says so. The shared demo account is exempt: one visitor must not be able
+    to empty it for everyone.
+    """
+    user = request.state.user
+    if demo.is_demo(user):
+        return RedirectResponse(url="/account?demo=1", status_code=303)
+    if confirm.strip().upper() != "DELETE":
+        return RedirectResponse(url="/account?confirm=1", status_code=303)
+
+    exporter.delete_everything(user.id)
+    auth.logout(request.cookies.get(SESSION_COOKIE))
+    resp = RedirectResponse(url="/?deleted=1", status_code=303)
+    resp.delete_cookie(SESSION_COOKIE)
     return resp
 
 

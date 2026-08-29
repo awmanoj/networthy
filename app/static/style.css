@@ -150,7 +150,8 @@ body {
 /* The upload link is a .btn — keep its label white over the accent fill
    (this selector must out-specify `.topbar nav a` above). */
 .topbar nav a.btn, .topbar nav a.btn:hover { color: #fff; }
-.topbar .user-email { color: var(--muted); font-size: 0.85rem; }
+.topbar .user-email { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+.topbar a.user-email:hover { color: var(--accent); }
 .link-muted {
   background: none; border: none; color: var(--muted);
   cursor: pointer; font: inherit; padding: 0;
@@ -651,6 +652,33 @@ table.holdings tbody tr:last-child td { border-bottom: none; }
 .stand-table tbody tr + tr th, .stand-table tbody tr + tr td { border-top: 1px solid var(--border); }
 .stand-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stand-table tbody tr:hover { background: var(--surface-2); }
+
+/* --- Account: export and delete -------------------------------------------- */
+.acct-card { padding: 22px 26px; margin-bottom: 20px; }
+.acct-card h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; letter-spacing: -0.01em; }
+.acct-lead { margin: 0 0 16px; font-size: 0.9rem; line-height: 1.6; max-width: 68ch; }
+.acct-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.acct-note { margin: 14px 0 0; font-size: 0.82rem; line-height: 1.55; max-width: 68ch; }
+.acct-detail { margin-top: 14px; }
+.acct-detail summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+.acct-tables { list-style: none; padding: 12px 0 0; margin: 0; display: grid; gap: 4px; max-width: 380px; }
+.acct-tables li { display: flex; justify-content: space-between; gap: 16px; font-size: 0.84rem; }
+.acct-tables code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; }
+.acct-tables span { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Deletion is irreversible, so it reads as a different kind of thing. */
+.acct-danger { border-color: color-mix(in srgb, var(--loss) 40%, var(--border)); }
+.acct-danger h2 { color: var(--loss); }
+.acct-delete-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.acct-delete-form label { font-size: 0.86rem; color: var(--muted); }
+.acct-delete-form input {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font: inherit; color: var(--text); width: 150px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.acct-delete-form input:focus { outline: none; border-color: var(--loss); }
+.btn.btn-danger { background: var(--loss); color: #fff; }
+.btn.btn-danger:hover { filter: brightness(1.06); }
 
 /* --- Public retirement-corpus page ----------------------------------------- */
 /* The two money fields are the primary interaction, so they get the same

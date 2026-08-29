@@ -237,6 +237,23 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   every segment). It is **server-side only** — `standing.js` mirrors only the forward ranking,
   because the inverse feeds a static table, so there's no JS twin to keep in sync.
 
+- **`app/exporter.py` + `GET /account`** (template `account.html`, linked from the email in the
+  nav) — take your data out, or erase it. `EXPORT_TABLES` is an **explicit list**, not derived by
+  walking `sqlite_master` for a `user_id` column: a future table should join the export by a
+  deliberate act, not silently. `test_export.py` asserts the two can't drift — every per-user
+  table must be in `EXPORT_TABLES` or in `_EXCLUDED`, so adding one fails the suite until it's
+  classified. Note `user_settings` (PAN, SWR, plan inputs) is in the export but **not** in
+  `demo._TABLES`, which is the list you'd otherwise reach for — that omission is exactly the gap
+  this guards. `holdings` is scoped through its parent snapshot (no `user_id` of its own) and
+  carries `statement_date` so the rows stand alone. **Sessions and login codes are never
+  exported** — live credentials in a downloads folder are a hole, not a feature. Formats:
+  `as_json` (complete, with a provenance header) and `as_csv_zip` (one CSV per *non-empty*
+  table + a README). `delete_everything` covers exactly what `collect` returns, so "download
+  everything" and "delete everything" can't diverge; the `users` row survives (it's the identity
+  a live request hangs off). Deletion needs the word DELETE (case/whitespace-insensitive — the
+  guard is against a mis-click, not a typing test) and **the shared demo account is exempt**, or
+  one visitor could empty it for everyone.
+
 - **Disclaimers** — three layers, deliberately. (1) `_footer.html` carries a one-line global
   "indicative estimates, not financial advice" that appears on **every** page via both bases.
   (2) `_notes.html` exports a `fine_print(text)` macro — one place to word the caveat + the Terms
