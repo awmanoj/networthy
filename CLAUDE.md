@@ -80,7 +80,7 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   ticker lines like "E2E.NSE"); prose ISIN mentions and nil/0-value rows are dropped.
   Validated against a real NSDL e-CAS. Remaining hardening (other issuers/depositories, and
   values that wrap to the next line) is cleaner via pdfplumber **word/table coordinates** than
-  text regex — a known future path. Note: holding numeric tokens use `_HOLDING_NUM_RE` (3–4
+  text regex — a known future path. **Identifiers are not amounts**: a flattened line can carry a folio or account number beside the holding, and money in a CAS is *always* written with decimals or Indian grouping — so `_looks_like_identifier` skips bare digit runs of `_ID_DIGITS` (9) or more. Without it a 12-digit folio number was read as the value, producing a real ₹477,280,532,916 holding with no units and no price. The guard keys on **formatting, not magnitude**, so a genuinely large holding written `50,00,00,000.00` still parses. `storage.drop_phantom_holdings()` (from `init_db`) clears rows already stored that way — signature is units NULL *and* price NULL *and* value ≥ ₹10 crore, which nothing legitimate matches, and a re-upload restores anything it removes. Note: holding numeric tokens use `_HOLDING_NUM_RE` (3–4
   decimals for NAV/units), not the 2-decimal `_AMOUNT_RE` used for money totals. A *summary*
   CAS has no per-holding rows to explode. Shares decrypt/text/float helpers with the CAMS
   parser via `app/parser/_common.py`.

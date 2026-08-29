@@ -369,6 +369,26 @@ _FACE_VALUE_RE = re.compile(
 )
 
 
+# Money in a CAS is always written with decimals ("15,234.56") or Indian grouping,
+# never as a long bare run of digits. Folio and account numbers are exactly that,
+# and they sit on the same flattened line as the holding — so without this a
+# 12-digit folio number is read as a rupee value. That produced a real ₹477 billion
+# "holding" with no units and no price.
+#
+# 9 digits is the floor because it's already ₹10 crore: past anything a statement
+# would print without separators, and short of the folio lengths seen in practice.
+_ID_DIGITS = 9
+
+
+def _looks_like_identifier(token: str) -> bool:
+    """True for a bare digit run long enough to be a folio/account number."""
+    return (
+        "." not in token
+        and "," not in token
+        and len(token) >= _ID_DIGITS
+    )
+
+
 def _mask_face_values(text: str) -> str:
     """Hide face-value digits from the column scan, preserving string length."""
     return _FACE_VALUE_RE.sub(lambda m: m.group(1) + "x" * len(m.group(2)), text)
@@ -394,10 +414,18 @@ def _trailing_numbers_start(text: str) -> int | None:
 
 
 def _amounts(fragment: str) -> list[float]:
-    """Every Indian-grouped amount in a text fragment, left to right."""
+    """Every Indian-grouped amount in a text fragment, left to right.
+
+    Bare digit runs long enough to be identifiers (folio numbers, account
+    numbers) are skipped — they are not amounts, and reading one as a value
+    produces a holding worth hundreds of crore.
+    """
     out: list[float] = []
     for m in _HOLDING_NUM_RE.finditer(fragment):
-        v = _to_float(m.group(0))
+        token = m.group(0)
+        if _looks_like_identifier(token):
+            continue
+        v = _to_float(token)
         if v is not None:
             out.append(v)
     return out

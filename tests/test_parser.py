@@ -259,3 +259,80 @@ def test_ordinary_rows_are_unaffected_by_the_masking():
     h = _parse_holding_line(
         "INE002A08534 HDFC LTD EQUITY SHARES 100.000 2500.0000 250000.00", Section.DEMAT)
     assert (h.units, h.price, h.value) == (100.0, 2500.0, 250000.0)
+
+
+# --- Folio numbers are not amounts -------------------------------------------
+#
+# A flattened CAS line can carry a folio or account number next to the holding.
+# Money in a statement is always written with decimals or Indian grouping, so a
+# long bare digit run is an identifier. Reading one as a value produced a real
+# ₹477,280,532,916 "holding" with no units and no price.
+
+def test_a_folio_number_is_not_read_as_a_value():
+    """The row that shipped: name, ISIN, then a bare 12-digit folio number."""
+    line = "ISIN ETF FUND OF FUND (FOF) - GROWTH PLAN INF204KC1345 477280532916"
+    assert _parse_holding_line(line, Section.MUTUAL_FUND) is None
+
+
+def test_a_folio_number_beside_real_columns_is_skipped():
+    line = "HDFC FLEXI CAP FUND INF179K01158 477280532916 1000.000 12.3456 15234.56"
+    h = _parse_holding_line(line, Section.MUTUAL_FUND)
+    assert (h.units, h.price, h.value) == (1000.0, 12.3456, 15234.56)
+    assert "477280532916" not in h.name
+
+
+@pytest.mark.parametrize("token,expected", [
+    ("12345678", 12345678.0),        # 8 digits — could be an amount, kept
+    ("1,23,45,678", 12345678.0),     # grouped — unambiguously an amount
+    ("12345678.90", 12345678.90),    # decimals — unambiguously an amount
+])
+def test_plausible_amounts_survive(token, expected):
+    h = _parse_holding_line(f"X FUND INF179K01158 {token}", Section.MUTUAL_FUND)
+    assert h is not None and h.value == expected
+
+
+@pytest.mark.parametrize("token", ["123456789", "477280532916", "91234567890123"])
+def test_long_bare_digit_runs_are_treated_as_identifiers(token):
+    assert _parse_holding_line(f"X FUND INF179K01158 {token}",
+                               Section.MUTUAL_FUND) is None
+
+
+def test_grouped_crore_values_are_still_amounts():
+    """The guard keys on formatting, not magnitude — a genuinely large holding
+    written the way a statement writes it must survive."""
+    h = _parse_holding_line(
+        "BIG FUND INF179K01158 1000.000 5000.0000 50,00,00,000.00", Section.MUTUAL_FUND)
+    assert h.value == 500000000.0
+
+
+# --- Cleaning up rows already stored with an identifier as their value --------
+
+def test_drop_phantom_holdings_removes_only_the_bad_shape(tmp_path, monkeypatch):
+    """The parser fix reaches new uploads only, and one of these rows adds
+    hundreds of crore to a net worth — too wrong to leave until a re-upload."""
+    from datetime import date as _date
+    from app import storage
+    from app.models import Account, Holding, Snapshot
+
+    monkeypatch.setattr(storage, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(storage, "DB_PATH", tmp_path / "t.db")
+    storage.init_db()
+    uid = storage.get_or_create_user("phantom@test.com").id
+    sid = storage.upsert_snapshot(uid, Snapshot(
+        statement_date=_date(2026, 6, 30), total_value=0.0,
+        holding_count=4, source_filename="cas.pdf"))
+    storage.replace_holdings(sid, [Account(kind="mutual_fund", name="MF", holdings=[
+        # The real row: no units, no price, a folio number as the value.
+        Holding("ISIN ETF FUND OF FUND (FOF)", "mutual_fund", "INF204KC1345",
+                None, None, 477_280_532_916.0),
+        # Large but genuine — has units, so untouched however big it is.
+        Holding("Big Real Holding", "mutual_fund", "INF1", 5000.0, 40000.0, 200_000_000.0),
+        # No units/price but a sane value — untouched.
+        Holding("Small Unpriced", "mutual_fund", "INF2", None, None, 50_000.0),
+        Holding("Ordinary", "mutual_fund", "INF3", 100.0, 10.0, 1_000.0),
+    ])])
+
+    assert storage.drop_phantom_holdings() == 1
+    names = {h["name"] for h in storage.latest_holdings_by_class(uid, {"mutual_fund"})}
+    assert names == {"Big Real Holding", "Small Unpriced", "Ordinary"}
+    assert storage.drop_phantom_holdings() == 0          # idempotent

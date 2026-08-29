@@ -504,6 +504,7 @@ def init_db() -> None:
     # connection: statements parsed before the classifier learned about AIF units
     # still file them as mutual funds. Idempotent and cheap.
     reclassify_holdings()
+    drop_phantom_holdings()
 
 
 def _add_column_if_missing(
@@ -692,6 +693,34 @@ def apply_overrides(user_id: int, rows: list[dict]) -> list[dict]:
             r = dict(r, asset_class=target, overridden=True)
         out.append(r)
     return out
+
+
+# A holding with no units, no price, and a value past ₹10 crore is the fingerprint
+# of a folio number parsed as an amount (see `_looks_like_identifier` in the NSDL
+# parser — identifiers are 9+ digits, i.e. ₹10 crore and up). Real rows carry
+# units, or a price, or both.
+_PHANTOM_VALUE_FLOOR = 100_000_000.0
+
+
+def drop_phantom_holdings() -> int:
+    """Remove rows where an identifier was stored as a value. Returns the count.
+
+    The parser fix only reaches statements uploaded *after* it, and one of these
+    rows adds hundreds of crore to a net worth — too wrong to leave sitting there
+    waiting for a re-upload. The signature is deliberately narrow: nothing with
+    units or a price is touched, and re-uploading the statement restores anything
+    this removes, correctly parsed.
+    """
+    removed = 0
+    with _connect() as conn:
+        for table in ("holdings", "networth_holdings"):
+            cur = conn.execute(
+                f"DELETE FROM {table} "
+                f"WHERE units IS NULL AND price IS NULL AND value >= ?",
+                (_PHANTOM_VALUE_FLOOR,),
+            )
+            removed += cur.rowcount
+    return removed
 
 
 def reclassify_holdings() -> int:
