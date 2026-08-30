@@ -956,6 +956,10 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         _enrich_liability(rows)
         return {
             "is_liability": True,
+            # A write-down subtracts like a loan but isn't one, so the page drops
+            # the lender/rate/EMI/end-date columns and asks for a label and an
+            # amount instead.
+            "is_adjustment": slug == networth.ADJUSTMENT_LEAF,
             "holdings": rows,
             "live_total": sum(r["outstanding"] or 0.0 for r in rows),
             "emi_total": sum(r["emi"] or 0.0 for r in rows if r.get("emi")),

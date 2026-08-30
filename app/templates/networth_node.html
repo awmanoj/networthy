@@ -736,13 +736,28 @@
   <section class="card">
     <div class="card-head">
       <div class="stat">
-        <span class="stat-label">Outstanding{% if leaf_data.emi_total %} · ₹{{ "{:,.0f}".format(leaf_data.emi_total) }}/mo EMI{% endif %}</span>
+        <span class="stat-label">{% if leaf_data.is_adjustment %}Total discount applied{% else %}Outstanding{% if leaf_data.emi_total %} · ₹{{ "{:,.0f}".format(leaf_data.emi_total) }}/mo EMI{% endif %}{% endif %}</span>
         <span class="stat-value">₹{{ "{:,.0f}".format(leaf_data.live_total) }}</span>
       </div>
     </div>
+    {% if leaf_data.is_adjustment %}
+    <p class="muted adj-lead">
+      For assets you don't want counted at face value — an AIF marked at ₹4 crore you'd
+      rather carry at ₹2.5 crore, an ESOP holding you don't believe, a property valued
+      optimistically. Enter the <strong>difference</strong> and it comes off your net
+      worth, while the asset itself keeps its stated value where you can still see it.
+    </p>
+    {% endif %}
     {% if leaf_data.holdings %}
     <table class="holdings">
       <thead>
+        {% if leaf_data.is_adjustment %}
+        <tr>
+          <th>What you're discounting</th>
+          <th class="num">Discount</th>
+          <th></th>
+        </tr>
+        {% else %}
         <tr>
           <th>Lender</th>
           <th class="num">Outstanding</th>
@@ -752,12 +767,14 @@
           <th>Ends</th>
           <th></th>
         </tr>
+        {% endif %}
       </thead>
       <tbody>
         {% for h in leaf_data.holdings %}
         <tr{% if ed and ed.id == h.id %} class="row-editing"{% endif %}>
           <td class="h-name">{{ h.lender }}{% if h.notes %} <span class="h-isin muted">{{ h.notes }}</span>{% endif %}</td>
-          <td class="num">₹{{ "{:,.0f}".format(h.outstanding) }}</td>
+          <td class="num">{% if leaf_data.is_adjustment %}−{% endif %}₹{{ "{:,.0f}".format(h.outstanding) }}</td>
+          {% if not leaf_data.is_adjustment %}
           <td class="num">{{ "{:g}%".format(h.rate) if h.rate is not none else "—" }}</td>
           <td class="num">{{ "₹{:,.0f}".format(h.emi) if h.emi is not none else "—" }}</td>
           <td class="num">{{ "{:.0f}%".format(h.paid_pct) if h.paid_pct is not none else "—" }}</td>
@@ -765,6 +782,7 @@
             {{ h.end_fmt or "—" }}
             {% if h.remaining %}<span class="matures-in muted">{{ h.remaining }}</span>{% endif %}
           </td>
+          {% endif %}
           <td class="num nw-actions">
             {{ edit_link(h.id) }}
             <form method="post" action="/networth/liability/{{ h.id }}/delete"
@@ -779,11 +797,29 @@
     </table>
     {% endif %}
     <div class="manual-section{% if leaf_data.holdings %} manual-sep{% endif %}">
-      <h3 class="manual-head" id="editform">{{ "Edit liability" if ed else "Add liability" }}</h3>
+      <h3 class="manual-head" id="editform">
+        {% if leaf_data.is_adjustment %}{{ "Edit adjustment" if ed else "Add an adjustment" }}
+        {% else %}{{ "Edit liability" if ed else "Add liability" }}{% endif %}
+      </h3>
       <form class="manual-add{% if ed %} edit-glow{% endif %}" method="post" action="/networth/liability/add">
         <input type="hidden" name="leaf_slug" value="{{ leaf_data.leaf_slug }}">
         <input type="hidden" name="redirect" value="{{ node_path }}">
         {{ id_field(ed) }}
+        {% if leaf_data.is_adjustment %}
+        <div class="manual-field col-2">
+          <label for="l-lender">What you're discounting</label>
+          <input id="l-lender" name="lender" placeholder="e.g. AIF carried below stated value" value="{{ ed.lender if ed else '' }}" required>
+        </div>
+        <div class="manual-field col-2">
+          <label for="l-out">Discount ₹</label>
+          <input id="l-out" name="outstanding" type="number" step="any" min="0" placeholder="0" value="{{ ed.outstanding if ed else '' }}" required>
+        </div>
+        <div class="manual-field col-2">
+          <label for="l-notes">Why <span class="opt">optional</span></label>
+          <input id="l-notes" name="notes" placeholder="e.g. AIF marked at ₹4 cr, carrying at ₹2.5 cr" value="{{ ed.notes if ed and ed.notes else '' }}">
+        </div>
+        {{ form_actions(ed, "Add", "Enter the amount to take off, not the asset's value. Recording why matters — in a year you won't remember.") }}
+        {% else %}
         <div class="manual-field col-2">
           <label for="l-lender">Lender</label>
           <input id="l-lender" name="lender" placeholder="e.g. HDFC Home Loan" value="{{ ed.lender if ed else '' }}" required>
@@ -813,6 +849,7 @@
           <input id="l-notes" name="notes" placeholder="e.g. floating rate" value="{{ ed.notes if ed and ed.notes else '' }}">
         </div>
         {{ form_actions(ed, "Add", "Outstanding balance is what net worth subtracts; principal shows how much you've paid off.") }}
+        {% endif %}
       </form>
     </div>
   </section>

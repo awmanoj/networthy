@@ -96,6 +96,14 @@ SECTIONS: list[Node] = [
             Node("education-loan", "Education Loan"),
             Node("consumer-emi", "Consumer / BNPL EMIs"),
         ]),
+        # Not debt — a place to write down an asset you don't fully believe.
+        # It lives under Liabilities because that's what makes it subtract, and
+        # keeping it visible there is the point: a haircut applied invisibly to
+        # the asset itself would leave you unable to see what you'd discounted.
+        Node("adjustments", "Adjustments", children=[
+            Node("valuation-adjustment", "Valuation Adjustment",
+                 note="Discount an asset you think is over-stated"),
+        ]),
     ]),
 ]
 
@@ -151,10 +159,16 @@ REALTY_LEAVES: set[str] = {
 # Every Liabilities leaf — each holds hand-entered loans/dues (lender, outstanding
 # balance, and optional principal/rate/EMI/end-date). Outstanding is what net worth
 # subtracts.
+# The leaf where an asset write-down lives. Shares the `liabilities` table and the
+# subtract-from-net-worth behaviour, but it isn't a loan, so the page asks for a
+# label and an amount instead of a lender, rate, EMI and end date.
+ADJUSTMENT_LEAF = "valuation-adjustment"
+
 LIABILITY_LEAVES: set[str] = {
     "home-loan", "loan-against-property", "vehicle-loan",
     "loan-against-securities", "gold-loan",
     "personal-loan", "credit-card", "education-loan", "consumer-emi",
+    ADJUSTMENT_LEAF,
 }
 
 

@@ -508,8 +508,7 @@ duplicated and pinned to the same versions — keep them in step.
   **or** a flat hand-entered value; routes `POST /networth/gold/add` + `/gold/{id}/delete`.
   *Private Business* (`BUSINESS_LEAF` = `private-business`) — `business_holdings` (name,
   ownership_pct, cost, current_value, invested_date, notes), gain via `_enrich_alt`; routes
-  `POST /networth/business/add` + `/business/{id}/delete`. *Liabilities* — `networth.LIABILITY_LEAVES`
-  (all 9 loan/dues leaves); hand-entered in the `liabilities` table (lender, **outstanding**,
+  `POST /networth/business/add` + `/business/{id}/delete`. *Valuation Adjustment* (`networth.ADJUSTMENT_LEAF` = `valuation-adjustment`, under a third **Adjustments** subsection of Liabilities) — a catch-all write-down for an asset you don't want counted at face value: an AIF marked at ₹4 cr you'd rather carry at ₹2.5 cr. It reuses the `liabilities` table and the subtract-from-net-worth behaviour, but it is **not debt**, which is why it sits in its own subsection rather than among the loans, and why the leaf hides lender/rate/EMI/end-date and asks for a label + a discount instead (`leaf_data.is_adjustment`). Deliberately a *liability* rather than an edit to the asset: the asset keeps its stated value, so the haircut stays visible and reversible instead of being silently baked in. *Liabilities* — `networth.LIABILITY_LEAVES` hand-entered in the `liabilities` table (lender, **outstanding**,
   principal, rate, emi, end_date, notes); **`outstanding` is what net worth subtracts** (not the
   principal borrowed), enriched by `main._enrich_liability` (% paid off from principal, remaining
   tenure from end_date); routes `POST /networth/liability/add` + `/liability/{id}/delete`. Assets

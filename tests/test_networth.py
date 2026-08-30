@@ -74,7 +74,10 @@ def test_real_estate_sub_types():
 
 def test_liabilities_split_into_secured_and_unsecured():
     liab = resolve("liabilities")[-1]
-    assert [c.slug for c in liab.children] == ["secured-loans", "unsecured-loans"]
+    # Adjustments sits alongside the loans: it subtracts like a liability but
+    # isn't debt, so it gets its own subsection rather than hiding among loans.
+    assert [c.slug for c in liab.children] == [
+        "secured-loans", "unsecured-loans", "adjustments"]
 
 
 def test_secured_loan_leaves():
