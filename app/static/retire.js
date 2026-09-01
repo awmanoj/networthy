@@ -88,6 +88,22 @@ function initRetire(cfg) {
       const lastsLabel =
         lasts === null ? `lasts ${cfg.cap}+ yrs` : `lasts ~${lasts} yrs`;
       const lastsClass = lasts === null || lasts >= horizon ? "ok" : "short";
+
+      // What the surplus buys, in years. Only stated when both durations are real
+      // measurements: if your own corpus outlasts the cap, the "extra" would be
+      // (cap − lasts), which is arithmetic on a display limit rather than on
+      // anything the model computed. Quoting it would invent precision — the true
+      // answer there is "indefinitely", handled in the verdict below.
+      const mineLasts = yearsLasting(netWorth, annual, returnPct, inflPct, cfg.cap);
+      let bonus = "";
+      if (gap <= 0 && lasts !== null) {
+        // "doesn't run dry" would be an overclaim: outlasting the cap is not the
+        // same as lasting forever, and whether it truly never depletes depends on
+        // the draw versus the *real* return — which the verdict below works out.
+        bonus = mineLasts === null
+          ? ` · yours lasts past ${cfg.cap} yrs`
+          : ` · buys ${mineLasts - lasts} more yrs`;
+      }
       return `
         <div class="r-row r-row--${state}">
           <div class="r-rate">
@@ -106,7 +122,7 @@ function initRetire(cfg) {
               <span class="muted">${rate.note}</span>
               <span class="r-gap">${
                 gap <= 0
-                  ? "covered · " + compact(-gap) + " spare"
+                  ? "covered · " + compact(-gap) + " spare" + bonus
                   : compact(gap) + " short"
               }</span>
             </div>
@@ -133,9 +149,17 @@ function initRetire(cfg) {
     if (netWorth > 0) {
       const impliedRate = (annual / netWorth) * 100;
       const lasts = yearsLasting(netWorth, annual, returnPct, inflPct, cfg.cap);
+      // Real return, not nominal minus inflation — the difference matters at
+      // these rates. Withdraw less than this and the corpus grows instead of
+      // depleting, which is why "how many years" has no answer: it's every year.
+      const realReturn = ((1 + returnPct / 100) / (1 + inflPct / 100) - 1) * 100;
       const verdict =
         lasts === null
-          ? `it outlasts ${cfg.cap} years`
+          ? (impliedRate < realReturn
+              ? `it never runs dry — you'd be drawing ${impliedRate.toFixed(1)}% while the
+                 portfolio earns about <strong>${realReturn.toFixed(1)}% after inflation</strong>,
+                 so the corpus grows rather than shrinks`
+              : `it lasts beyond ${cfg.cap} years`)
           : `it runs dry in about <strong>${lasts} years</strong>`;
       out += `
         <p class="r-implied r-implied--second">
