@@ -60,6 +60,48 @@ function initRetire(cfg) {
     return hi;
   }
 
+  // Balance left at the end of `years`, or 0 if it died on the way. The
+  // "leave to your kids" number — and, deflated, the only honest way to show it:
+  // a nominal balance 40 years out is mostly inflation.
+  function endingBalance(corpus, annualDraw, returnPct, inflPct, years) {
+    const r = returnPct / 100, f = inflPct / 100;
+    let balance = corpus;
+    for (let i = 0; i < years; i++) {
+      balance = balance + balance * r - annualDraw * Math.pow(1 + f, i);
+      if (balance <= 0) return 0;
+    }
+    return balance;
+  }
+
+  // The largest annual spend this corpus supports for exactly `years`. Bisected
+  // for the same reason as corpusFor: spending more shortens the life
+  // monotonically, but the loop doesn't invert cleanly.
+  function maxSpend(corpus, returnPct, inflPct, years) {
+    const survives = (draw) =>
+      yearsLasting(corpus, draw, returnPct, inflPct, years) === null;
+    let hi = Math.max(corpus, 1);
+    for (let i = 0; i < 200 && survives(hi); i++) hi *= 2;
+    let lo = 0;
+    while (hi - lo > Math.max(100, hi * 1e-7)) {
+      const mid = (lo + hi) / 2;
+      if (survives(mid)) lo = mid; else hi = mid;
+    }
+    return lo;
+  }
+
+  // What you'd have to put away each year for `years` more years to close a
+  // shortfall. The target inflates while you save — retiring later costs more in
+  // rupees, because the same lifestyle does — so the goalpost moves with you.
+  function contributionPlan(needToday, netWorth, returnPct, inflPct, years) {
+    const r = returnPct / 100, f = inflPct / 100;
+    const target = needToday * Math.pow(1 + f, years);
+    const grown = netWorth * Math.pow(1 + r, years);
+    if (grown >= target) return { years, annual: 0, alreadyThere: true };
+    // Future value of an ordinary annuity, solved for the payment.
+    const factor = r === 0 ? years : (Math.pow(1 + r, years) - 1) / r;
+    return { years, annual: (target - grown) / factor, alreadyThere: false };
+  }
+
   function render() {
     const netWorth = num(nwEl);
     const perMonth = unitEl.value === "year" ? num(spendEl) / 12 : num(spendEl);
@@ -89,21 +131,10 @@ function initRetire(cfg) {
         lasts === null ? `lasts ${cfg.cap}+ yrs` : `lasts ~${lasts} yrs`;
       const lastsClass = lasts === null || lasts >= horizon ? "ok" : "short";
 
-      // What the surplus buys, in years. Only stated when both durations are real
-      // measurements: if your own corpus outlasts the cap, the "extra" would be
-      // (cap − lasts), which is arithmetic on a display limit rather than on
-      // anything the model computed. Quoting it would invent precision — the true
-      // answer there is "indefinitely", handled in the verdict below.
-      const mineLasts = yearsLasting(netWorth, annual, returnPct, inflPct, cfg.cap);
-      let bonus = "";
-      if (gap <= 0 && lasts !== null) {
-        // "doesn't run dry" would be an overclaim: outlasting the cap is not the
-        // same as lasting forever, and whether it truly never depletes depends on
-        // the draw versus the *real* return — which the verdict below works out.
-        bonus = mineLasts === null
-          ? ` · yours lasts past ${cfg.cap} yrs`
-          : ` · buys ${mineLasts - lasts} more yrs`;
-      }
+      // No "spare" here any more. A surplus against a bar you've already cleared
+      // describes the bar, not your retirement — and it was largest on the row
+      // this page argues against, because that row asks least. The duration
+      // beside it ranks the standards the right way round.
       return `
         <div class="r-row r-row--${state}">
           <div class="r-rate">
@@ -121,62 +152,125 @@ function initRetire(cfg) {
             <div class="r-foot">
               <span class="muted">${rate.note}</span>
               <span class="r-gap">${
-                gap <= 0
-                  ? "covered · " + compact(-gap) + " spare" + bonus
-                  : compact(gap) + " short"
+                gap <= 0 ? "✓ you clear this" : compact(gap) + " short"
               }</span>
             </div>
           </div>
         </div>`;
     }).join("");
 
-    // The modelled answer, as opposed to the rule of thumb above: the corpus
-    // that actually funds this spending for `horizon` years at the entered
-    // return and inflation. Unlike the multiples, this moves with every input —
-    // which is the point of having the inputs on the page.
-    const modelled = corpusFor(annual, returnPct, inflPct, horizon);
-    const modelledRate = (annual / modelled) * 100;
-    let out = `
-      <p class="r-implied">
-        At <strong>${returnPct}%</strong> returns and <strong>${inflPct}%</strong>
-        inflation, funding ${inr(perMonth)} a month for <strong>${horizon} years</strong>
-        takes about <strong>${compact(modelled)}</strong> — a
-        ${modelledRate.toFixed(1)}% withdrawal rate.
-      </p>`;
-
-    // The reverse read: what rate is this person actually running today? It's
-    // the number they didn't ask for and usually the one that matters.
-    if (netWorth > 0) {
-      const impliedRate = (annual / netWorth) * 100;
-      const lasts = yearsLasting(netWorth, annual, returnPct, inflPct, cfg.cap);
-      // Real return, not nominal minus inflation — the difference matters at
-      // these rates. Withdraw less than this and the corpus grows instead of
-      // depleting, which is why "how many years" has no answer: it's every year.
-      const realReturn = ((1 + returnPct / 100) / (1 + inflPct / 100) - 1) * 100;
-      const verdict =
-        lasts === null
-          ? (impliedRate < realReturn
-              ? `it never runs dry — you'd be drawing ${impliedRate.toFixed(1)}% while the
-                 portfolio earns about <strong>${realReturn.toFixed(1)}% after inflation</strong>,
-                 so the corpus grows rather than shrinks`
-              : `it lasts beyond ${cfg.cap} years`)
-          : `it runs dry in about <strong>${lasts} years</strong>`;
-      out += `
-        <p class="r-implied r-implied--second">
-          Retiring today on ${compact(netWorth)} while spending ${inr(perMonth)} a month
-          means withdrawing <strong>${impliedRate.toFixed(1)}%</strong> a year — at these
-          assumptions ${verdict}.
-        </p>`;
+    // --- The answer -------------------------------------------------------
+    //
+    // Everything above this is reference material. This is the question people
+    // actually arrive with: do I have enough? It's a yes or a no first, and
+    // then the thing to do about it — headroom if yes, a route back if no.
+    if (netWorth <= 0) {
+      verdictEl.innerHTML =
+        '<p class="muted">Add what you have saved to see whether it\'s enough.</p>';
+      return;
     }
 
-    out += `
-      <p class="muted r-implied-note">
-        Why this figure is usually smaller than the multiples above: it spends the corpus
-        down to nothing at the end of ${horizon} years, while 25×/33×/40× aim to leave it
-        intact indefinitely. And the multiples are fixed rules of thumb, so they don't move
-        when you change the boxes — what moves is this figure, and how long each of those
-        corpuses actually survives.
-      </p>`;
+    const needToday = corpusFor(annual, returnPct, inflPct, horizon);
+    const enough = netWorth >= needToday;
+    const impliedRate = (annual / netWorth) * 100;
+    const realReturn = ((1 + returnPct / 100) / (1 + inflPct / 100) - 1) * 100;
+    const deflate = (v) => v / Math.pow(1 + inflPct / 100, horizon);
+
+    let out = `
+      <div class="v-head v-head--${enough ? "yes" : "no"}">
+        <span class="v-answer">${enough ? "Yes — you have enough" : "Not yet"}</span>
+        <span class="v-sub">
+          ${inr(perMonth)} a month for ${horizon} years needs about
+          <b>${compact(needToday)}</b>. You have <b>${compact(netWorth)}</b>.
+        </span>
+      </div>`;
+
+    if (enough) {
+      const surplus = netWorth - needToday;
+      const canSpend = maxSpend(netWorth, returnPct, inflPct, horizon);
+      const leftOver = endingBalance(netWorth, annual, returnPct, inflPct, horizon);
+      out += `
+        <div class="v-grid">
+          <div class="v-item">
+            <span class="v-lab">Ahead by</span>
+            <span class="v-val">${compact(surplus)}</span>
+            <span class="v-note">more than the ${horizon} years require</span>
+          </div>
+          <div class="v-item">
+            <span class="v-lab">You could spend up to</span>
+            <span class="v-val">${inr(Math.floor(canSpend / 12))}<em>/mo</em></span>
+            <span class="v-note">
+              ${canSpend > annual
+                 ? "vs " + inr(perMonth) + " today — " +
+                   Math.round((canSpend / annual - 1) * 100) + "% more"
+                 : "about what you spend now"}
+            </span>
+          </div>
+          <div class="v-item">
+            <span class="v-lab">Left after ${horizon} years</span>
+            <span class="v-val">${compact(deflate(leftOver))}</span>
+            <span class="v-note">in today's money, still spending ${inr(perMonth)}/mo</span>
+          </div>
+        </div>
+        <p class="v-why">
+          You withdraw <b>${impliedRate.toFixed(1)}%</b> a year.
+          ${impliedRate < realReturn
+            ? `That's below your <b>${realReturn.toFixed(1)}% real return</b> (${returnPct}% growth
+               less ${inflPct}% inflation), so the corpus grows rather than shrinks — there's no
+               year it runs out.`
+            : `Your real return is <b>${realReturn.toFixed(1)}%</b>, so you are drawing down
+               capital — it lasts the ${horizon} years, but it does end.`}
+        </p>`;
+    } else {
+      const shortfall = needToday - netWorth;
+      const plans = [5, 10, 15]
+        .map((y) => contributionPlan(needToday, netWorth, returnPct, inflPct, y))
+        .filter((p) => !p.alreadyThere);
+      const waitYears = [5, 10, 15, 20, 25, 30].find(
+        (y) => contributionPlan(needToday, netWorth, returnPct, inflPct, y).alreadyThere);
+
+      out += `
+        <div class="v-grid">
+          <div class="v-item v-item--gap">
+            <span class="v-lab">Short by</span>
+            <span class="v-val">${compact(shortfall)}</span>
+            <span class="v-note">as a lump sum today</span>
+          </div>
+          <div class="v-item">
+            <span class="v-lab">Or spend less</span>
+            <span class="v-val">${inr(Math.floor(maxSpend(netWorth, returnPct, inflPct, horizon) / 12))}<em>/mo</em></span>
+            <span class="v-note">what ${compact(netWorth)} supports for ${horizon} years</span>
+          </div>
+          ${waitYears ? `
+          <div class="v-item">
+            <span class="v-lab">Or wait</span>
+            <span class="v-val">${waitYears}<em> yrs</em></span>
+            <span class="v-note">adding nothing — growth alone gets you there</span>
+          </div>` : ""}
+        </div>`;
+
+      if (plans.length) {
+        out += `
+          <div class="v-plans">
+            <span class="v-lab">Or invest, and retire later</span>
+            <table class="v-plan-table">
+              <thead><tr><th>Keep investing for</th><th class="num">Each month</th><th class="num">Each year</th></tr></thead>
+              <tbody>
+                ${plans.map((p) => `
+                  <tr>
+                    <td>${p.years} more years</td>
+                    <td class="num">${inr(Math.ceil(p.annual / 12))}</td>
+                    <td class="num">${compact(p.annual)}</td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+            <p class="v-note-full">
+              The target moves while you save — ${horizon} years of the same lifestyle costs more
+              in future rupees — so these already account for the goalpost shifting.
+            </p>
+          </div>`;
+      }
+    }
     verdictEl.innerHTML = out;
   }
 
