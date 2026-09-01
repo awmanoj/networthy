@@ -211,15 +211,28 @@ function initRetire(cfg) {
             <span class="v-val">${compact(deflate(leftOver))}</span>
             <span class="v-note">in today's money, still spending ${inr(perMonth)}/mo</span>
           </div>
-        </div>
+        </div>`;
+
+      // Whether the pot grows or shrinks comes from the model's own ending
+      // balance, not from comparing the withdrawal rate to the real return.
+      // That comparison is a steady-state approximation and gets the answer wrong
+      // near the crossover — where it also prints two numbers that round to the
+      // same figure and then claims one exceeds the other.
+      const drift = deflate(leftOver) / netWorth;
+      const trend =
+          drift > 1.05
+            ? `the corpus <b>grows</b> in real terms — you end with more buying power than
+               you started with`
+            : drift < 0.95
+            ? `you are <b>drawing down capital</b> — it lasts the ${horizon} years, but ends
+               lower than it started`
+            : `the corpus <b>roughly holds its value</b> in real terms — you're close to the
+               break-even draw`;
+        out += `
         <p class="v-why">
-          You withdraw <b>${impliedRate.toFixed(1)}%</b> a year.
-          ${impliedRate < realReturn
-            ? `That's below your <b>${realReturn.toFixed(1)}% real return</b> (${returnPct}% growth
-               less ${inflPct}% inflation), so the corpus grows rather than shrinks — there's no
-               year it runs out.`
-            : `Your real return is <b>${realReturn.toFixed(1)}%</b>, so you are drawing down
-               capital — it lasts the ${horizon} years, but it does end.`}
+          You withdraw <b>${impliedRate.toFixed(1)}%</b> a year against a real return of about
+          <b>${realReturn.toFixed(1)}%</b> (${returnPct}% growth less ${inflPct}% inflation).
+          Over ${horizon} years ${trend}.
         </p>`;
     } else {
       const shortfall = needToday - netWorth;
