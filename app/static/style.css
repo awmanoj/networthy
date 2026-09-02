@@ -766,7 +766,8 @@ tr:hover .reclass select, .reclass select:focus { opacity: 1; }
 /* Match the serif h2 the reference sections use — the page had two competing
    heading styles before. */
 .r-results h2 { margin: 0 0 4px; font-family: var(--serif); font-weight: 600; font-size: 1.25rem; letter-spacing: -0.01em; }
-.r-results-lead { margin: 0 0 16px; font-size: 0.88rem; max-width: 60ch; }
+.r-results-lead { margin: 0 0 16px; font-size: 0.88rem; max-width: 68ch; line-height: 1.55; }
+.r-results-lead b { color: var(--text); font-variant-numeric: tabular-nums; }
 .r-rows { display: flex; flex-direction: column; gap: 2px; }
 .r-row {
   display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 16px;

@@ -78,10 +78,16 @@
 </section>
 
 <section class="card r-results">
-  <h2>What retiring today costs</h2>
-  <p class="muted r-results-lead">
-    The same question against four common standards. In every row the money coming out is
-    the same — your spending. Only the pot each standard wants behind it changes.
+  {# "today" earns its place: the verdict above offers "or wait N years", so this
+     is the retire-now case. It's also literally what the row computes — the pot
+     is annual spend ÷ rate, with no horizon in it. #}
+  <h2>The pot you REALLY need if you were to retire today, at each withdrawal rate</h2>
+  {# Filled in by retire.js with the reader's own figure — "your ₹7,02,467 a month"
+     lands harder than "your spending", and naming it once here is what stops the
+     four rows reading as four different withdrawal amounts. #}
+  <p class="muted r-results-lead" id="r-results-lead">
+    The money coming out is the same in every row — your spending. Only the pot each
+    standard wants behind it changes.
   </p>
   <div id="r-rows" class="r-rows"></div>
 </section>

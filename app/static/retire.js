@@ -14,6 +14,7 @@ function initRetire(cfg) {
   const inflEl = document.getElementById("r-inflation");
   const yearsEl = document.getElementById("r-years");
   const rowsEl = document.getElementById("r-rows");
+  const leadEl = document.getElementById("r-results-lead");
   const verdictEl = document.getElementById("r-verdict");
   if (!nwEl || !spendEl || !rowsEl) return;
 
@@ -117,6 +118,13 @@ function initRetire(cfg) {
     }
 
     const horizon = Math.max(1, Math.round(num(yearsEl) || cfg.defaultYears));
+
+    if (leadEl) {
+      leadEl.innerHTML =
+        `Four common standards, each asking a different amount behind the same ` +
+        `<b>${inr(perMonth)} a month</b> you spend. The money coming out never changes ` +
+        `between rows — only the pot each standard wants behind it.`;
+    }
 
     rowsEl.innerHTML = RATES.map((rate) => {
       const needed = annual / (rate.pct / 100);
