@@ -250,3 +250,51 @@ def test_no_third_party_scripts_anywhere(client):
             if "networthyhq.com" not in u
         ]
         assert not external, f"{path} loads third-party resources: {external}"
+
+
+# --- The path-to-a-target page ----------------------------------------------
+
+def test_path_page_is_public_and_indexable(client):
+    r = client.get("/how-do-i-get-to-10-crore", follow_redirects=False)
+    assert r.status_code == 200
+    page = r.text
+    assert '<link rel="canonical" href="https://networthyhq.com/how-do-i-get-to-10-crore" />' in page
+    assert page.count('name="description"') == 1
+
+
+def test_path_page_answers_without_js(client):
+    """The calculator is client-side, so the grid has to carry the answer."""
+    page = client.get("/how-do-i-get-to-10-crore").text
+    assert "12.2%" in page          # ₹1cr -> ₹10cr over 20 years
+    assert "25.9%" in page          # ...and over 10, which nothing delivers
+    assert "not a plan" in page
+    assert "No tax is modelled" in page
+
+
+def test_path_page_is_in_robots_and_sitemap(client):
+    assert "Allow: /how-do-i-get-to-10-crore" in client.get("/robots.txt").text
+    assert ("<loc>https://networthyhq.com/how-do-i-get-to-10-crore</loc>"
+            in client.get("/sitemap.xml").text)
+
+
+def test_the_three_public_tools_all_link_to_each_other(client):
+    pages = {p: client.get(p).text for p in
+             ("/how-rich-am-i", "/how-much-do-i-need-to-retire", "/how-do-i-get-to-10-crore")}
+    assert "/how-do-i-get-to-10-crore" in pages["/how-much-do-i-need-to-retire"] or \
+           "/how-do-i-get-to-10-crore" in client.get("/").text     # footer at minimum
+    assert "/how-rich-am-i" in pages["/how-do-i-get-to-10-crore"]
+    assert "/how-much-do-i-need-to-retire" in pages["/how-do-i-get-to-10-crore"]
+
+
+def test_signed_in_readers_get_their_own_asset_mix(client):
+    """The half a generic calculator can't do — it reads the real allocation."""
+    ck = _login()
+    uid = storage.get_or_create_user("k@test.com").id
+    storage.add_bank_cash(uid, "bank-accounts", 5_000_000.0, "HDFC", "Savings", "Main")
+
+    page = client.get("/how-do-i-get-to-10-crore", cookies=ck).text
+    assert "What your current mix would plausibly earn" in page
+    assert "Bank Account &amp; Cash" in page or "Bank Account & Cash" in page
+
+    anon = client.get("/how-do-i-get-to-10-crore").text
+    assert "What your current mix would plausibly earn" not in anon

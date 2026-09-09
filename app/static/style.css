@@ -854,6 +854,48 @@ tr:hover .reclass select, .reclass select:focus { opacity: 1; }
   .v-grid { gap: 16px; }
 }
 
+/* --- Path to a target: the return it would take ---------------------------- */
+.p-unit { font-size: 0.85rem; font-weight: 600; color: var(--muted); padding-right: 8px; }
+.p-eyebrow { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.p-head { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.p-answer { display: block; font-family: var(--serif); font-size: 2.6rem; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.05; }
+.p-answer em { font-style: normal; font-size: 0.36em; color: var(--muted);
+  font-family: var(--sans, inherit); letter-spacing: 0; }
+/* Colour follows how hard the rate is to earn, not whether the reader will like it. */
+.p-head--yes .p-answer { color: var(--gain); }
+.p-head--ok  .p-answer { color: var(--gain); }
+.p-head--warn .p-answer { color: #a8801f; }
+.p-head--no  .p-answer { color: var(--loss); }
+.p-sub { display: block; margin-top: 8px; font-size: 0.93rem; color: var(--muted); max-width: 70ch; }
+.p-sub b { color: var(--text); }
+.p-why { margin: 16px 0 0; font-size: 0.9rem; line-height: 1.6; color: var(--muted); max-width: 72ch; }
+.p-why b { color: var(--text); }
+.p-mix {
+  margin: 16px 0 0; padding: 14px 16px; border-radius: 10px; background: var(--surface-2);
+  border: 1px solid var(--border); font-size: 0.9rem; line-height: 1.6; max-width: 72ch;
+}
+.p-mix b { color: var(--text); }
+.p-levers { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.p-lev-lab { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted); }
+.p-lev-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 18px 26px; margin-top: 12px; }
+.p-lev { display: flex; flex-direction: column; gap: 2px; }
+.p-lev-k { font-size: 0.8rem; color: var(--muted); }
+.p-lev-v { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; }
+.p-lev-v em { font-style: normal; font-size: 0.55em; color: var(--muted); font-family: var(--sans, inherit); }
+.p-lev-n { font-size: 0.78rem; color: var(--faint); }
+.p-mix-card { margin-bottom: 20px; }
+.p-mix-card h2 { margin: 0 0 4px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; }
+/* Grid cells tinted by how demanding the rate is — the pattern is the point. */
+.p-band--reasonable, .p-band--comfortable { color: var(--gain); }
+.p-band--demanding { color: #a8801f; }
+.p-band--a-stretch { color: var(--copper); }
+.p-band--not-a-plan { color: var(--loss); font-weight: 600; }
+@media (max-width: 640px) { .p-answer { font-size: 2rem; } }
+
 /* --- CAMS / MF Central import: instructions + upload ----------------------- */
 .cams-step { margin-top: 22px; }
 .cams-step h2 { color: var(--ink); font-size: 1.05rem; margin: 0 0 6px; }

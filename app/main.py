@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
-               goals, networth, prices, projection, storage, wealth)
+               goals, networth, pathto, prices, projection, storage, wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .parser import CASParseError, parse_cams, parse_cas
@@ -1747,6 +1747,89 @@ def _retire_duration_table() -> list[dict]:
     return rows
 
 
+PATH_TO_PATH = "/how-do-i-get-to-10-crore"
+
+# Targets the server-rendered reference table prices, in crore. These are the
+# round numbers people actually set for themselves.
+_PATH_TARGETS = [1, 2, 5, 10, 25, 50, 100]
+_PATH_YEARS = [10, 15, 20, 25, 30]
+
+
+@app.get(PATH_TO_PATH, response_class=HTMLResponse)
+def path_to_target(request: Request):
+    """What return would it take to get from here to a target net worth?
+
+    Same shape as the other two public tools: the calculator runs entirely in
+    the browser, and the tables below are server-rendered so there's something
+    to index and something to read without JS.
+
+    Signed in, it also knows the reader's *actual asset mix* — so it can say
+    whether the required return is plausible for the portfolio they hold, which
+    is the half of the question a generic calculator can't answer.
+    """
+    user = request.state.user
+    my_nw = mix = blended = None
+    if user:
+        dash = _dashboard(user)
+        my_nw = dash["net_worth"] if dash["has_data"] else None
+        if dash["buckets"]:
+            mix = [
+                {**b, "assumed": pathto.ASSET_RETURNS.get(
+                    b["label"], pathto.DEFAULT_ASSET_RETURN)}
+                for b in dash["buckets"]
+            ]
+            blended = pathto.blended_return(dash["buckets"])
+
+    return templates.TemplateResponse(
+        "pathto.html",
+        {
+            "request": request,
+            "user": user,
+            "my_net_worth": my_nw,
+            "mix": mix,
+            "blended": blended,
+            "grid": _path_grid(),
+            "targets": _PATH_TARGETS,
+            "years_cols": _PATH_YEARS,
+            "asset_returns": sorted(
+                pathto.ASSET_RETURNS.items(), key=lambda kv: -kv[1]),
+            "bands": pathto.VERDICTS,
+            "page_title": "How do I get to ₹10 crore? The return your target needs",
+            "page_description": (
+                "Set a net-worth target and a date, and see the annual return it "
+                "actually requires — then whether that's a rate any portfolio "
+                "delivers. Nothing you type leaves your browser."
+            ),
+            "canonical_path": PATH_TO_PATH,
+        },
+    )
+
+
+def _path_grid() -> list[dict]:
+    """Required return to reach each target from ₹1 crore, over several horizons.
+
+    A fixed ₹1 crore starting point and no savings, so the table is about the
+    *shape* of compounding rather than any one person's numbers — that's what
+    makes it readable as reference material.
+    """
+    rows = []
+    for target_cr in _PATH_TARGETS:
+        cells = []
+        for years in _PATH_YEARS:
+            p = pathto.PathInputs(
+                current=1 * wealth.CRORE, target=target_cr * wealth.CRORE,
+                years=years, annual_savings=0.0,
+            )
+            r = pathto.required_return(p)
+            cells.append({
+                "pct": r,
+                "label": "—" if r is None else f"{r:.1f}%",
+                "band": None if r is None else pathto.verdict(r)[0],
+            })
+        rows.append({"target": target_cr, "cells": cells})
+    return rows
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots_txt():
     """Allow the public pages, keep the whole logged-in app out of the index.
@@ -1761,6 +1844,7 @@ def robots_txt():
         "Allow: /$\n"
         f"Allow: {STANDING_PATH}\n"
         f"Allow: {RETIRE_PATH}\n"
+        f"Allow: {PATH_TO_PATH}\n"
         "Allow: /about\n"
         "Allow: /privacy\n"
         "Allow: /terms\n"
@@ -1780,7 +1864,8 @@ def robots_txt():
 
 # The public, indexable surface. Everything else is behind the session gate.
 _SITEMAP_PATHS = [("/", "1.0"), (STANDING_PATH, "0.9"), (RETIRE_PATH, "0.9"),
-                  ("/about", "0.5"), ("/privacy", "0.3"), ("/terms", "0.3")]
+                  (PATH_TO_PATH, "0.9"), ("/about", "0.5"), ("/privacy", "0.3"),
+                  ("/terms", "0.3")]
 
 
 @app.get("/sitemap.xml")

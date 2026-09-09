@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}{{ page_title }} · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+{% if user %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/">Dashboard</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">What return do I need?</span>
+</nav>
+{% endif %}
+
+<section class="card stand-intro">
+  <h1>How do I get to ₹10 crore?</h1>
+  <p class="muted">
+    Anyone can name a target and a date. The question nobody checks is what annual return
+    that combination quietly assumes — and whether it's a rate any portfolio actually
+    delivers. Put in where you are and where you want to be.
+    {% if not user %}It's all worked out in your browser; nothing you type is sent to us.{% endif %}
+  </p>
+
+  <div class="r-controls">
+    <label class="r-money">
+      <span class="r-money-label">What you have today</span>
+      <span class="r-money-box">
+        <span class="r-rs">₹</span>
+        <input id="p-now" type="text" inputmode="decimal" autocomplete="off"
+               value="{{ my_net_worth|round|int if my_net_worth else '' }}"
+               placeholder="net worth" aria-label="Net worth today">
+      </span>
+    </label>
+
+    <label class="r-money">
+      <span class="r-money-label">Target</span>
+      <span class="r-money-box">
+        <span class="r-rs">₹</span>
+        <input id="p-target" type="text" inputmode="decimal" autocomplete="off"
+               value="10" placeholder="10" aria-label="Target in crore">
+        <span class="p-unit">crore</span>
+      </span>
+    </label>
+
+    <div class="r-assume">
+      <label class="r-small">
+        <span>Within</span>
+        <span class="r-small-box">
+          <input id="p-years" type="number" step="1" min="1" max="60" value="20"><i>yrs</i>
+        </span>
+      </label>
+      <label class="r-small">
+        <span>Adding</span>
+        <span class="r-small-box">
+          <input id="p-save" type="number" step="1000" min="0" value="0"><i>₹/mo</i>
+        </span>
+      </label>
+    </div>
+  </div>
+</section>
+
+<section class="card r-answer">
+  <div id="p-out"></div>
+</section>
+
+{% if mix %}
+{# Only a tracker can do this half: the reader's real allocation, and what it
+   plausibly earns. A generic calculator has to ask; this already knows. #}
+<section class="card p-mix-card">
+  <h2>What your current mix would plausibly earn</h2>
+  <p class="muted r-results-lead">
+    Weighted across what you actually hold. These are deliberately unexciting long-run
+    assumptions — the numbers you'd defend to a sceptic, not the ones a brochure prints.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr><th>Holding</th><th class="num">Share</th><th class="num">Assumed return</th></tr>
+      </thead>
+      <tbody>
+        {% for b in mix %}
+        <tr>
+          <th scope="row">{{ b.label }}</th>
+          <td class="num">{{ "%.1f"|format(b.pct) }}%</td>
+          <td class="num">{{ "%g"|format(b.assumed) }}%</td>
+        </tr>
+        {% endfor %}
+        <tr class="row-total">
+          <th scope="row"><strong>Blended</strong></th>
+          <td class="num"></td>
+          <td class="num"><strong>{{ "%.1f"|format(blended) }}%</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Server-rendered reference tables — the indexable half, and what a reader
+   without JS sees.
+   --------------------------------------------------------------------------- #}
+<section class="card stand-ref">
+  <h2>What each target demands, starting from ₹1 crore</h2>
+  <p class="stand-answer">
+    Compounding ₹1 crore to <strong>₹10 crore in 20 years</strong> takes
+    <strong>12.2% a year</strong> — right at the edge of what a diversified Indian
+    portfolio has managed over long periods. Wanting it in 10 years instead takes
+    <strong>25.9%</strong>, which nothing delivers for a decade.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr>
+          <th>Target</th>
+          {% for y in years_cols %}<th class="num">in {{ y }} yrs</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in grid %}
+        <tr>
+          <th scope="row">₹{{ row.target }} crore</th>
+          {% for c in row.cells %}
+          <td class="num p-band p-band--{{ (c.band or 'none')|replace(' ', '-') }}">{{ c.label }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Starting from ₹1 crore with nothing added, so the table shows the shape of compounding
+    rather than any one person's numbers. Adding savings lowers every figure — that's the
+    calculator above.
+  </p>
+</section>
+
+<section class="card stand-ref">
+  <h2>How to read a required return</h2>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead><tr><th>If you need</th><th>It's</th><th>What that means</th></tr></thead>
+      <tbody>
+        {% for ceiling, label, note in bands %}
+        <tr>
+          <th scope="row">{% if ceiling == 6.0 %}under 6%{% elif ceiling|string == 'inf' %}15%+{% else %}up to {{ "%g"|format(ceiling) }}%{% endif %}</th>
+          <td><strong>{{ label }}</strong></td>
+          <td class="muted">{{ note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card stand-sources">
+  <h2>Where these numbers come from</h2>
+
+  <h3>The arithmetic</h3>
+  <p class="muted">
+    One equation: today's corpus compounds for the period, savings are added at each year
+    end, and the required return is the rate that lands exactly on the target. With savings
+    in the mix there's no closed form for that rate, so it's found by bisection — the
+    balance rises monotonically with the return, which is all that needs.
+  </p>
+
+  <h3>The per-asset assumptions</h3>
+  <p class="muted">
+    Long-run nominal INR expectations, before tax and costs: equity 12%, mutual funds 11%,
+    fixed income 7%, gold 8%, real estate 7% (capital only — rent is separate), cash 4%.
+    Crypto is carried at 12%, which is not a forecast so much as a placeholder for
+    "high and unknowable". These are judgements, not measurements, and a point of
+    conservatism is the safer error: it flags a stretch as a stretch.
+  </p>
+
+  <h3>What this can't tell you</h3>
+  <p class="muted">
+    Averages, not sequences. A plan needing 12% that gets it as −20%, +40%, −10%, +35%
+    ends up somewhere very different from one that gets a steady 12%, and the order isn't
+    yours to choose. <strong>No tax is modelled</strong>, so every figure here is somewhat
+    optimistic — long-term capital gains alone will take a bite out of the return you
+    actually keep.
+  </p>
+  {{ fine_print("Estimates for planning, not a projection of your returns.") }}
+</section>
+
+{% if not user %}
+<section class="card stand-cta">
+  <h2>Then check it against what you actually hold</h2>
+  <p class="muted">
+    Signed in, this page reads your real allocation and tells you whether the return you
+    need is one your current mix could plausibly deliver — which is usually the more
+    uncomfortable half of the answer.
+  </p>
+  <p>
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-outline btn-lg">Explore the live demo</a>
+  </p>
+</section>
+{% endif %}
+
+<p class="muted page-footnote">
+  Also useful: <a href="/how-much-do-i-need-to-retire">how much you need to retire</a>, and
+  <a href="/how-rich-am-i">where your net worth ranks</a>.
+</p>
+
+<script src="/static/pathto.js?v={{ version }}"></script>
+<script>
+  initPathTo({
+    bands: {{ bands | tojson }},
+    blended: {{ ("%.4f"|format(blended)) if blended is not none else 'null' }}
+  });
+</script>
+
+{% endblock %}
