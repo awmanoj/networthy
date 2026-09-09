@@ -887,6 +887,20 @@ tr:hover .reclass select, .reclass select:focus { opacity: 1; }
 .p-lev-v { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; }
 .p-lev-v em { font-style: normal; font-size: 0.55em; color: var(--muted); font-family: var(--sans, inherit); }
 .p-lev-n { font-size: 0.78rem; color: var(--faint); }
+/* What the target is worth today — the correction to a big nominal number. */
+.p-real {
+  margin: 16px 0 0; padding: 14px 16px; border-radius: 10px;
+  background: color-mix(in srgb, var(--copper) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--copper) 30%, var(--border));
+  font-size: 0.9rem; line-height: 1.6; max-width: 74ch;
+}
+.p-real b { color: var(--text); }
+/* The outcome band — one number reads as a forecast. */
+.p-band-card { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.p-band-note { margin: 6px 0 12px; font-size: 0.84rem; color: var(--muted); max-width: 72ch; }
+.p-band-hit { background: var(--surface-2); }
+.p-band-hit th, .p-band-hit td { font-weight: 600; }
+.p-band-hit em { font-style: normal; font-weight: 400; font-size: 0.78rem; color: var(--muted); }
 .p-mix-card { margin-bottom: 20px; }
 .p-mix-card h2 { margin: 0 0 4px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; }
 /* Grid cells tinted by how demanding the rate is — the pattern is the point. */

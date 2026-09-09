@@ -9,6 +9,7 @@ function initPathTo(cfg) {
   const targetEl = document.getElementById("p-target");
   const yearsEl = document.getElementById("p-years");
   const saveEl = document.getElementById("p-save");
+  const inflEl = document.getElementById("p-inflation");
   const outEl = document.getElementById("p-out");
   if (!nowEl || !targetEl || !outEl) return;
 
@@ -75,6 +76,8 @@ function initPathTo(cfg) {
     const target = num(targetEl) * 1e7;      // entered in crore
     const years = Math.max(1, Math.round(num(yearsEl) || 20));
     const save = num(saveEl) * 12;           // entered per month
+    const infl = num(inflEl) || 0;
+    const deflate = (v, years) => v / Math.pow(1 + infl / 100, years);
 
     if (target <= 0) {
       outEl.innerHTML = '<p class="muted">Set a target to see what it would take.</p>';
@@ -125,6 +128,25 @@ function initPathTo(cfg) {
       </div>
       <p class="p-why">${v.note}</p>`;
 
+    // What the target is actually worth. A big rupee figure decades out is mostly
+    // inflation, and "₹170 crore" reads as life-changing when the honest version
+    // is "₹53 crore of today's money" — a far more modest claim.
+    if (infl > 0) {
+      const realTarget = deflate(target, years);
+      const realGrowth = current > 0
+        ? (Math.pow(realTarget / current, 1 / years) - 1) * 100 : null;
+      out += `
+        <p class="p-real">
+          <b>${compact(target)} in ${years} years is worth about ${compact(realTarget)}
+          in today's money</b> at ${infl}% inflation.${
+            realGrowth !== null
+              ? ` So the real claim is ${compact(current)} → ${compact(realTarget)} of
+                  today's buying power — <b>${realGrowth.toFixed(1)}% a year after
+                  inflation</b>, which is the number worth judging.`
+              : ""}
+        </p>`;
+    }
+
     // The half only a tracker can answer: is that rate plausible for the
     // portfolio this person actually holds?
     if (cfg.blended !== null && cfg.blended !== undefined) {
@@ -165,10 +187,44 @@ function initPathTo(cfg) {
         </div>
       </div>`;
 
+    // One number reads as a prediction. Small differences in return compound into
+    // enormous ones over these horizons — showing the spread is the difference
+    // between a projection and a forecast.
+    if (current > 0) {
+      const around = [rate - 2, rate - 1, rate, rate + 1, rate + 2].filter((r) => r > 0);
+      out += `
+        <div class="p-band-card">
+          <span class="p-lev-lab">What you'd actually end with</span>
+          <p class="p-band-note">
+            The rate above is an assumption, not a measurement — and over ${years} years a
+            point either way changes the answer enormously.
+          </p>
+          <div class="stand-table-wrap">
+            <table class="stand-table">
+              <thead><tr>
+                <th>If returns are</th><th class="num">You end with</th>
+                ${infl > 0 ? `<th class="num">In today's money</th>` : ""}
+              </tr></thead>
+              <tbody>
+                ${around.map((r) => {
+                  const end = futureValue(current, save, years, r);
+                  const hit = Math.abs(r - rate) < 0.05;
+                  return `<tr${hit ? ' class="p-band-hit"' : ""}>
+                    <th scope="row">${r.toFixed(1)}%${hit ? " <em>— the rate you need</em>" : ""}</th>
+                    <td class="num">${compact(end)}</td>
+                    ${infl > 0 ? `<td class="num">${compact(deflate(end, years))}</td>` : ""}
+                  </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
     outEl.innerHTML = out;
   }
 
-  [nowEl, targetEl, yearsEl, saveEl].forEach((el) => {
+  [nowEl, targetEl, yearsEl, saveEl, inflEl].forEach((el) => {
     if (!el) return;
     el.addEventListener("input", render);
     el.addEventListener("change", render);
