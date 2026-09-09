@@ -1553,13 +1553,24 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 /* Footer */
 .mkt-footer { border-top: 1px solid var(--border); background: var(--surface); }
 .mkt-foot-inner {
-  max-width: 1120px; margin: 0 auto; padding: 26px 28px 8px;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  max-width: 1120px; margin: 0 auto; padding: 30px 28px 10px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 32px 48px; flex-wrap: wrap;
 }
-.mkt-foot-brand { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
-.mkt-foot-links { display: flex; gap: 22px; }
-.mkt-foot-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-.mkt-foot-links a:hover { color: var(--text); }
+/* Brand stacks so it never competes with the link columns for width. */
+.mkt-foot-brand { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.mkt-foot-cols { display: flex; gap: 48px; flex-wrap: wrap; }
+.mkt-foot-col { display: flex; flex-direction: column; gap: 7px; }
+.mkt-foot-head {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--faint); margin-bottom: 1px;
+}
+.mkt-foot-col a { color: var(--muted); text-decoration: none; font-size: 0.88rem; }
+.mkt-foot-col a:hover { color: var(--text); }
+@media (max-width: 560px) {
+  .mkt-foot-inner { gap: 24px 28px; }
+  .mkt-foot-cols { gap: 28px; }
+}
 .mkt-foot-note { max-width: 1120px; margin: 0 auto; padding: 6px 28px 26px; font-size: 0.78rem; }
 
 /* Doc pages (About / Terms / Privacy) */
