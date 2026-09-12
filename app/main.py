@@ -37,6 +37,10 @@ templates.env.globals["version"] = str(int(time.time()))
 # Absolute base URL for social-share tags (og:image must be absolute). Override
 # with SITE_URL if the app runs on a different domain.
 templates.env.globals["site_url"] = os.environ.get("SITE_URL", "https://networthyhq.com")
+# Google Analytics measurement id. **Unset means absent** — not disabled, absent:
+# a self-hosted instance or `uvx networthy` renders no tag and makes no request.
+# See templates/_analytics.html for the other two gates.
+templates.env.globals["ga_id"] = os.environ.get("GA_MEASUREMENT_ID", "").strip()
 # Lets a template say something different when the app is running on the user's
 # own machine. A callable, not a value: it reads the environment per call.
 templates.env.globals["local_mode"] = auth.local_mode

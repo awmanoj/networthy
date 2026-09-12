@@ -223,7 +223,7 @@ def test_privacy_page_documents_the_one_cookie(client):
     assert "Cookies — there's one" in page
     assert "<code>session</code>" in page
     assert "HttpOnly" in page and "SameSite=Lax" in page
-    assert "no tracking, advertising, or analytics cookies" in page
+    assert "no advertising cookies, no pixels" in page
 
 
 def test_the_page_is_telling_the_truth_about_cookies(client):
@@ -238,18 +238,52 @@ def test_the_page_is_telling_the_truth_about_cookies(client):
     assert set(signed_in.cookies) <= {auth.SESSION_COOKIE}
 
 
-def test_no_third_party_scripts_anywhere(client):
-    """'No third-party scripts of any kind' — a CDN font or an analytics snippet
-    slipping in would quietly make the privacy page false."""
+def test_no_third_party_scripts_when_analytics_is_unset(client, monkeypatch):
+    """The default, and what every self-hosted copy gets: nothing third-party at
+    all. Not a disabled tag — an absent one."""
     import re
+    import app.main as m
+    monkeypatch.setitem(m.templates.env.globals, "ga_id", "")
     for path in ("/", "/how-rich-am-i", "/how-much-do-i-need-to-retire",
-                 "/privacy", "/about", "/terms"):
+                 "/how-do-i-get-to-10-crore", "/privacy", "/about", "/terms"):
         page = client.get(path).text
         external = [
             u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page)
             if "networthyhq.com" not in u
         ]
         assert not external, f"{path} loads third-party resources: {external}"
+        assert "googletagmanager" not in page
+
+
+def test_analytics_loads_on_public_pages_when_configured(client, monkeypatch):
+    import app.main as m
+    monkeypatch.setitem(m.templates.env.globals, "ga_id", "G-TESTID123")
+    for path in ("/", "/how-rich-am-i", "/how-much-do-i-need-to-retire",
+                 "/how-do-i-get-to-10-crore"):
+        page = client.get(path).text
+        assert "googletagmanager.com/gtag/js?id=G-TESTID123" in page, path
+        assert "anonymize_ip" in page
+
+
+def test_analytics_never_runs_inside_the_signed_in_app(client, monkeypatch):
+    """The gate that matters. A signed-in URL says which asset classes someone
+    holds — /networth/assets/financial-assets/crypto — and handing that to a
+    third party is the thing this app promises not to do."""
+    import app.main as m
+    monkeypatch.setitem(m.templates.env.globals, "ga_id", "G-TESTID123")
+    ck = _login()
+    for path in ("/", "/networth", "/expenses", "/goals", "/plan", "/account",
+                 "/nsdl-cas", "/how-rich-am-i"):
+        page = client.get(path, cookies=ck).text
+        assert "googletagmanager" not in page, f"analytics leaked into {path}"
+
+
+def test_the_privacy_page_says_so(client):
+    """If analytics is added, the page has to stop claiming there is none."""
+    page = client.get("/privacy").text
+    assert "Google Analytics" in page
+    assert "never runs once you're signed in" in page
+    assert "never runs on your own copy" in page
 
 
 # --- The path-to-a-target page ----------------------------------------------

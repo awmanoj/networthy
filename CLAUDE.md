@@ -277,6 +277,19 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   guard is against a mis-click, not a typing test) and **the shared demo account is exempt**, or
   one visitor could empty it for everyone.
 
+- **Google Analytics** (`templates/_analytics.html`, env `GA_MEASUREMENT_ID`) — on the hosted
+  deployment only, and **three gates deep**. (1) Unset means **absent, not disabled**: a
+  self-hosted instance or `uvx networthy` renders no tag and makes no request, so the local
+  privacy promise stays literally true. (2) **Public pages only** — `{% if ga_id and not user %}`.
+  A signed-in URL names which asset classes someone holds
+  (`/networth/assets/financial-assets/crypto`), and sending that to a third party is precisely
+  what the app exists not to do. (3) `anonymize_ip`, no Google signals, no ad personalisation.
+  `run.sh` passes the var through. The privacy page was rewritten to say all of this rather
+  than keep its old "no analytics of any kind" claim — **if you touch the gates, fix `/privacy`
+  in the same commit**, and `test_seo.py` will fail until you do: it pins that an unset var
+  yields nothing third-party, that the tag appears on public pages when set, that it **never**
+  appears on an authenticated page, and that the privacy page discloses it.
+
 - **Disclaimers** — three layers, deliberately. (1) `_footer.html` carries a one-line global
   "indicative estimates, not financial advice" that appears on **every** page via both bases.
   (2) `_notes.html` exports a `fine_print(text)` macro — one place to word the caveat + the Terms

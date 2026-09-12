@@ -1,0 +1,29 @@
+{# Google Analytics — hosted deployment only.
+
+   Three gates, each deliberate:
+
+   1. `ga_id` is empty unless GA_MEASUREMENT_ID is set in the environment. A
+      self-hosted instance or `uvx networthy` never sets it, so the tag is not
+      merely disabled there — it is absent from the HTML, and no request is made.
+   2. Only on **public** pages. A signed-in URL says which asset classes someone
+      holds (/networth/assets/financial-assets/crypto), and sending that to a
+      third party is exactly the thing this app promises not to do. The
+      marketing and tool surface is where visibility is wanted; the app is not.
+   3. `anonymize_ip` and no ad signals, because the goal is "how many people
+      found the retirement page", not audience building.
+
+   If either gate is removed, `test_seo.py` fails — it asserts the app stays
+   clean and that an unset env var means no script at all. #}
+{% if ga_id and not user %}
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '{{ ga_id }}', {
+    anonymize_ip: true,
+    allow_google_signals: false,
+    allow_ad_personalization_signals: false
+  });
+</script>
+{% endif %}

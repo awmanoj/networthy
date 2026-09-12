@@ -46,6 +46,7 @@ docker run -d \
   -e "EMAIL_FROM=${EMAIL_FROM:-}" \
   -e "OWNER_EMAIL=${OWNER_EMAIL:-}" \
   -e "APP_SECRET=${APP_SECRET:-}" \
+  -e "GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID:-}" \
   -e "COOKIE_SECURE=${COOKIE_SECURE:-true}" \
   -p "${PORT}:${PORT}" \
   -v "${DATA_VOLUME}:/app/data" \

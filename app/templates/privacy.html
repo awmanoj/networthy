@@ -51,12 +51,31 @@
     lasts 30 days, and signing out deletes it.
   </p>
   <p>
-    There are <strong>no tracking, advertising, or analytics cookies</strong>, and no
-    third-party scripts of any kind — no Google Analytics, no pixels, no fonts or
-    libraries loaded from someone else's server. Nothing about your visit is shared with
-    anyone. That's also why you don't see a cookie-consent banner: consent is required for
-    tracking, and a strictly necessary sign-in cookie is exempt. We'd rather not have the
-    banner than have the tracking.
+    There are <strong>no advertising cookies, no pixels, and no fonts or libraries loaded
+    from someone else's server</strong>. Nothing you enter is ever shared with anyone.
+  </p>
+  <p>
+    On <strong>networthyhq.com</strong> the public pages — the landing page, the free
+    calculators, and these policy pages — do load <strong>Google Analytics</strong>, so we
+    can see how many people find them and which ones are useful. It sets its own cookies.
+    Two limits on it, both deliberate:
+  </p>
+  <ul class="mkt-doc-list">
+    <li>
+      <strong>It never runs once you're signed in.</strong> Your pages inside the app are
+      not measured at all. A signed-in address says which asset classes you hold, and
+      handing that to a third party is exactly what this app exists not to do.
+    </li>
+    <li>
+      <strong>It never runs on your own copy.</strong> If you self-host Networthy or run
+      <code>uvx networthy</code> on your laptop, the tag isn't disabled — it isn't in the
+      page at all, and no request is made. It is switched on by an environment variable
+      only this deployment sets.
+    </li>
+  </ul>
+  <p>
+    If you'd rather not be counted even on the public pages, any browser-level blocker
+    stops it, and nothing on the site breaks without it.
   </p>
   <p>
     Your browser also remembers one preference locally — whether you chose the light or
