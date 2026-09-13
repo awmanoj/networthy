@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
-               goals, networth, pathto, prices, projection, statements, storage,
+               goals, networth, pathto, prices, projection, storage,
                wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
@@ -1892,12 +1892,6 @@ def sitemap_xml():
 def expenses_page(request: Request):
     """Recurring-expense planner: monthly/annual burn, category breakdown, and the
     net-worth connection (runway + FIRE target)."""
-    return _expenses_page(request)
-
-
-def _expenses_page(request: Request, import_problems: list[dict] | None = None):
-    """Render Expenses. Split out so a failed statement import can come back
-    here with its errors rather than stranding the user on a blank page."""
     user = request.state.user
     rows = storage.list_expenses(user.id)
     for r in rows:
@@ -1968,8 +1962,6 @@ def _expenses_page(request: Request, import_problems: list[dict] | None = None):
             "swr_min": expenses.SWR_MIN_PCT,
             "swr_max": expenses.SWR_MAX_PCT,
             "annual_income": storage.get_annual_income(user.id),
-            "import_problems": import_problems or [],
-            "imported": _opt_int(request.query_params.get("imported", "")),
         },
     )
 
@@ -2016,101 +2008,6 @@ def expense_add(
             storage.add_expense(request.state.user.id, f.pop("name"), f.pop("category"),
                                 f.pop("amount"), f.pop("frequency"), **f)
     return RedirectResponse(url="/expenses", status_code=303)
-
-
-@app.post("/expenses/import", response_class=HTMLResponse)
-async def expenses_import(request: Request,
-                          files: list[UploadFile] = File(...),
-                          password: str = Form("")):
-    """Read bank statements and show what they say about spending.
-
-    Nothing is saved here. The statements are parsed in memory, the user gets a
-    review screen, and only what they confirm is written — the transactions and
-    the files themselves are discarded when this request ends. A bank statement
-    is more revealing than a CAS, so the less of it that touches disk the better.
-
-    One bad file doesn't sink the batch: the rest are analysed and the failures
-    are named, the same way the CAS upload behaves.
-    """
-    user = request.state.user
-    analyses, problems = [], []
-    for upload in files:
-        if not upload.filename:
-            continue
-        raw = await upload.read()
-        if not raw:
-            continue
-        try:
-            if upload.filename.lower().endswith(".pdf"):
-                txns = statements.read_pdf(raw, password or None)
-            else:
-                txns = statements.read_csv(raw)
-            analyses.append(statements.analyse(txns))
-        except statements.StatementParseError as exc:
-            problems.append({"file": upload.filename, "error": str(exc)})
-        except Exception:            # a malformed upload must not 500 the page
-            problems.append({"file": upload.filename,
-                             "error": "Couldn't read that file as a bank statement."})
-
-    if not analyses:
-        return _expenses_page(request, import_problems=problems or [
-            {"file": "—", "error": "No readable statements in that upload."}])
-
-    merged = statements.merge(analyses)
-    return templates.TemplateResponse(
-        "expenses_import.html",
-        {
-            "request": request,
-            "user": user,
-            "a": merged,
-            "problems": problems,
-            "files": len(analyses),
-            "categories": expenses.CATEGORY_BY_SLUG,
-            "frequencies": expenses.FREQUENCIES,
-            "thin": merged.days < statements.MIN_DAYS_FOR_CONFIDENCE,
-            "current_income": storage.get_annual_income(user.id),
-        },
-    )
-
-
-@app.post("/expenses/import/confirm")
-async def expenses_import_confirm(request: Request):
-    """Write the reviewed rows as ordinary expenses.
-
-    Everything is taken from the submitted form rather than from anything held
-    server-side, because nothing *was* held server-side. What lands in the table
-    is what the user saw and agreed to, which is also why each row can be edited
-    or dropped on the review screen before it gets here.
-    """
-    user = request.state.user
-    form = await request.form()
-
-    created = 0
-    for key in form:
-        if not key.startswith("amount_"):
-            continue
-        slug = key[len("amount_"):]
-        if slug not in expenses.CATEGORY_BY_SLUG:
-            continue
-        if form.get(f"include_{slug}") is None:
-            continue                      # unticked on the review screen
-        amount = _opt_float(str(form.get(key, "")))
-        if not amount or amount <= 0:
-            continue
-        frequency = str(form.get(f"frequency_{slug}", "monthly"))
-        if frequency not in expenses.FREQUENCIES:
-            frequency = "monthly"
-        label = str(form.get(f"label_{slug}", "")).strip() or \
-            f"{expenses.category_label(slug)} (from statement)"
-        storage.add_expense(user.id, label, slug, amount, frequency,
-                            notes="imported from a bank statement")
-        created += 1
-
-    income = _opt_float(str(form.get("annual_income", "")))
-    if income and income > 0:
-        storage.save_annual_income(user.id, income)
-
-    return RedirectResponse(url=f"/expenses?imported={created}", status_code=303)
 
 
 @app.post("/expenses/income")

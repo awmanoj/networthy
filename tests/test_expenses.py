@@ -149,3 +149,34 @@ def test_out_of_range_rate_is_clamped_not_stored_raw(client):
     uid, ck = _login("clamp@test.com")
     client.post("/expenses/swr", data={"swr_pct": "0.1"}, cookies=ck, follow_redirects=False)
     assert storage.get_swr_pct(uid) == pytest.approx(expenses.SWR_MIN_PCT)
+
+
+# --- Annual income is hand-entered, and the statement importer is gone --------
+
+def test_annual_income_round_trips_by_hand(client):
+    uid, ck = _login("income@test.com")
+    storage.add_expense(uid, "Rent", "housing", 100000.0, "monthly")
+
+    page = client.get("/expenses", cookies=ck).text
+    assert "Annual income" in page                    # offered even when unset
+
+    r = client.post("/expenses/income", data={"annual_income": "2400000"},
+                    cookies=ck, follow_redirects=False)
+    assert r.status_code == 303
+    assert storage.get_annual_income(uid) == pytest.approx(2400000.0)
+
+    page = client.get("/expenses", cookies=ck).text
+    assert "₹2,400,000" in page
+    assert "₹1,200,000 a year" in page                # 24L income − 12L burn
+
+    client.post("/expenses/income", data={"annual_income": ""}, cookies=ck)
+    assert storage.get_annual_income(uid) is None     # blank clears it
+
+
+def test_statement_import_routes_are_gone(client):
+    """Removed on purpose: extraction was exact, the categorisation wasn't, and a
+    confident wrong burn rate is worse than one the user types. See CLAUDE.md."""
+    _, ck = _login("noimport@test.com")
+    for path in ("/expenses/import", "/expenses/import/confirm"):
+        assert client.post(path, cookies=ck).status_code == 404
+    assert "Upload a bank statement" not in client.get("/expenses", cookies=ck).text

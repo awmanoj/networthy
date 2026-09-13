@@ -176,7 +176,15 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   a category breakdown (`CATEGORIES`, fixed list with per-category colours), and the **net-worth
   connection**: runway (net worth ÷ annual burn) and a **FIRE target** with progress. Loan EMIs are
   intentionally **not** modelled here — they live under Liabilities, and double-counting would make
-  burn-rate and net-worth views disagree. Routes: `POST /expenses/add` + `/expenses/{id}/delete`.
+  burn-rate and net-worth views disagree. Routes: `POST /expenses/add` +
+  `/expenses/{id}/delete`. **Annual income** is a hand-entered figure on this page
+  (`POST /expenses/income` → `user_settings.annual_income` via `get`/`save_annual_income`, again
+  **separate accessors** so the CAMS/SWR/plan columns aren't clobbered). Nothing in the app depends
+  on it — net worth stands on what you own — it just makes the savings rate something other than a
+  guess. Page order is burn → breakdown → categories →
+  the withdrawal-rate argument **last**: it's a good argument, but a 3%-vs-4% essay between the
+  burn figure and the expense list interrupts what the page is for, and the FIRE card's `#swr`
+  anchor jumps straight to it.
   **Safe withdrawal rate**: the FIRE target is driven by a **per-user rate**, not a constant —
   `DEFAULT_SWR_PCT` = **3.0** (33×), deliberately *not* the US 4%/25× rule, which is a Trinity-study
   result (US 1926–95, 30-year horizon, ~3% inflation, Social Security underneath) and optimistic
@@ -189,6 +197,26 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `get`/`save_user_settings` (the CAMS PAN/email pair) so neither upsert clobbers the other's columns.
   Set via `POST /expenses/swr`. Goals' read-only Retirement card reads the same setting, so there is
   one source of truth for the assumption.
+
+- **Bank-statement import: built, then removed — don't rebuild it.** `app/statements.py` read a
+  bank statement, excluded the non-expenses, categorised the rest and annualised it. The
+  *extraction* was exact — validated against a real HDFC PDF, 211 rows reconciling to the paisa
+  against the statement's own printed `STATEMENTSUMMARY` totals. The **interpretation** was the
+  problem, and it is not a tuning problem:
+  - **Over half the spend can't be categorised, in principle.** The largest debits on a real Indian
+    statement are person-to-person UPI — a name and a VPA. No keyword table can tell rent from a
+    loan to a relative from a wedding gift. 54% landed in "Other" on the sample, and that was the
+    honest answer, not a bug.
+  - **One frequency per category can't hold both a recurring cost and a yearly bill.** "Healthcare"
+    carried daily ₹25 canteen taps *and* three annual insurance premiums; guessing one frequency for
+    the bucket annualised ₹1.2 L of premiums into ₹14 L.
+  - **One month × 11.8 amplifies whatever happened that month.**
+
+  The result was a confident, precise, wrong number on a page whose whole job is a burn rate people
+  trust. A vague number a user corrects beats a specific one they believe. If this is ever revisited,
+  the unit of review has to be the **transaction**, not the category — and the privacy trade that was
+  deliberately refused (no transactions table, nothing on disk) is exactly what per-transaction
+  review, memory of past categorisations, and multi-month accuracy would all require.
 
 - **`app/goals.py` + the Goals tab** (`GET /goals` → `goals_page`, template `goals.html`; nav order is
   Dashboard · Net worth · Expenses · **Goals** · NSDL CAS) — a **target-by-date planner**, another
@@ -265,7 +293,7 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   walking `sqlite_master` for a `user_id` column: a future table should join the export by a
   deliberate act, not silently. `test_export.py` asserts the two can't drift — every per-user
   table must be in `EXPORT_TABLES` or in `_EXCLUDED`, so adding one fails the suite until it's
-  classified. Note `user_settings` (PAN, SWR, plan inputs) is in the export but **not** in
+  classified. Note `user_settings` (PAN, SWR, plan inputs, annual income) is in the export but **not** in
   `demo._TABLES`, which is the list you'd otherwise reach for — that omission is exactly the gap
   this guards. `holdings` is scoped through its parent snapshot (no `user_id` of its own) and
   carries `statement_date` so the rows stand alone. **Sessions and login codes are never
