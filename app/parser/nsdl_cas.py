@@ -163,6 +163,114 @@ _AMC_RE = re.compile(r"^(.*\b(?:mutual\s+fund|amc|asset\s+management)\b.*)$", re
 _HOLDING_NUM_RE = re.compile(r"\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
 
+# How far to look for a holding row's numbers when they didn't land on the ISIN's
+# own line. Two is enough for every wrap seen in real statements and small enough
+# that it can't reach into the next holding.
+_WRAP_LOOKAHEAD = 2
+# How far back to look for a row's description. Three lines covers the longest
+# wrapped AIF name seen in a real statement without reaching the row above.
+_WRAP_LOOKBEHIND = 3
+# Column headers and running totals — never part of a security's name.
+# "ISIN : INF… - Scheme Name : …" is a *label* in the transaction statement, not
+# a holding. It was harmless before rejoining, because it carries no trailing
+# numbers and so parsed to nothing — but the line under it is "Folio-no - 7499746",
+# which does. Gluing the two makes a phantom holding worth its own folio number.
+_PROSE_ISIN_RE = re.compile(r"\bISIN\s*[:\-]|\bScheme\s+Name\s*:|\bFolio-?\s*no\b", re.I)
+_HEADER_HINT_RE = re.compile(
+    r"\b(ISIN\s+Description|No\.?\s*of\s*(Units|Shares)|Market\s+Price|"
+    r"Face\s+Value\s+in|Stock\s+Symbol|Value\s+in|Sub\s*Total|Grand\s*Total|"
+    r"NAV\s+in|Company\s+Name)\b", re.I)
+
+
+def _rejoin_wrapped_rows(lines: list[str]) -> list[str]:
+    """Put holding rows back together when the PDF split them across lines.
+
+    pdfplumber flattens a table row to text, and a narrow column makes it wrap.
+    Real statements do this to the equity block in particular:
+
+        INE002A01018
+        BAJAJ FINANCE LIMITED   5.00   12   8,123.45   97,481.40
+
+    The ISIN lands alone and every number is on the next line, so
+    `_parse_holding_line` sees a row with no value and drops it — silently, and
+    for the whole section. That is how an entire equity holding list can vanish
+    from an otherwise successful parse.
+
+    So: when a line carries an ISIN but no trailing numeric block, pull in the
+    following line if that one ends in numbers. Both wrap shapes seen in the
+    wild are covered — the ISIN alone, and the ISIN with its name attached.
+    """
+    out: list[str] = []
+    consumed = -1
+    for i, line in enumerate(lines):
+        if i <= consumed:
+            continue
+        stripped = line.strip()
+        if _PROSE_ISIN_RE.search(stripped):
+            out.append(stripped)          # a label; never joined, never a holding
+            continue
+        m = _ISIN_RE.search(stripped)
+        if m and _trailing_numbers_start(_mask_face_values(stripped[m.end():])) is None:
+            for j in range(i + 1, min(i + 1 + _WRAP_LOOKAHEAD, len(lines))):
+                nxt = lines[j].strip()
+                if not nxt or _ISIN_RE.search(nxt):
+                    break          # blank, or the next holding started — give up
+                if _trailing_numbers_start(_mask_face_values(nxt)) is not None:
+                    stripped = f"{stripped} {nxt}"
+                    consumed = j
+                    break
+            m = _ISIN_RE.search(stripped)
+
+        # The other wrap shape: the row is "ISIN units nav value" and the security's
+        # *description* is on the lines above it, because the name column is narrow
+        # and the table is read top-down. Without this the holding is named after
+        # its own ISIN — and, worse, classification loses the only evidence it has:
+        # "CATEGORY-I" and "Restricted Transferability" live in that description,
+        # and they are what separate an AIF from a mutual fund.
+        if m and not _row_has_a_name(stripped, m):
+            lead = _leading_description(lines, i)
+            if lead:
+                stripped = f"{lead} {stripped}"
+        out.append(stripped)
+    return out
+
+
+def _row_has_a_name(line: str, m: re.Match[str]) -> bool:
+    """Does this row already carry a security name, before or after its ISIN?
+
+    Both shapes count. The equity block reads "<ISIN> <NAME> <numbers>" once the
+    wrapped numbers are rejoined, and looking further back there would pull in the
+    *previous* holding's line — which is how a row ends up named after its
+    neighbour's figures.
+    """
+    if line[: m.start()].strip(" .:-\t"):
+        return True
+    after = line[m.end():]
+    num_start = _trailing_numbers_start(_mask_face_values(after))
+    middle = after if num_start is None else after[:num_start]
+    return bool(re.search(r"[A-Za-z]", middle))
+
+
+def _leading_description(lines: list[str], idx: int) -> str:
+    """Description lines immediately above a data row, joined top-down.
+
+    Bounded by anything that ends the description: a blank line, another ISIN
+    (the previous holding), a column header, or a line that is only numbers —
+    which is the previous row's wrapped tail, not this row's name.
+    """
+    picked: list[str] = []
+    for j in range(idx - 1, max(-1, idx - 1 - _WRAP_LOOKBEHIND), -1):
+        prev = lines[j].strip()
+        if not prev or _ISIN_RE.search(prev):
+            break
+        if _HEADER_HINT_RE.search(prev):
+            break
+        if not re.search(r"[A-Za-z]", prev):
+            break
+        picked.append(prev)
+    return " ".join(reversed(picked))
+
+
 def _find_accounts(text: str) -> list[Account]:
     """Group the statement's holdings under their source accounts.
 
@@ -195,7 +303,7 @@ def _find_accounts(text: str) -> list[Account]:
         pending = {}
         return current
 
-    for raw_line in text.splitlines():
+    for raw_line in _rejoin_wrapped_rows(text.splitlines()):
         line = raw_line.strip()
         if not line:
             continue
@@ -296,6 +404,60 @@ def _catch_all_account(section: Section) -> Account:
     return Account(kind=kind, name=name)
 
 
+# How close units x price has to land to value before we believe a column triple.
+# Statements round units to 3 decimals and NAVs to 4, so exact equality never
+# holds; 1% is loose enough for that and far tighter than the gap between a
+# market value and any other column on the row.
+_COL_TOLERANCE = 0.01
+
+
+def _pick_columns(numbers: list[float]) -> tuple[float | None, float | None, float | None]:
+    """Choose (units, price, value) from a row's numeric columns.
+
+    Reading the last three positionally works for the demat table — face value,
+    quantity, price, value — but not for mutual-fund folios, which carry seven
+    columns and end with *unrealised gain*:
+
+        folio | units | avg cost | cost value | NAV | market value | gain
+
+    There the last three are (NAV, market value, gain), so the holding gets
+    filed at its gain and the section totals come up short — quietly, because
+    every row still parses.
+
+    So instead of trusting position, look for a triple that is internally
+    consistent: units x price == value. A row's real figures satisfy it and a
+    mis-aligned reading almost never does. Where several do — cost value also
+    equals units x avg cost — take the **rightmost**, which is the market value
+    rather than what was paid.
+
+    Falls back to the positional reading when nothing is consistent, so layouts
+    with only a value, or with columns we don't recognise, behave as before.
+    """
+    n = len(numbers)
+    for v_i in range(n - 1, 1, -1):
+        value = numbers[v_i]
+        if value <= 0:
+            continue
+        for p_i in range(v_i - 1, 0, -1):
+            price = numbers[p_i]
+            if price <= 0:
+                continue
+            for u_i in range(p_i - 1, -1, -1):
+                units = numbers[u_i]
+                if units <= 0:
+                    continue
+                if abs(units * price - value) <= _COL_TOLERANCE * value:
+                    return units, price, value
+
+    if n >= 3:
+        return numbers[-3], numbers[-2], numbers[-1]
+    if n == 2:
+        return numbers[0], None, numbers[-1]
+    if n == 1:
+        return None, None, numbers[0]
+    return None, None, None
+
+
 def _parse_holding_line(line: str, section: Section) -> Holding | None:
     """Turn a single ISIN-bearing line into a Holding, or None if it isn't one.
 
@@ -328,13 +490,7 @@ def _parse_holding_line(line: str, section: Section) -> Holding | None:
         name = after.strip(" .:-\t")
     name = name or isin
 
-    units = price = value = None
-    if len(numbers) >= 3:
-        units, price, value = numbers[-3], numbers[-2], numbers[-1]
-    elif len(numbers) == 2:
-        units, value = numbers[0], numbers[-1]
-    elif len(numbers) == 1:
-        value = numbers[0]
+    units, price, value = _pick_columns(numbers)
 
     # Interim hardening (HACK): drop rows with no positive value — a row whose amounts
     # wrapped to the next line, a bare "ISIN :" label/prose line (no trailing numbers),

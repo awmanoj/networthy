@@ -9,6 +9,8 @@ from datetime import date
 import pytest
 
 from app.parser.nsdl_cas import (
+    _ISIN_RE,
+    _rejoin_wrapped_rows,
     CASParseError,
     _find_accounts,
     _find_statement_date,
@@ -336,3 +338,142 @@ def test_drop_phantom_holdings_removes_only_the_bad_shape(tmp_path, monkeypatch)
     names = {h["name"] for h in storage.latest_holdings_by_class(uid, {"mutual_fund"})}
     assert names == {"Big Real Holding", "Small Unpriced", "Ordinary"}
     assert storage.drop_phantom_holdings() == 0          # idempotent
+
+
+# --- Rows the PDF split across lines -----------------------------------------
+#
+# pdfplumber flattens a table row to text, and a narrow column makes it wrap.
+# Real NSDL statements do this to the equity block: the ISIN lands alone and
+# every number is on the next line, so the row parses to no value and is
+# dropped — silently, and for the whole section. That is how an entire equity
+# holding list disappears from an otherwise successful parse.
+
+def test_equity_row_with_the_numbers_on_the_next_line():
+    lines = [
+        "Stock Symbol Company Name Face Value in ` No. of Shares Market Price in ` Value in `",
+        "INE296A01024",
+        "BAJAJ FINANCE LIMITED 1.00 50 1,057.00 52,850.00",
+        "BAJFINANCE.NSE",
+    ]
+    joined = _rejoin_wrapped_rows(lines)
+    row = next(l for l in joined if "INE296A01024" in l)
+    h = _parse_holding_line(row, Section.DEMAT)
+    assert h is not None, "the row was dropped — equity vanishes from the parse"
+    assert h.name == "BAJAJ FINANCE LIMITED"
+    assert (h.units, h.price, h.value) == (50.0, 1057.0, 52850.0)
+    assert h.asset_class == AssetClass.DIRECT_EQUITY.value
+
+
+def test_equity_row_with_the_name_attached_but_numbers_wrapped():
+    """The other shape seen in the same statement."""
+    lines = [
+        "INE455K01017 DR. DATSONS LABS LIMITED",
+        "10.00 5 1.05 5.25",
+    ]
+    h = _parse_holding_line(_rejoin_wrapped_rows(lines)[0], Section.DEMAT)
+    assert h.name == "DR. DATSONS LABS LIMITED"
+    assert (h.units, h.price, h.value) == (5.0, 1.05, 5.25)
+
+
+def test_a_description_above_the_data_row_becomes_the_name():
+    """AIF rows carry "ISIN units nav value" with the description above. Without
+    picking it up the holding is named after its own ISIN — and classification
+    loses the only evidence it has, since CATEGORY-I and Restricted
+    Transferability live in that description."""
+    lines = [
+        "ISIN ISIN Description No of Units Nav in ` Value in `",
+        "AL TRUST NUCLEON HEALTH 2-CATEGORY-I-CLASS NUCLEON",
+        "HEALTH 2 -FACE VALUE INR 100.0/- AND PAID UP VALUE INR 100.0/-",
+        "INF0RLLH2T00 1,000.000 250.00 2,50,000.00",
+        "DATE OF ALLOTMENT: 01-01-2025 CLOSE ENDED - Restricted Transferability",
+    ]
+    row = next(l for l in _rejoin_wrapped_rows(lines) if "INF0RLLH2T00" in l)
+    h = _parse_holding_line(row, Section.DEMAT)
+    assert "NUCLEON" in h.name and not h.name.startswith("INF")
+    assert h.value == 250000.0
+    assert h.asset_class == AssetClass.PRIVATE_EQUITY.value
+
+
+def test_the_lookbehind_never_steals_the_previous_rows_line():
+    """The bug this guards: an equity row already names itself after the wrapped
+    numbers are joined, so looking further back would pull in the row above and
+    a holding ends up named after its neighbour's figures."""
+    lines = [
+        "INE296A01024",
+        "BAJAJ FINANCE LIMITED 1.00 50 1,057.00 52,850.00",
+        "BAJFINANCE.NSE",
+        "INE531B01023",
+        "BHANSALI ENGG POLYMERS LTD 1.00 150 121.09 18,163.50",
+    ]
+    joined = _rejoin_wrapped_rows(lines)
+    names = [_parse_holding_line(l, Section.DEMAT).name
+             for l in joined if _ISIN_RE.search(l)]
+    assert names == ["BAJAJ FINANCE LIMITED", "BHANSALI ENGG POLYMERS LTD"]
+    assert not any("52,850" in n for n in names)
+
+
+def test_rejoin_leaves_already_complete_rows_alone():
+    lines = ["INE002A08534 RELIANCE INDUSTRIES 100.000 2500.0000 250000.00"]
+    assert _rejoin_wrapped_rows(lines) == lines
+
+
+def test_rejoin_stops_at_the_next_isin():
+    """Two ISINs back to back: the first must not swallow the second's row."""
+    lines = ["INE296A01024", "INE531B01023 SOMETHING 1.00 5 10.00 50.00"]
+    joined = _rejoin_wrapped_rows(lines)
+    assert joined[0] == "INE296A01024"        # left alone, no numbers to claim
+
+
+# --- Column picking: the value is not always the last number -----------------
+
+def test_mutual_fund_folio_row_uses_market_value_not_unrealised_gain():
+    """A folio row carries seven columns and ends with the *gain*:
+
+        folio | units | avg cost | cost value | NAV | market value | gain
+
+    Reading the last three positionally files the holding at its gain, and the
+    section total silently comes up short while every row still parses. Picking
+    the triple where units x price == value finds the right one.
+    """
+    line = ("INF174K01LS2 Kotak Short Term Fund Regular Growth "
+            "7499746 525.895 39.9319 21000.00 55.1456 29000.80 8000.80")
+    h = _parse_holding_line(line, Section.DEMAT)
+    assert h.value == 29000.80, "stored the unrealised gain as the holding value"
+    assert h.units == 525.895
+    assert h.price == 55.1456
+
+
+def test_demat_row_still_reads_its_last_three_columns():
+    """Face value, quantity, price, value — the shape the positional read was
+    written for must keep working."""
+    h = _parse_holding_line(
+        "INE296A01024 BAJAJ FINANCE LIMITED 1.00 50 1057.00 52850.00", Section.DEMAT)
+    assert (h.units, h.price, h.value) == (50.0, 1057.0, 52850.0)
+
+
+def test_the_rightmost_consistent_triple_wins():
+    """Cost value also equals units x avg cost, so two triples are consistent.
+    The market value is the later one, and the one worth holding."""
+    line = ("INF174K01LS2 A Fund 7499746 525.895 39.9319 21000.00 "
+            "55.1456 29000.80 8000.80")
+    assert _parse_holding_line(line, Section.DEMAT).value == 29000.80
+
+
+def test_rows_with_no_consistent_triple_fall_back_to_position():
+    h = _parse_holding_line("INE002A08534 SOMETHING 111.0 222.0 999999.0", Section.DEMAT)
+    assert h.value == 999999.0
+
+
+# --- Prose ISIN labels are not holdings --------------------------------------
+
+def test_a_scheme_label_is_never_glued_to_the_folio_number_below_it():
+    """The transaction statement labels a scheme with "ISIN : ... - Scheme Name",
+    and the line under it is "Folio-no - 7499746". Joining them invents a holding
+    worth its own folio number — which is how a total overshoots by crores."""
+    lines = [
+        "ISIN : INF194K01524 - Bandhan Mutual Fund - Scheme Name : 123 - Bandhan Large & Mid Cap",
+        "Folio-no - 9895970",
+    ]
+    joined = _rejoin_wrapped_rows(lines)
+    assert joined[0] == lines[0], "the label absorbed the line below it"
+    assert all(_parse_holding_line(l, Section.MUTUAL_FUND) is None for l in joined)
