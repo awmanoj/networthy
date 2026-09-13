@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}Review imported expenses · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/expenses">Expenses</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">Review import</span>
+</nav>
+
+<section class="nw-page-head">
+  <h1>What your statement says</h1>
+  <p class="muted">
+    {{ a.txn_count }} transactions across {{ files }} statement{{ '' if files == 1 else 's' }},
+    {{ a.start.strftime('%d %b %Y') }} to {{ a.end.strftime('%d %b %Y') }}.
+    <strong>Nothing has been saved yet</strong> — check the guesses below, change what's
+    wrong, and only what you tick gets added.
+  </p>
+</section>
+
+{% if problems %}
+<div class="alert">
+  {% for p in problems %}<div>{{ p.file }}: {{ p.error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{% if thin %}
+<div class="imp-warn">
+  <strong>That's only {{ a.days }} days of data.</strong> Annualising from a short window
+  magnifies whatever happened to fall inside it. Upload a full month — or better, a few —
+  before trusting the yearly figure.
+</div>
+{% endif %}
+
+<form method="post" action="/expenses/import/confirm">
+
+<section class="dash-card imp-summary">
+  <div class="imp-stat">
+    <span class="eyebrow">Spending found</span>
+    <span class="imp-figure num">₹{{ "{:,.0f}".format(a.annual_total) }}<em>/yr</em></span>
+    <span class="hero-note">₹{{ "{:,.0f}".format(a.annual_total / 12) }} a month</span>
+  </div>
+  {% if a.annual_income %}
+  <div class="imp-stat">
+    <span class="eyebrow">Salary credits</span>
+    <span class="imp-figure num">₹{{ "{:,.0f}".format(a.annual_income) }}<em>/yr</em></span>
+    <span class="hero-note">
+      {% if a.annual_income > a.annual_total %}
+      saving about ₹{{ "{:,.0f}".format(a.annual_income - a.annual_total) }} a year
+      {% else %}spending more than this account received{% endif %}
+    </span>
+  </div>
+  {% endif %}
+  {% if a.excluded_total %}
+  <div class="imp-stat">
+    <span class="eyebrow">Left out on purpose</span>
+    <span class="imp-figure num">₹{{ "{:,.0f}".format(a.excluded_total) }}</span>
+    <span class="hero-note">in the period — see below</span>
+  </div>
+  {% endif %}
+</section>
+
+{% if a.excluded %}
+{# Saying what was ignored, and why, is what makes the total believable. A number
+   that silently drops 40% of the debits is worse than no number. #}
+<section class="dash-card imp-excluded">
+  <h2>Not counted as spending</h2>
+  <p class="muted imp-lead">
+    These debits left the account but aren't expenses. Counting them would inflate your
+    burn rate — and in the case of card bills, count the same spending twice.
+  </p>
+  <ul class="imp-ex-list">
+    {% for reason, amount in a.excluded.items() %}
+    <li>
+      <span class="imp-ex-why">{{ reason }}</span>
+      <span class="imp-ex-amt num">₹{{ "{:,.0f}".format(amount) }}</span>
+      <span class="imp-ex-note muted">
+        {% if reason == 'credit-card bill' %}the card's purchases are the spending; the bill is settling them
+        {% elif reason == 'investment' %}money saved, not spent
+        {% elif reason == 'loan EMI' %}EMIs live under Liabilities in this app
+        {% elif reason == 'self-transfer' %}moved between your own accounts
+        {% else %}not a purchase{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="dash-card imp-rows">
+  <h2>Suggested expenses</h2>
+  <p class="muted imp-lead">
+    One row per category. <strong>Frequency is a guess</strong> — a single statement can't
+    tell a monthly bill from a yearly one, so anything seen once in a category that
+    usually bills annually is marked annual. Fix any that are wrong.
+  </p>
+
+  <div class="stand-table-wrap">
+    <table class="stand-table imp-table">
+      <thead>
+        <tr>
+          <th>Add</th><th>Category</th><th>Label</th>
+          <th class="num">Amount</th><th>Frequency</th><th class="num">Per year</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in a.by_category %}
+        {% set cat = categories.get(b.slug) %}
+        <tr>
+          <td><input type="checkbox" name="include_{{ b.slug }}" checked
+                     aria-label="Include {{ cat.label if cat else b.slug }}"></td>
+          <td>
+            <span class="dot" style="background: {{ cat.color if cat else '#8792a0' }}"></span>
+            {{ cat.label if cat else b.slug }}
+            <span class="imp-count muted">{{ b.count }} txn</span>
+            {% if b.examples %}
+            <span class="imp-eg muted" title="{{ b.examples|join(' · ') }}">{{ b.examples[0][:34] }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <input class="imp-label" name="label_{{ b.slug }}"
+                   value="{{ cat.label if cat else b.slug }}"
+                   aria-label="Label for {{ b.slug }}">
+          </td>
+          <td class="num">
+            <input class="imp-amt num" name="amount_{{ b.slug }}" type="number" step="any" min="0"
+                   value="{{ (b.total if b.frequency == 'annual' else (b.total * 12 / a.months))|round|int }}"
+                   aria-label="Amount for {{ b.slug }}">
+          </td>
+          <td>
+            <select name="frequency_{{ b.slug }}" aria-label="Frequency for {{ b.slug }}">
+              {% for slug, f in frequencies.items() %}
+              <option value="{{ slug }}"{{ ' selected' if slug == b.frequency else '' }}>{{ f.label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="num muted">₹{{ "{:,.0f}".format(b.annual(a.months)) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Amounts are normalised: a monthly category is scaled from the {{ a.days }} days covered,
+    an annual one is taken as the whole year's bill.
+    {% if a.unmatched_share > 0.25 %}
+    <strong>{{ "%.0f"|format(a.unmatched_share * 100) }}% landed in “Other”</strong> — your
+    bank's narrations may be terse. Worth splitting those by hand.
+    {% endif %}
+  </p>
+</section>
+
+<section class="dash-card imp-income">
+  <h2>Income</h2>
+  <p class="muted imp-lead">
+    {% if a.annual_income %}
+    Detected from salary credits in the statement. It isn't used for net worth — that
+    stands on what you own — but it's the missing half of the picture: without it your
+    savings rate is a guess.
+    {% else %}
+    No salary credits found in this statement. Add it by hand if you'd like it recorded.
+    {% endif %}
+  </p>
+  <div class="imp-income-row">
+    <label for="imp-income">Annual income ₹</label>
+    <input id="imp-income" name="annual_income" type="number" step="any" min="0"
+           value="{{ (a.annual_income or current_income or 0)|round|int or '' }}"
+           placeholder="0">
+    <span class="muted imp-hint">Optional. Stored locally, like everything else.</span>
+  </div>
+</section>
+
+<div class="imp-actions">
+  <button class="btn btn-lg" type="submit">Add these to my expenses</button>
+  <a class="btn btn-outline btn-lg" href="/expenses">Cancel</a>
+</div>
+</form>
+
+{{ fine_print("A statement shows what left one account over a few weeks. It misses cash,
+other banks, and anything billed outside the period — treat the yearly figure as a
+starting point to correct, not a measurement.") }}
+
+{% endblock %}

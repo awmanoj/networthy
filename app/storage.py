@@ -495,6 +495,11 @@ def init_db() -> None:
             _add_column_if_missing(conn, "user_settings", col, "INTEGER")
         for col in ("plan_annual_savings", "plan_return_pct", "plan_inflation_pct"):
             _add_column_if_missing(conn, "user_settings", col, "REAL")
+        # Annual income, detected from salary credits on an imported statement or
+        # typed in. Nothing in the app requires it — net worth and expenses stand
+        # on their own — but it's the missing side of the picture: without it the
+        # savings rate can't be known, only guessed at.
+        _add_column_if_missing(conn, "user_settings", "annual_income", "REAL")
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -873,6 +878,30 @@ def save_plan_settings(user_id: int, **fields) -> None:
                 updated_at = excluded.updated_at
             """,
             (user_id, *values),
+        )
+
+
+def get_annual_income(user_id: int) -> float | None:
+    """Stored annual income, or None if never recorded."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT annual_income FROM user_settings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+    return row["annual_income"] if row else None
+
+
+def save_annual_income(user_id: int, amount: float | None) -> None:
+    """Upsert annual income, leaving the CAMS, SWR and plan columns alone."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_settings (user_id, annual_income, updated_at)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET
+                annual_income = excluded.annual_income,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, amount),
         )
 
 

@@ -691,6 +691,72 @@ tr:hover .reclass select, .reclass select:focus { opacity: 1; }
 .adj-lead { margin: 0 0 18px; font-size: 0.88rem; line-height: 1.6; max-width: 72ch; }
 .adj-lead strong { color: var(--text); }
 
+/* --- Importing expenses from a bank statement ------------------------------ */
+.exp-import { display: flex; flex-wrap: wrap; gap: 24px 36px; padding: 22px 26px; margin-bottom: 18px; }
+.exp-import-copy { flex: 1 1 340px; }
+.exp-import-copy h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; }
+.exp-import-copy p { margin: 0 0 8px; font-size: 0.88rem; line-height: 1.6; max-width: 64ch; }
+.exp-import-copy strong { color: var(--text); }
+.exp-import-tip { font-size: 0.82rem !important; }
+.exp-import-form { display: flex; flex-direction: column; gap: 12px; flex: 0 1 300px; align-self: center; }
+.exp-import-form label { display: flex; flex-direction: column; gap: 5px; font-size: 0.78rem;
+  font-weight: 600; color: var(--muted); }
+.exp-import-form .opt { font-weight: 400; opacity: 0.7; }
+.exp-import-form input[type="password"] {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 11px; font: inherit; color: var(--text);
+}
+.imp-ok {
+  background: color-mix(in srgb, var(--gain) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gain) 40%, var(--border));
+  color: var(--text); padding: 11px 14px; border-radius: 9px; margin-bottom: 14px; font-size: 0.9rem;
+}
+.imp-warn {
+  background: color-mix(in srgb, var(--copper) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--copper) 35%, var(--border));
+  padding: 13px 16px; border-radius: 10px; margin-bottom: 18px; font-size: 0.89rem; line-height: 1.55;
+}
+.imp-summary { display: flex; flex-wrap: wrap; gap: 28px 44px; padding: 22px 26px; margin-bottom: 18px; }
+.imp-stat { display: flex; flex-direction: column; gap: 2px; }
+.imp-figure { font-family: var(--serif); font-size: 1.7rem; font-weight: 600; letter-spacing: -0.01em; }
+.imp-figure em { font-style: normal; font-size: 0.5em; color: var(--muted); font-family: var(--sans, inherit); }
+.imp-excluded, .imp-rows, .imp-income { padding: 22px 26px; margin-bottom: 18px; }
+.imp-excluded h2, .imp-rows h2, .imp-income h2 {
+  margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; }
+.imp-lead { margin: 0 0 16px; font-size: 0.87rem; line-height: 1.6; max-width: 72ch; }
+.imp-lead strong { color: var(--text); }
+.imp-ex-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.imp-ex-list li { display: grid; grid-template-columns: 140px 120px 1fr; gap: 14px;
+  align-items: baseline; font-size: 0.87rem; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.imp-ex-list li:last-child { border-bottom: none; }
+.imp-ex-why { font-weight: 600; text-transform: capitalize; }
+.imp-ex-amt { font-variant-numeric: tabular-nums; text-align: right; }
+.imp-ex-note { font-size: 0.8rem; }
+.imp-table td, .imp-table th { vertical-align: middle; }
+.imp-table .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+.imp-count, .imp-eg { font-size: 0.76rem; margin-left: 8px; }
+.imp-eg { display: block; margin: 2px 0 0; }
+.imp-table input, .imp-table select {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 9px; font: inherit; font-size: 0.86rem; color: var(--text);
+}
+.imp-table .imp-amt { width: 120px; text-align: right; }
+.imp-table .imp-label { width: 100%; min-width: 120px; }
+.imp-income-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 0.88rem; }
+.imp-income-row input {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font: inherit; color: var(--text); width: 180px;
+}
+.imp-hint { font-size: 0.8rem; }
+.imp-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0 6px; }
+.exp-income-card { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: center;
+  justify-content: space-between; padding: 18px 24px; margin-bottom: 18px; }
+.exp-income-edit { display: flex; gap: 10px; align-items: center; }
+.exp-income-edit input {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; font: inherit; color: var(--text); width: 160px;
+}
+
 /* --- Account: export and delete -------------------------------------------- */
 .acct-card { padding: 22px 26px; margin-bottom: 20px; }
 .acct-card h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; letter-spacing: -0.01em; }

@@ -65,6 +65,67 @@
 {% endif %}
 {% endif %}
 
+{% if imported %}
+<div class="imp-ok">Added {{ imported }} expense{{ '' if imported == 1 else 's' }} from your statement. Edit or delete any of them below.</div>
+{% endif %}
+{% if import_problems %}
+<div class="alert">
+  {% for p in import_problems %}<div>{{ p.file }}: {{ p.error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{# Reading a statement beats recalling from memory — small recurring things get
+   forgotten and annual ones get missed entirely. Offered as a shortcut beside
+   manual entry, never instead of it. #}
+<section class="dash-card exp-import">
+  <div class="exp-import-copy">
+    <h2>Don't want to type it all?</h2>
+    <p class="muted">
+      Upload a bank statement and we'll sort the debits into these categories and work out
+      a yearly figure. Card bills, EMIs, SIPs and transfers between your own accounts are
+      left out — they aren't spending. <strong>Nothing is saved until you review it</strong>,
+      and the file itself is never stored.
+    </p>
+    <p class="muted exp-import-tip">
+      A <strong>CSV or Excel export</strong> from net banking reads far more reliably than a
+      PDF. A few months, or a yearly statement, catches annual bills like insurance and school
+      fees that one month would miss.
+    </p>
+  </div>
+  <form class="exp-import-form" method="post" action="/expenses/import"
+        enctype="multipart/form-data">
+    <label class="exp-import-file">
+      <span>Statement files</span>
+      <input type="file" name="files" accept=".csv,.txt,.pdf" multiple required>
+    </label>
+    <label class="exp-import-pw">
+      <span>PDF password <span class="opt">if locked</span></span>
+      <input type="password" name="password" autocomplete="off" placeholder="usually PAN or DOB">
+    </label>
+    <button class="btn" type="submit">Analyse</button>
+  </form>
+</section>
+
+{% if annual_income %}
+<section class="dash-card exp-income-card">
+  <div>
+    <span class="eyebrow">Annual income on record</span>
+    <span class="exp-figure num">₹{{ "{:,.0f}".format(annual_income) }}</span>
+    {% if annual_total %}
+    <span class="hero-note">
+      saving about ₹{{ "{:,.0f}".format(annual_income - annual_total) }} a year
+      ({{ "%.0f"|format((annual_income - annual_total) / annual_income * 100) }}% of income)
+    </span>
+    {% endif %}
+  </div>
+  <form method="post" action="/expenses/income" class="exp-income-edit">
+    <input name="annual_income" type="number" step="any" min="0"
+           value="{{ annual_income|round|int }}" aria-label="Annual income">
+    <button class="btn btn-outline" type="submit">Update</button>
+  </form>
+</section>
+{% endif %}
+
 <p class="exp-lead muted">
   Fill in whatever applies under each category — the count multiplies the amount, handy for
   per-person costs (×2 kids, ×4 members). Anything that doesn't fit goes under <strong>Other</strong>.
