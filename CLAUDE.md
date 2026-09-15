@@ -328,7 +328,17 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
      asks the reporter *not* to paste amounts, account numbers or statement contents — the
      shape of a bug is enough to fix it. `/privacy` discloses the same, in the same terms.
 
-  Destination is `FEEDBACK_TO`, falling back to `auth.owner_email()` — the hosted deploy
+  **No attachments, on purpose.** A screenshot of a bug in this app is a screenshot of
+  someone's net worth — that's exactly what makes it useful for triage and exactly what
+  makes it the most sensitive thing the app could be handed. And people don't experience
+  taking a screenshot as disclosing data the way they experience typing an amount, so an
+  upload button silently undoes the paragraph above it asking them not to paste figures.
+  Considered and declined: an in-memory pass-through (forwarded to the email, never written
+  to disk, the way the CAS upload already treats PDFs) would have been the defensible
+  version if this is ever revisited. Storing them is not — that would put images of
+  people's holdings into the server's backups, a category of data this app has never held.
+
+    Destination is `FEEDBACK_TO`, falling back to `auth.owner_email()` — the hosted deploy
   already sets `OWNER_EMAIL`, so no second secret. Unset means the report is recorded and
   not sent, and the page says that. `SUPPORT_EMAIL` optionally renders a `mailto:` beside
   the form (e.g. `issues@networthyhq.com`, which needs forwarding set up at the domain);
