@@ -28,8 +28,16 @@ def _from_address() -> str:
     return os.environ.get("EMAIL_FROM", "Networthy HQ <onboarding@resend.dev>")
 
 
-def send_email(to: str, subject: str, html: str) -> None:
-    """Send an email, or log it in dev when no provider is configured."""
+def send_email(to: str, subject: str, html: str,
+               reply_to: str | None = None) -> bool:
+    """Send an email, or log it in dev when no provider is configured.
+
+    Returns True only when a provider actually accepted it. The login flow
+    ignores the result by design (it shows "code sent" either way, so a wrong
+    address can't be probed), but a feedback form needs to know — telling
+    someone their bug report was delivered when it wasn't is worse than saying
+    it was recorded.
+    """
     key = _api_key()
     if not key:
         logger.warning(
@@ -38,13 +46,16 @@ def send_email(to: str, subject: str, html: str) -> None:
             subject,
             html,
         )
-        return
+        return False
 
+    payload = {"from": _from_address(), "to": [to], "subject": subject, "html": html}
+    if reply_to:
+        payload["reply_to"] = reply_to
     try:
         resp = httpx.post(
             RESEND_API_URL,
             headers={"Authorization": f"Bearer {key}"},
-            json={"from": _from_address(), "to": [to], "subject": subject, "html": html},
+            json=payload,
             timeout=10.0,
         )
         resp.raise_for_status()
@@ -52,3 +63,5 @@ def send_email(to: str, subject: str, html: str) -> None:
         # Don't leak provider errors to the user; the login flow shows a generic
         # "code sent" screen regardless. Log for the operator.
         logger.exception("Failed to send email to %s", to)
+        return False
+    return True

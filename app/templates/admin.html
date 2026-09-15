@@ -119,4 +119,30 @@
 <script>drawChart({{ signup_chart | tojson }}, {fmt: function (v) { return Math.round(v).toLocaleString('en-IN'); }, label: 'Signups over time'});</script>
 {% endif %}
 
+<!-- Feedback -->
+{# Kept on the owner-only page because a mailer failure must not mean a report is
+   lost. This is the one part of /admin that isn't metadata — it's what people
+   chose to write to you. The form asks them not to paste figures. #}
+<section class="dash-card adm-feedback">
+  <h2>Reports &amp; feedback</h2>
+  {% if reports %}
+  <ul class="adm-fb-list">
+    {% for r in reports %}
+    <li>
+      <div class="adm-fb-head">
+        <span class="adm-fb-kind">{{ r.kind }}</span>
+        <span class="muted">{{ r.created_at }}</span>
+        <span class="muted adm-fb-from">
+          {{ r.reply_to or r.account_email or 'anonymous' }}
+        </span>
+      </div>
+      <p class="adm-fb-msg">{{ r.message }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nothing yet.</p>
+  {% endif %}
+</section>
+
 {% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Report a bug · Networthy HQ{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <h1>Report a bug</h1>
+  <p class="muted">
+    A number that looks wrong, a statement that won't parse, a page that breaks on your
+    phone — all of it is useful. The wrong ones are the most useful.
+  </p>
+</section>
+
+{% if sent %}
+<section class="dash-card fb-done">
+  <h2>Got it — thank you.</h2>
+  <p class="muted">
+    {% if delivered %}
+    Your report has been recorded and emailed to the maintainer.
+    {% if user %}A reply would come to {{ user.email }}.{% endif %}
+    {% else %}
+    Your report has been saved on this server. No mail provider is configured here,
+    so it hasn't been emailed anywhere — the operator of this instance can read it.
+    {% endif %}
+  </p>
+  <p><a class="btn" href="/">Back to the app</a>
+     <a class="btn btn-outline" href="/feedback">Send another</a></p>
+</section>
+{% else %}
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<form class="dash-card fb-form" method="post" action="/feedback">
+  <label class="fb-field">
+    <span class="fb-label">What kind of thing is it?</span>
+    <select name="kind">
+      {% for k in kinds %}
+      <option value="{{ k.slug }}"{{ ' selected' if k.slug == kind else '' }}>{{ k.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label class="fb-field">
+    <span class="fb-label">What happened?</span>
+    <textarea name="message" rows="8" maxlength="{{ max_message }}" required
+              placeholder="What you did, what you expected, what you saw instead. If a figure is wrong, the page it's on helps.">{{ message }}</textarea>
+  </label>
+
+  {% if user %}
+  <p class="muted fb-who">
+    Sent from your account, <strong>{{ user.email }}</strong>, so a reply can reach you.
+  </p>
+  {% else %}
+  <label class="fb-field">
+    <span class="fb-label">Your email <span class="opt">optional</span></span>
+    <input name="reply_to" type="email" value="{{ reply_to }}" autocomplete="email"
+           placeholder="Only so a reply can reach you">
+  </label>
+  {% endif %}
+
+  <div class="fb-actions">
+    <button class="btn btn-lg" type="submit">Send report</button>
+    {% if support_address %}
+    <span class="muted fb-alt">or email <a href="mailto:{{ support_address }}">{{ support_address }}</a></span>
+    {% endif %}
+  </div>
+</form>
+{% endif %}
+
+{# The one place in the app that invites free text out of the machine, so it says
+   plainly what goes with it — and, more usefully, what not to put in. #}
+<section class="dash-card fb-note">
+  <h2>What gets sent</h2>
+  <p class="muted">
+    Exactly what you type above{% if user %}, plus your account email{% endif %} — nothing
+    else. Not the page you came from, not your holdings, not a single figure from your
+    account.
+    {% if can_email %}The report is stored here and emailed to the maintainer.
+    {% else %}The report is stored on this server; no mail provider is configured, so
+    it isn't emailed anywhere.{% endif %}
+  </p>
+  <p class="muted">
+    Which means: <strong>please don't paste amounts, account numbers, or a statement
+    into the box.</strong> To describe a parsing bug, the shape is enough — "an equity row
+    with a wrapped name showed no units" says more than the row itself, and keeps your
+    statement where it belongs.
+  </p>
+</section>
+
+{% endblock %}

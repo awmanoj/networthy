@@ -45,6 +45,8 @@ docker run -d \
   -e "RESEND_API_KEY=${RESEND_API_KEY:-}" \
   -e "EMAIL_FROM=${EMAIL_FROM:-}" \
   -e "OWNER_EMAIL=${OWNER_EMAIL:-}" \
+  -e "FEEDBACK_TO=${FEEDBACK_TO:-}" \
+  -e "SUPPORT_EMAIL=${SUPPORT_EMAIL:-}" \
   -e "APP_SECRET=${APP_SECRET:-}" \
   -e "GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID:-}" \
   -e "COOKIE_SECURE=${COOKIE_SECURE:-true}" \

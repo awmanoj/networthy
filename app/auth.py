@@ -39,6 +39,9 @@ _PUBLIC_PATHS = {"/", "/login", "/verify", "/logout", "/health",
                  # their browser), its old URL, and the crawler files.
                  "/how-rich-am-i", "/standing", "/how-much-do-i-need-to-retire",
                  "/how-do-i-get-to-10-crore",
+                 # Reporting a bug must not require an account: the public
+                 # calculators can be broken for someone who never signs in.
+                 "/feedback",
                  "/robots.txt", "/sitemap.xml"}
 
 _DB_TIME_FMT = "%Y-%m-%d %H:%M:%S"  # matches SQLite's datetime('now') (UTC)

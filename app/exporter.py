@@ -45,6 +45,10 @@ EXPORT_TABLES: list[str] = [
     # Asset-class corrections. Small, but they're work the user did by hand and
     # they'd have to redo it after a restore without them.
     "holding_overrides",
+    # Bug reports they filed. Their own words, so their own data — and deleting
+    # an account has to take them with it, which is why it's here rather than in
+    # `_EXCLUDED` alongside the operational tables.
+    "feedback",
 ]
 
 # Held about the user but deliberately not exported: live session tokens and

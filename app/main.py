@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
-               goals, networth, pathto, prices, projection, storage,
+               feedback, goals, networth, pathto, prices, projection, storage,
                wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
@@ -410,8 +410,96 @@ def admin_analytics(request: Request):
     if user is None or not owner or user.email != owner:
         return HTMLResponse("Not found", status_code=404)
     return templates.TemplateResponse(
-        "admin.html", {"request": request, "user": user, **analytics.overview()}
+        "admin.html",
+        {"request": request, "user": user, "reports": storage.list_feedback(),
+         **analytics.overview()}
     )
+
+
+def _reporter_key(request: Request) -> str:
+    """Who to rate-limit a feedback submission against.
+
+    The account when there is one; otherwise the client address. Behind the
+    reverse proxy the socket peer is always Caddy, so the first `X-Forwarded-For`
+    hop is what distinguishes visitors. It's spoofable — but the value of this
+    throttle is stopping an accidental double-submit and a naive flood, not
+    defeating a determined sender, and the length cap does the rest.
+    """
+    user = request.state.user
+    if user is not None:
+        return f"u{user.id}"
+    fwd = request.headers.get("x-forwarded-for", "")
+    ip = fwd.split(",")[0].strip() or (request.client.host if request.client else "?")
+    return f"ip{ip}"
+
+
+def _feedback_page(request: Request, *, error: str = "", sent: bool = False,
+                   delivered: bool = False,
+                   kind: str = feedback.DEFAULT_KIND, message: str = "",
+                   reply_to: str = "", status: int = 200):
+    return templates.TemplateResponse(
+        "feedback.html",
+        {
+            "request": request,
+            "user": request.state.user,
+            "kinds": feedback.KINDS,
+            "kind": kind,
+            "message": message,
+            "reply_to": reply_to,
+            "error": error,
+            "sent": sent,
+            "delivered": delivered,
+            "support_address": feedback.support_address(),
+            # Whether this deployment can mail at all, so the page describes what
+            # will happen rather than what happens on the hosted one.
+            "can_email": bool(feedback.destination()),
+            "max_message": feedback.MAX_MESSAGE,
+            "page_title": "Report a bug",
+            "page_description": (
+                "Report a bug, a wrong number, or an idea for Networthy HQ."
+            ),
+            "canonical_path": "/feedback",
+        },
+        status_code=status,
+    )
+
+
+@app.get("/feedback", response_class=HTMLResponse)
+def feedback_form(request: Request):
+    """Report a bug. Public — see auth._PUBLIC_PATHS."""
+    return _feedback_page(request)
+
+
+@app.post("/feedback", response_class=HTMLResponse)
+def feedback_submit(request: Request,
+                    kind: str = Form(feedback.DEFAULT_KIND),
+                    message: str = Form(""),
+                    reply_to: str = Form("")):
+    """Record the report and mail it to the operator.
+
+    Re-renders the form with the text still in it on any failure. Losing what
+    someone just typed is a poor way to thank them for reporting a bug.
+    """
+    user = request.state.user
+    try:
+        kind, message, reply_to = feedback.clean(kind, message, reply_to)
+    except ValueError as exc:
+        return _feedback_page(request, error=str(exc), kind=kind,
+                              message=message, reply_to=reply_to, status=400)
+
+    if not storage.claim_throttled_action(
+            f"feedback:{_reporter_key(request)}", feedback.THROTTLE_SECONDS):
+        return _feedback_page(
+            request, kind=kind, message=message, reply_to=reply_to, status=429,
+            error="That went through a moment ago — give it a minute before sending another.")
+
+    delivered = feedback.submit(kind, message, reply_to,
+                                user_id=user.id if user else None,
+                                account_email=user.email if user else None)
+    # Whether it actually reached an inbox changes what we're entitled to say:
+    # a self-hosted instance with no mail provider records the report and sends
+    # nothing, and promising a reply there would be a lie.
+    return _feedback_page(request, sent=True, delivered=delivered)
 
 
 @app.get("/about", response_class=HTMLResponse)

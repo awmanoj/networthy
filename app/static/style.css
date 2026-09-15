@@ -1590,6 +1590,38 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 }
 .mkt-foot-col a { color: var(--muted); text-decoration: none; font-size: 0.88rem; }
 .mkt-foot-col a:hover { color: var(--text); }
+/* --- Feedback form ---------------------------------------------------------- */
+.fb-form { display: grid; gap: 18px; padding: 22px 26px; margin-bottom: 18px; max-width: 640px; }
+.fb-field { display: grid; gap: 6px; }
+.fb-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.fb-label .opt { font-weight: 400; opacity: 0.7; }
+.fb-form textarea, .fb-form input, .fb-form select {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px;
+  padding: 10px 12px; font: inherit; color: var(--text); width: 100%;
+}
+.fb-form textarea { line-height: 1.55; resize: vertical; min-height: 140px; }
+.fb-who { font-size: 0.84rem; margin: -4px 0 0; }
+.fb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.fb-alt { font-size: 0.84rem; }
+.fb-done { padding: 22px 26px; margin-bottom: 18px; max-width: 640px; }
+.fb-done h2, .fb-note h2 {
+  margin: 0 0 8px; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; }
+.fb-done p { margin: 0 0 14px; }
+.fb-note { padding: 20px 26px; max-width: 640px; }
+.fb-note p { margin: 0 0 10px; font-size: 0.86rem; line-height: 1.6; }
+.fb-note p:last-child { margin-bottom: 0; }
+.fb-note strong { color: var(--text); }
+
+/* Feedback on the owner-only analytics page. */
+.adm-feedback { padding: 20px 24px; margin-bottom: 18px; }
+.adm-feedback h2 { margin: 0 0 12px; font-family: var(--serif); font-weight: 600; font-size: 1.1rem; }
+.adm-fb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.adm-fb-list li { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.adm-fb-list li:last-child { border-bottom: none; padding-bottom: 0; }
+.adm-fb-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; font-size: 0.78rem; }
+.adm-fb-kind { font-weight: 600; text-transform: capitalize; color: var(--copper); }
+.adm-fb-msg { margin: 5px 0 0; font-size: 0.88rem; line-height: 1.55; white-space: pre-wrap; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

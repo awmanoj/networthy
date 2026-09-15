@@ -362,6 +362,24 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id)")
+        # Bug reports and feedback. `user_id` is nullable: the public calculators
+        # can be broken for someone who never signs in, and a report from them is
+        # worth as much as one from an account. Written even when the email goes
+        # out, because `mailer` no-ops without a provider and swallows failures —
+        # see app/feedback.py.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedback (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                kind       TEXT NOT NULL,
+                message    TEXT NOT NULL,
+                reply_to   TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id)")
         # Financial goals: a target amount by a target date, how much is saved toward
         # it so far (hand-entered), and an expected return — from which we derive the
         # required monthly SIP. A separate planning lens, not part of the net-worth tree.
@@ -1660,6 +1678,33 @@ def delete_liability(user_id: int, liab_id: int) -> None:
 
 
 # --- Expenses ---------------------------------------------------------------
+
+def add_feedback(kind: str, message: str, reply_to: str | None,
+                 user_id: int | None) -> None:
+    """Record one bug report or suggestion."""
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO feedback (user_id, kind, message, reply_to) VALUES (?, ?, ?, ?)",
+            (user_id, kind, message, reply_to),
+        )
+
+
+def list_feedback(limit: int = 50) -> list[dict]:
+    """Recent reports, newest first — for the owner-only admin page.
+
+    Not user-scoped: this is the operator's inbox, not anyone's own data.
+    """
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT f.*, u.email AS account_email
+              FROM feedback f LEFT JOIN users u ON u.id = f.user_id
+             ORDER BY f.created_at DESC, f.id DESC LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
 
 def add_expense(
     user_id: int, name: str, category: str, amount: float, frequency: str,

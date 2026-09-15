@@ -305,6 +305,41 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   guard is against a mis-click, not a typing test) and **the shared demo account is exempt**, or
   one visitor could empty it for everyone.
 
+- **`app/feedback.py` + `GET`/`POST /feedback`** (template `feedback.html`, linked from
+  `_footer.html` so it's on every page via both bases) — a bug-report form that becomes an
+  email. **Public** (in `_PUBLIC_PATHS`, deliberately *not* in `_SITEMAP_PATHS` — it's a
+  utility, not content): the public calculators can be broken for someone who never signs
+  in. A form rather than a `mailto:` because a mailto needs a configured mail client, which
+  a lot of phone and webmail users don't have, and it renders the destination address into
+  the page. Three properties carry it:
+  1. **Nothing is attached that the user didn't type.** No referring URL, no page path, no
+     session context — only the message, plus the account email when signed in (stated on
+     the form, so a reply can land). This is the *same* rule that keeps Google Analytics off
+     authenticated pages: a signed-in URL like `/networth/assets/financial-assets/crypto`
+     names which asset classes someone holds. `test_feedback.py` pins that a `Referer`
+     header does not reach the email.
+  2. **Stored as well as sent.** `mailer.send_email` no-ops without `RESEND_API_KEY` and
+     swallows provider errors, so email alone drops reports silently. The `feedback` row is
+     written *first*, unconditionally; the mail is best-effort on top. `send_email` now
+     returns a **bool** (and takes `reply_to`) so the page can say what actually happened —
+     the thank-you screen says "emailed to the maintainer" only when it was, and "saved on
+     this server" otherwise, which is the truth on a self-hosted instance.
+  3. **The one place the app invites free text out of the machine**, so the page says so and
+     asks the reporter *not* to paste amounts, account numbers or statement contents — the
+     shape of a bug is enough to fix it. `/privacy` discloses the same, in the same terms.
+
+  Destination is `FEEDBACK_TO`, falling back to `auth.owner_email()` — the hosted deploy
+  already sets `OWNER_EMAIL`, so no second secret. Unset means the report is recorded and
+  not sent, and the page says that. `SUPPORT_EMAIL` optionally renders a `mailto:` beside
+  the form (e.g. `issues@networthyhq.com`, which needs forwarding set up at the domain);
+  **unset renders no address at all** rather than a dead link — same fail-closed shape as
+  `owner_email()`. Abuse control is `storage.claim_throttled_action` keyed per account, or
+  per first `X-Forwarded-For` hop for anonymous visitors, plus a length cap. Reports are
+  readable on **`/admin`** ("Reports & feedback"), the only part of that page that isn't
+  metadata — it's what people chose to write to the operator, which is why the form warns
+  against pasting figures. `feedback` is in `EXPORT_TABLES`: a report is the user's own
+  words, so it leaves and is deleted with their account.
+
 - **Google Analytics** (`templates/_analytics.html`, env `GA_MEASUREMENT_ID`) — on the hosted
   deployment only, and **three gates deep**. (1) Unset means **absent, not disabled**: a
   self-hosted instance or `uvx networthy` renders no tag and makes no request, so the local
