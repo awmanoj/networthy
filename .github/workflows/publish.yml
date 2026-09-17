@@ -20,6 +20,12 @@ on:
   # Lets you rehearse the build (and the tests) without publishing anything.
   workflow_dispatch:
 
+# Action versions are pinned to majors that run on **Node 24**. GitHub retired
+# the Node 20 runtime, and the v4/v5-era actions (checkout@v4, setup-python@v5,
+# upload/download-artifact@v4) were being force-run on 24 with a deprecation
+# warning on every job. Check `runs.using:` in an action's action.yml before
+# bumping — that field, not the release notes, is what decides this.
+
 permissions:
   contents: read
 
@@ -27,9 +33,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -49,9 +55,9 @@ jobs:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -78,7 +84,7 @@ jobs:
           print(f"{wheel}: {len(names)} files, templates and static assets present")
           PY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
@@ -94,7 +100,7 @@ jobs:
     permissions:
       id-token: write        # required for Trusted Publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist
           path: dist/
