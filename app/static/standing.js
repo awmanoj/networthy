@@ -388,6 +388,23 @@
     renderPyramid(inr);
   }
 
+  // A figure handed over from the calculator page, via sessionStorage rather
+  // than a query string. A ?nw= param would put the visitor's net worth into a
+  // URL — which reaches the server in the request line, lands in access logs,
+  // and goes to Google Analytics, which runs on exactly these public pages. A
+  // fragment would stay off the wire but would still ride along if they copied
+  // the link. sessionStorage does neither, and is read once and cleared.
+  function handoff() {
+    try {
+      var v = sessionStorage.getItem("nw-handoff");
+      sessionStorage.removeItem("nw-handoff");
+      var n = v ? parseFloat(v) : NaN;
+      return isFinite(n) && n > 0 ? n : null;
+    } catch (e) {
+      return null; // private mode, storage disabled — just use the default
+    }
+  }
+
   function initStanding(config) {
     DATA = JSON.parse(document.getElementById("stand-data").textContent);
     CRORE = DATA.crore;
@@ -419,7 +436,7 @@
     });
 
     selectGeo(selectedGeo);
-    update(config.defaultNetWorth || 5e7, "init");
+    update(handoff() || config.defaultNetWorth || 5e7, "init");
   }
 
   window.initStanding = initStanding;

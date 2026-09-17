@@ -38,7 +38,7 @@ _PUBLIC_PATHS = {"/", "/login", "/verify", "/logout", "/health",
                  # runs client-side, so an anonymous visitor's number never leaves
                  # their browser), its old URL, and the crawler files.
                  "/how-rich-am-i", "/standing", "/how-much-do-i-need-to-retire",
-                 "/how-do-i-get-to-10-crore",
+                 "/how-do-i-get-to-10-crore", "/net-worth-calculator",
                  # Reporting a bug must not require an account: the public
                  # calculators can be broken for someone who never signs in.
                  "/feedback",

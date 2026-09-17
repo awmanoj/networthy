@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+{% if user %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/">Dashboard</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">Net worth calculator</span>
+</nav>
+{% endif %}
+
+<section class="card stand-intro">
+  <h1>Net worth calculator</h1>
+  <p class="muted">
+    Your net worth is <strong>everything you own minus everything you owe</strong>. Fill in
+    what applies below — every category that matters in India is here, including the ones
+    people forget, like EPF and jewellery.
+    {% if not user %}It's worked out in your browser: nothing you type is sent anywhere,
+    including to us.{% endif %}
+  </p>
+</section>
+
+<!-- The calculator itself. Server-rendered rows, so the category list is readable
+     with JavaScript off; only the arithmetic needs a browser. -->
+<section class="calc-wrap">
+  <div class="dash-card calc-col">
+    <h2>What you own</h2>
+    <div class="calc-rows">
+      {% for r in asset_rows %}
+      <label class="calc-row">
+        <span class="calc-name">{{ r.title }}<em>{{ r.hint }}</em></span>
+        <span class="calc-box">
+          <span class="calc-rs">₹</span>
+          <input class="calc-in" data-side="asset" type="text" inputmode="decimal"
+                 autocomplete="off" placeholder="0" aria-label="{{ r.title }}">
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="calc-subtotal">Total assets <b class="num" id="calc-assets">₹0</b></div>
+  </div>
+
+  <div class="dash-card calc-col">
+    <h2>What you owe</h2>
+    <div class="calc-rows">
+      {% for r in liability_rows %}
+      <label class="calc-row">
+        <span class="calc-name">{{ r.title }}<em>{{ r.hint }}</em></span>
+        <span class="calc-box">
+          <span class="calc-rs">₹</span>
+          <input class="calc-in" data-side="liability" type="text" inputmode="decimal"
+                 autocomplete="off" placeholder="0" aria-label="{{ r.title }}">
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="calc-subtotal">Total liabilities <b class="num" id="calc-liabilities">₹0</b></div>
+  </div>
+</section>
+
+<section class="dash-card calc-result" id="calc-result">
+  <span class="eyebrow">Your net worth</span>
+  <div class="hero-nw num" id="calc-net">₹0</div>
+  <p class="hero-note" id="calc-note">Assets minus liabilities. Fill in anything above to start.</p>
+  <p class="calc-next" id="calc-next" hidden>
+    <a href="/how-rich-am-i" id="calc-rank-link">See where this ranks you →</a>
+  </p>
+</section>
+
+<!-- Reference content. This is the part a crawler reads, and the part that's
+     worth reading: the formula is trivial, getting the inputs right isn't. -->
+<section class="dash-card calc-doc">
+  <h2>The net worth formula</h2>
+  <p class="calc-formula num">Net worth = Assets − Liabilities</p>
+  <p>
+    That's the whole of it. Every disagreement about someone's net worth is a disagreement
+    about what goes on each side and what it's worth today — never about the arithmetic.
+  </p>
+
+  <h3>What counts as an asset</h3>
+  <ul class="calc-list">
+    {% for r in asset_rows %}<li><strong>{{ r.title }}</strong> — {{ r.hint|lower }}</li>{% endfor %}
+  </ul>
+
+  <h3>What counts as a liability</h3>
+  <ul class="calc-list">
+    {% for r in liability_rows %}<li><strong>{{ r.title }}</strong> — {{ r.hint|lower }}</li>{% endfor %}
+  </ul>
+
+  <h3>Four things that make the number wrong</h3>
+  <ol class="calc-mistakes">
+    <li>
+      <strong>Subtracting the same loan twice.</strong> Entering a flat at "value minus the
+      home loan" and then listing the home loan again is the most common error, and it can
+      knock tens of lakhs off a real net worth. Count the property gross; subtract the loan
+      once, on the other side.
+    </li>
+    <li>
+      <strong>Using what you paid instead of what it's worth.</strong> Purchase price is
+      history. Property, gold and equity all count at today's value — that's the entire
+      point of the number.
+    </li>
+    <li>
+      <strong>Counting the EMI as the debt.</strong> What you owe is the
+      <em>outstanding balance</em>, not the monthly instalment and not the amount you
+      originally borrowed.
+    </li>
+    <li>
+      <strong>Leaving out EPF, PPF and jewellery.</strong> Illiquid isn't the same as not
+      owned. For most salaried people in India the retirement balances alone are a large
+      share of the total, and they're the most commonly forgotten line.
+    </li>
+  </ol>
+
+  <h3>A worked example</h3>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <tbody>
+        <tr><td>Flat in Pune (market value today)</td><td class="num">₹1,10,00,000</td></tr>
+        <tr><td>Mutual funds and Indian equity</td><td class="num">₹42,00,000</td></tr>
+        <tr><td>EPF and PPF</td><td class="num">₹28,00,000</td></tr>
+        <tr><td>Bank balance and FDs</td><td class="num">₹9,00,000</td></tr>
+        <tr><td>Jewellery at today's gold rate</td><td class="num">₹6,00,000</td></tr>
+        <tr class="calc-rule"><td><strong>Assets</strong></td><td class="num"><strong>₹1,95,00,000</strong></td></tr>
+        <tr><td>Home loan outstanding</td><td class="num">−₹37,00,000</td></tr>
+        <tr><td>Credit card outstanding</td><td class="num">−₹80,000</td></tr>
+        <tr class="calc-rule"><td><strong>Liabilities</strong></td><td class="num"><strong>−₹37,80,000</strong></td></tr>
+        <tr class="calc-total"><td><strong>Net worth</strong></td><td class="num"><strong>₹1,57,20,000</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    Note the flat is counted at ₹1.10 crore and the loan subtracted separately — not
+    ₹73 lakh "net of the loan" with the loan also listed below.
+  </p>
+</section>
+
+<section class="dash-card calc-doc" id="faq">
+  <h2>Common questions</h2>
+  <dl class="calc-faq">
+    {% for item in faq %}
+    <dt>{{ item.q }}</dt>
+    <dd>{{ item.a }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+{% if not user %}
+<section class="dash-card stand-cta">
+  <h2>Work it out once. Then stop working it out.</h2>
+  <p class="muted">
+    A calculator gives you today's number. Networthy HQ keeps it current — import an NSDL
+    CAS and your demat and mutual-fund holdings price themselves live; add property, gold,
+    PPF and loans once and watch the line move.
+  </p>
+  <p>
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-outline btn-lg">Explore the live demo</a>
+  </p>
+</section>
+{% endif %}
+
+<p class="muted stand-note">
+  Also useful: <a href="/how-rich-am-i">where your net worth ranks</a> among adults in
+  India and the world, <a href="/how-much-do-i-need-to-retire">how much you need to
+  retire</a>, and <a href="/how-do-i-get-to-10-crore">the return your target needs</a>.
+</p>
+
+{{ fine_print("Values you enter are your own estimates — property and unlisted holdings
+in particular are worth what someone will pay, not what a calculator says.") }}
+
+<script src="/static/calculator.js?v={{ version }}"></script>
+<script>initCalculator();</script>
+{% endblock %}

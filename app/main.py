@@ -1959,6 +1959,7 @@ def robots_txt():
     return (
         "User-agent: *\n"
         "Allow: /$\n"
+        f"Allow: {CALC_PATH}\n"
         f"Allow: {STANDING_PATH}\n"
         f"Allow: {RETIRE_PATH}\n"
         f"Allow: {PATH_TO_PATH}\n"
@@ -1980,9 +1981,125 @@ def robots_txt():
 
 
 # The public, indexable surface. Everything else is behind the session gate.
-_SITEMAP_PATHS = [("/", "1.0"), (STANDING_PATH, "0.9"), (RETIRE_PATH, "0.9"),
-                  (PATH_TO_PATH, "0.9"), ("/about", "0.5"), ("/privacy", "0.3"),
-                  ("/terms", "0.3")]
+CALC_PATH = "/net-worth-calculator"
+
+# Which tree nodes become rows in the calculator. Curated — the full tree is 40+
+# leaves and a calculator with 40 boxes is a form nobody finishes — but written as
+# slugs *into* the real tree rather than as a hand-typed list of labels, so the
+# page can't drift from the product it's advertising. `test_calculator.py` fails
+# if any of these stops existing.
+_CALC_ASSETS = ("mutual-funds", "equity", "foreign-equity", "crypto", "fixed-income",
+                "gold-silver", "bank-cash", "real-estate", "physical-gold",
+                "alternate-investments", "private-business", "others")
+_CALC_LIABILITIES = ("home-loan", "loan-against-property", "vehicle-loan",
+                     "personal-loan", "credit-card", "education-loan")
+
+# A one-line "what goes in here" per row. The tree carries structure, not prose,
+# and a calculator row without an example is where people guess wrong.
+_CALC_HINTS = {
+    "mutual-funds": "Equity, debt and hybrid funds, at today's NAV",
+    "equity": "Indian shares, at today's price",
+    "foreign-equity": "US stocks and ETFs, converted to rupees",
+    "crypto": "At today's price, not what you paid",
+    "fixed-income": "PPF, EPF, FDs, NPS, bonds, small savings",
+    "gold-silver": "Gold and silver funds, ETFs and SGBs",
+    "bank-cash": "Savings, current accounts and cash in hand",
+    "real-estate": "Market value today — not the purchase price",
+    "physical-gold": "Jewellery and coins, at today's gold rate",
+    "alternate-investments": "Angel bets, ESOPs, AIF and PE commitments",
+    "private-business": "Your share of a business you own",
+    "others": "Anything that doesn't fit above",
+    "home-loan": "Outstanding balance — not the amount you borrowed",
+    "loan-against-property": "Outstanding balance",
+    "vehicle-loan": "Outstanding balance",
+    "personal-loan": "Outstanding balance",
+    "credit-card": "What you currently owe, not your limit",
+    "education-loan": "Outstanding balance",
+}
+
+# Shown as FAQ *and* emitted as FAQPage schema. One source: Google requires the
+# markup to match what a visitor can actually read on the page, so a second copy
+# for the crawler would be both a policy violation and a maintenance trap.
+_CALC_FAQ = [
+    {"q": "What is the net worth formula?",
+     "a": "Net worth = total assets − total liabilities. Assets are everything you own "
+          "at today's value; liabilities are everything you still owe."},
+    {"q": "Should I use the purchase price or the current value of my property?",
+     "a": "Today's market value. Net worth asks what you'd have if you converted "
+          "everything now, so a flat bought for ₹60 lakh that would sell for ₹1.1 crore "
+          "counts as ₹1.1 crore. The outstanding home loan is subtracted separately."},
+    {"q": "Do I subtract my home loan if I've already counted the house?",
+     "a": "Yes, once. Enter the property at its full market value under assets and the "
+          "outstanding loan under liabilities. What you must not do is enter the "
+          "property already net of the loan and then list the loan as well — that "
+          "subtracts the same debt twice and is the most common mistake."},
+    {"q": "Is my EPF or PPF part of my net worth?",
+     "a": "Yes. The balance is yours even though you can't withdraw it freely. Illiquid "
+          "is not the same as not owned — leaving them out understates most salaried "
+          "people's net worth badly."},
+    {"q": "Does my salary count?",
+     "a": "No. Net worth is a stock, not a flow — what you have, not what you earn. "
+          "Income is what changes your net worth over time; it isn't part of it."},
+    {"q": "How do I count a jointly owned property?",
+     "a": "Only your share of it. A flat worth ₹2 crore owned equally with your spouse "
+          "adds ₹1 crore to your net worth, and you'd count your half of the home loan "
+          "against it."},
+    {"q": "How often should I recalculate it?",
+     "a": "Once a quarter is plenty by hand. The number only means something as a "
+          "series — a single figure tells you where you are, a line tells you whether "
+          "what you're doing is working."},
+]
+
+
+def _calc_rows(slugs: tuple[str, ...]) -> list[dict]:
+    """Resolve curated slugs to {slug, title, hint} using the live tree."""
+    by_slug: dict[str, object] = {}
+
+    def walk(node):
+        by_slug[node.slug] = node
+        for child in node.children:
+            walk(child)
+
+    for section in networth.SECTIONS:
+        walk(section)
+    return [{"slug": s, "title": by_slug[s].title, "hint": _CALC_HINTS.get(s, "")}
+            for s in slugs if s in by_slug]
+
+
+@app.get(CALC_PATH, response_class=HTMLResponse)
+def net_worth_calculator(request: Request):
+    """A plain net-worth calculator, and the reference content around it.
+
+    The fourth public tool, and the one that answers the query most people
+    actually type. Same shape as the other three: the arithmetic runs in
+    `static/calculator.js` so nothing a visitor types leaves the tab, over
+    server-rendered content that carries the indexable answer for a crawler
+    running no JavaScript.
+    """
+    user = request.state.user
+    return templates.TemplateResponse(
+        "calculator.html",
+        {
+            "request": request,
+            "user": user,
+            "asset_rows": _calc_rows(_CALC_ASSETS),
+            "liability_rows": _calc_rows(_CALC_LIABILITIES),
+            "faq": _CALC_FAQ,
+            "my_net_worth": _dashboard(user)["net_worth"] if user else None,
+            "page_title": "Net Worth Calculator (India) — free, private",
+            "page_description": (
+                "Work out your net worth: assets minus liabilities, with every category "
+                "that counts in India — PPF, EPF, property, gold, demat holdings. Runs "
+                "in your browser; nothing you type is sent anywhere."
+            ),
+            "canonical_path": CALC_PATH,
+        },
+    )
+
+
+_SITEMAP_PATHS = [("/", "1.0"), (CALC_PATH, "0.9"), (STANDING_PATH, "0.9"),
+                  (RETIRE_PATH, "0.9"), (PATH_TO_PATH, "0.9"), ("/about", "0.5"),
+                  ("/privacy", "0.3"), ("/terms", "0.3")]
 
 
 @app.get("/sitemap.xml")

@@ -390,6 +390,46 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   live net worth and the Expenses burn. The **two public tools cross-link** each other (plus the
   footer) — that's the crawl path and the natural next question in both directions.
 
+- **`GET /net-worth-calculator`** (`main.net_worth_calculator`, template `calculator.html`,
+  `CALC_PATH`, JS `static/calculator.js`) — the **fourth public tool**, and the one aimed at
+  the query most people actually type ("net worth calculator india", "how to track your net
+  worth", "net worth formula" — one page, three intents, because they're the same person at
+  three stages). Same shape as the other three: arithmetic in the browser, reference content
+  server-rendered. Two things specific to it:
+  - **Rows are curated slugs *into* `networth.SECTIONS`** (`_CALC_ASSETS`, `_CALC_LIABILITIES`,
+    resolved by `_calc_rows`), not a hand-typed list of labels. The full tree is 40+ leaves and
+    a calculator with 40 boxes is a form nobody finishes, so it's curated — but a renamed or
+    deleted node fails `test_calculator.py` rather than silently leaving the page advertising
+    a product that no longer matches. `_CALC_HINTS` carries the one-line example per row; a
+    calculator row without an example is where people guess wrong.
+  - **The handoff to the ranking page goes through `sessionStorage`, never a query string.**
+    A `?nw=` param would put the visitor's net worth into the request line — into access logs,
+    and on to Google Analytics, which runs on exactly these public pages — which is precisely
+    what the page's own first paragraph promises doesn't happen. A URL fragment would stay off
+    the wire but would ride along if they copied the link. `calculator.js` writes `nw-handoff`
+    on click; `standing.js` reads it once and clears it. `test_calculator.py` strips comments
+    before asserting no `nw=` appears, because the file explains at length why not to.
+
+  `_CALC_FAQ` is rendered **both** as the visible FAQ and as `FAQPage` JSON-LD from one source:
+  Google requires the markup to match what a visitor can read, so a second copy for the crawler
+  would be a policy violation as well as a maintenance trap; the test asserts every answer
+  appears in the body.
+
+- **Structured data** (`templates/_schema.html`) — JSON-LD, included by **both** bases and
+  gated on `{% if not user %}`, the same gate as analytics and for the same reason. Emits
+  `Organization` + `WebSite` site-wide so "Networthy HQ" resolves to an entity rather than a
+  string, plus two opt-in blocks a route switches on: `schema_app` (a `WebApplication`, on the
+  landing only) and `faq` (a `FAQPage`). **No `aggregateRating` or review markup anywhere** —
+  there are no ratings, and inventing them to win stars in a result is a manual-action risk
+  quite apart from being a lie; `test_seo.py` pins that. The tests **parse** every block rather
+  than string-matching it: a template emitting subtly invalid JSON fails silently in the browser
+  and surfaces only in a crawl, weeks later.
+
+  The **landing `<title>`** is `Free Net Worth Tracker for India — Networthy HQ`, set via
+  `page_title` from `main.home`. It used to be `Networthy HQ — see where you stand`: brand plus
+  a tagline containing none of the words anyone searches, on the strongest on-page signal there
+  is. The H1 stays human ("Know exactly what you're worth."); the title does the search work.
+
 - **SEO / the indexable surface** — the two public tools are the top-of-funnel content, so each is
   **public** (in `auth._PUBLIC_PATHS`) and deliberately crawlable. A crawler is an anonymous
   client with no JS, which drives three constraints: (1) the page must not slip back behind the
