@@ -1698,6 +1698,15 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .calc-faq dt { font-weight: 600; font-size: 0.95rem; }
 .calc-faq dd { margin: 5px 0 0; font-size: 0.9rem; line-height: 1.65; color: var(--muted); }
 
+/* --- Tracker spreadsheet page ------------------------------------------------ */
+.xls-get { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 18px 0 0; }
+.xls-size { font-size: 0.85rem; }
+.calc-doc code {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px;
+  padding: 1px 5px; font-size: 0.86em;
+}
+.calc-doc ol.calc-list { display: grid; gap: 7px; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

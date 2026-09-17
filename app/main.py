@@ -1960,6 +1960,7 @@ def robots_txt():
         "User-agent: *\n"
         "Allow: /$\n"
         f"Allow: {CALC_PATH}\n"
+        f"Allow: {XLSX_PATH}\n"
         f"Allow: {STANDING_PATH}\n"
         f"Allow: {RETIRE_PATH}\n"
         f"Allow: {PATH_TO_PATH}\n"
@@ -2097,7 +2098,59 @@ def net_worth_calculator(request: Request):
     )
 
 
-_SITEMAP_PATHS = [("/", "1.0"), (CALC_PATH, "0.9"), (STANDING_PATH, "0.9"),
+XLSX_PATH = "/net-worth-tracker-excel"
+XLSX_FILE = "/static/networth-tracker.xlsx"
+
+_XLSX_FAQ = [
+    {"q": "Is the net worth tracker spreadsheet free?",
+     "a": "Yes — no email, no sign-up, no watermark. Download it and it's yours to "
+          "edit however you like."},
+    {"q": "Does it work in Google Sheets?",
+     "a": "Yes. File → Import in Google Sheets, or just drag the .xlsx into Drive. The "
+          "formulas are SUM, EDATE and subtraction, all of which Sheets supports."},
+    {"q": "What's in it?",
+     "a": "Twelve quarters across the top and every category that counts in India down "
+          "the side — mutual funds, equity, US stocks, crypto, fixed income including "
+          "PPF and EPF, gold, bank balances, property, and the usual loans. Totals, net "
+          "worth and a chart are formulas, so you only ever type the values."},
+    {"q": "How often should I update it?",
+     "a": "Once a quarter is plenty. Net worth only means something as a series — a "
+          "single figure tells you where you are, a line tells you whether what you're "
+          "doing is working."},
+]
+
+
+@app.get(XLSX_PATH, response_class=HTMLResponse)
+def net_worth_tracker_excel(request: Request):
+    """The free spreadsheet, and an honest account of where a spreadsheet stops.
+
+    Someone searching for a net-worth tracker in Excel wants this product and is
+    settling for a spreadsheet because they don't know it exists. Giving them a
+    genuinely good spreadsheet is the honest way to meet that — and the argument
+    for not using one is more persuasive from someone who just handed you one.
+    """
+    return templates.TemplateResponse(
+        "tracker_excel.html",
+        {
+            "request": request,
+            "user": request.state.user,
+            "xlsx": XLSX_FILE,
+            "asset_rows": _calc_rows(_CALC_ASSETS),
+            "liability_rows": _calc_rows(_CALC_LIABILITIES),
+            "faq": _XLSX_FAQ,
+            "page_title": "Free Net Worth Tracker Spreadsheet (Excel & Google Sheets)",
+            "page_description": (
+                "A free net worth tracker spreadsheet built for India — every category "
+                "that counts, quarterly columns, totals and a chart already wired up. "
+                "Works in Excel and Google Sheets. No email required."
+            ),
+            "canonical_path": XLSX_PATH,
+        },
+    )
+
+
+_SITEMAP_PATHS = [("/", "1.0"), (CALC_PATH, "0.9"), (XLSX_PATH, "0.8"),
+                  (STANDING_PATH, "0.9"),
                   (RETIRE_PATH, "0.9"), (PATH_TO_PATH, "0.9"), ("/about", "0.5"),
                   ("/privacy", "0.3"), ("/terms", "0.3")]
 

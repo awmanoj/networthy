@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+{% if user %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/">Dashboard</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">Tracker spreadsheet</span>
+</nav>
+{% endif %}
+
+<section class="card stand-intro">
+  <h1>Free net worth tracker spreadsheet</h1>
+  <p class="muted">
+    Every category that counts in India down the side, twelve quarters across the top,
+    and the totals, net worth and chart already wired up. Works in
+    <strong>Excel, Google Sheets and Numbers</strong>. No email, no sign-up, no watermark.
+  </p>
+  <p class="xls-get">
+    <a class="btn btn-lg" href="{{ xlsx }}" download="networthy-net-worth-tracker.xlsx">
+      Download the spreadsheet (.xlsx)
+    </a>
+    <span class="muted xls-size">Free · nothing to fill in first</span>
+  </p>
+</section>
+
+<section class="dash-card calc-doc">
+  <h2>What's in it</h2>
+  <ul class="calc-list">
+    <li><strong>{{ asset_rows|length }} asset categories</strong> — {{ asset_rows|map(attribute='title')|join(', ') }}.</li>
+    <li><strong>{{ liability_rows|length }} liability categories</strong> — {{ liability_rows|map(attribute='title')|join(', ') }}.</li>
+    <li><strong>Twelve quarterly columns.</strong> Set the first date and the rest fill themselves in, three months apart.</li>
+    <li><strong>Totals, net worth and a chart as formulas.</strong> You only ever type values.</li>
+    <li><strong>Rupee formatting with Indian grouping</strong> — ₹1,57,20,000, not ₹15,720,000.</li>
+    <li><strong>A second sheet</strong> with the four mistakes that make the number wrong.</li>
+  </ul>
+
+  <h3>How to use it</h3>
+  <ol class="calc-list">
+    <li>Set the first date in cell <code>B4</code>. Every other column follows it.</li>
+    <li>Fill in what each category is worth <em>today</em> — not what you paid.</li>
+    <li>Leave anything that doesn't apply blank.</li>
+    <li>Come back once a quarter and fill the next column. The chart draws itself.</li>
+  </ol>
+</section>
+
+{# The argument for not using a spreadsheet is far more persuasive from someone who
+   just gave you a good one. Overstating the case here would be both dishonest and
+   less effective — a spreadsheet is genuinely fine for a while. #}
+<section class="dash-card calc-doc">
+  <h2>Where a spreadsheet stops working</h2>
+  <p>
+    Honestly: for a year or two, it doesn't stop. A spreadsheet is free, it's yours, it
+    works offline, and nobody can shut it down. If that's what you want, take the file
+    above and ignore the rest of this page.
+  </p>
+  <p>What eventually goes wrong is always the same three things:</p>
+  <ul class="calc-list">
+    <li>
+      <strong>Every figure is stale the moment you type it.</strong> Your equity and mutual
+      funds move every day. A quarterly snapshot of a live portfolio is a photograph of a
+      river — fine for the trend, useless for "what am I worth right now".
+    </li>
+    <li>
+      <strong>Looking up the numbers is the actual work.</strong> Not the typing — the
+      hunting. Opening the demat account, the CAMS statement, three bank apps and the EPFO
+      portal is an hour, and it's the same hour every quarter. That's the thing people
+      stop doing, and a tracker nobody updates is worse than none.
+    </li>
+    <li>
+      <strong>It can't tell you anything you didn't already put in.</strong> Where you rank,
+      what you'd need to retire, what a 3% withdrawal rate implies, how a goal is tracking —
+      each is a formula you'd have to build and maintain yourself.
+    </li>
+  </ul>
+  <p>
+    Networthy HQ is the same table with the lookups automated: import an
+    <strong>NSDL CAS</strong> and your demat and mutual-fund holdings appear priced live;
+    add property, gold, PPF and loans once. It's free, and you can
+    <a href="/account">export everything back to CSV</a> whenever you want — including
+    into this spreadsheet.
+  </p>
+</section>
+
+<section class="dash-card calc-doc" id="faq">
+  <h2>Common questions</h2>
+  <dl class="calc-faq">
+    {% for item in faq %}
+    <dt>{{ item.q }}</dt>
+    <dd>{{ item.a }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+{% if not user %}
+<section class="dash-card stand-cta">
+  <h2>Or skip the quarterly hour.</h2>
+  <p class="muted">
+    Same categories, same number — without the hunting. Import a statement and it prices
+    itself.
+  </p>
+  <p>
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-outline btn-lg">Explore the live demo</a>
+  </p>
+</section>
+{% endif %}
+
+<p class="muted stand-note">
+  Also useful: <a href="/net-worth-calculator">work out your net worth</a> right now,
+  <a href="/how-rich-am-i">where it ranks</a>, and
+  <a href="/how-much-do-i-need-to-retire">how much you need to retire</a>.
+</p>
+
+{{ fine_print("The spreadsheet does arithmetic on figures you supply — it can't check
+whether a property or unlisted holding is really worth what you've entered.") }}
+
+{% endblock %}
