@@ -21,6 +21,10 @@
   <header class="mkt-header">
     <a class="brand" href="/"><span class="mark">₹</span>Networthy HQ</a>
     <nav class="mkt-nav">
+      {# Outside header_cta so it survives any page that swaps the sign-in buttons.
+         Points at the landing's strip: the tools are the top of the funnel, and
+         footer-only is the one place a search engine discounts a link. #}
+      <a href="/#tools" class="mkt-tools-link">Free tools</a>
       {% block header_cta %}
       <a href="/login" class="mkt-login">Log in</a>
       <a href="/login" class="btn">Get started</a>

@@ -381,7 +381,14 @@ def home(request: Request):
     """Public landing when logged out; the live net-worth Dashboard when logged in."""
     user = request.state.user
     if user is None:
-        return templates.TemplateResponse("landing.html", {"request": request})
+        # The two figures in the free-tools strip come from the same functions the
+        # tool pages use, so the landing can't drift from what it links to.
+        return templates.TemplateResponse("landing.html", {
+            "request": request,
+            "top1_india": _inr_short(wealth.wealth_for_top_pct(1.0, "india")),
+            "fire_one_lakh": _inr_short(
+                expenses.fire_target(100_000 * 12, expenses.DEFAULT_SWR_PCT)),
+        })
     dash = _dashboard(user)
     # Bootstrap the net-worth-over-time trend from usage: record today's point (once
     # per IST day; won't overwrite the digest's richer row). Then hand the browser the

@@ -1622,6 +1622,34 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .adm-fb-kind { font-weight: 600; text-transform: capitalize; color: var(--copper); }
 .adm-fb-msg { margin: 5px 0 0; font-size: 0.88rem; line-height: 1.55; white-space: pre-wrap; }
 
+/* --- Free-tools strip on the landing ---------------------------------------- */
+.mkt-tools-link {
+  color: var(--muted); text-decoration: none; font-size: 0.92rem; font-weight: 600;
+  padding: 7px 10px;
+}
+.mkt-tools-link:hover { color: var(--brand); }
+.mkt-tools { max-width: 1120px; margin: 0 auto; padding: 8px 28px 56px; }
+.mkt-tools-head { max-width: 52em; margin-bottom: 26px; }
+.mkt-tools-head h2 {
+  margin: 10px 0 8px; font-family: var(--serif); font-weight: 600;
+  font-size: 1.7rem; letter-spacing: -0.01em;
+}
+.mkt-tools-head p { margin: 0; font-size: 0.95rem; line-height: 1.6; }
+.mkt-tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.mkt-tool {
+  display: flex; flex-direction: column; gap: 9px; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 22px 24px; transition: border-color 0.15s, transform 0.15s;
+}
+.mkt-tool:hover { border-color: var(--brand); transform: translateY(-2px); }
+.mkt-tool h3 {
+  margin: 0; font-family: var(--serif); font-weight: 600; font-size: 1.12rem;
+  letter-spacing: -0.01em;
+}
+.mkt-tool p { margin: 0; font-size: 0.88rem; line-height: 1.6; color: var(--muted); }
+.mkt-tool strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.mkt-tool-go { margin-top: auto; padding-top: 6px; color: var(--brand); font-weight: 600; font-size: 0.86rem; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }
@@ -1677,4 +1705,14 @@ a.btn { color: var(--btn-fg); }
 }
 @media (max-width: 520px) {
   .dash-tiles { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 860px) {
+  .mkt-tools-grid { grid-template-columns: 1fr; gap: 14px; }
+  .mkt-tools { padding-bottom: 40px; }
+}
+/* The header has room for two buttons on a phone, not three; the footer still
+   carries all three tools, and the strip is the first thing under the hero. */
+@media (max-width: 620px) {
+  .mkt-tools-link { display: none; }
 }
