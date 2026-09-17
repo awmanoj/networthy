@@ -1,0 +1,72 @@
+{# JSON-LD structured data. Included by both bases, gated on `not user` for the
+   same reason analytics is: it's for crawlers, and an authenticated page has no
+   business emitting anything about itself to anyone.
+
+   Two site-wide entities (Organization, WebSite) so search engines can resolve
+   "Networthy HQ" to a thing rather than a string, plus two opt-in blocks a route
+   can switch on: `schema_app` for the product itself, and `faq` for pages that
+   answer questions.
+
+   No aggregateRating and no review markup anywhere — we have no ratings, and
+   inventing them to win stars in a result is the kind of thing that gets a site
+   manually penalised, quite apart from being a lie. #}
+{% if not user %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": {{ (site_url ~ "/#organization") | tojson }},
+      "name": "Networthy HQ",
+      "url": {{ (site_url ~ "/") | tojson }},
+      "logo": {{ (site_url ~ "/static/apple-touch-icon.png") | tojson }},
+      "description": {{ "A private, India-first net worth tracker." | tojson }}
+    },
+    {
+      "@type": "WebSite",
+      "@id": {{ (site_url ~ "/#website") | tojson }},
+      "url": {{ (site_url ~ "/") | tojson }},
+      "name": "Networthy HQ",
+      "publisher": { "@id": {{ (site_url ~ "/#organization") | tojson }} },
+      "inLanguage": "en-IN"
+    }{% if schema_app %},
+    {
+      "@type": "WebApplication",
+      "@id": {{ (site_url ~ "/#app") | tojson }},
+      "name": "Networthy HQ",
+      "url": {{ (site_url ~ "/") | tojson }},
+      "applicationCategory": "FinanceApplication",
+      "applicationSubCategory": "Net worth tracker",
+      "operatingSystem": "Web browser",
+      "browserRequirements": "Requires JavaScript for live charts",
+      "description": {{ schema_app | tojson }},
+      "inLanguage": "en-IN",
+      "publisher": { "@id": {{ (site_url ~ "/#organization") | tojson }} },
+      {# Free, and priceCurrency is required alongside a zero price. #}
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
+      "featureList": [
+        "Net worth tracking across assets and liabilities",
+        "NSDL CAS and CAMS statement import",
+        "Live prices for Indian equity, mutual funds, US equity, crypto and gold",
+        "Expense and retirement planning",
+        "Net worth percentile ranking"
+      ]
+    }{% endif %}{% if faq %},
+    {
+      "@type": "FAQPage",
+      "@id": {{ (site_url ~ (canonical_path | default("/", true)) ~ "#faq") | tojson }},
+      "mainEntity": [
+        {%- for item in faq %}
+        {
+          "@type": "Question",
+          "name": {{ item.q | tojson }},
+          "acceptedAnswer": { "@type": "Answer", "text": {{ item.a | tojson }} }
+        }{{ "," if not loop.last }}
+        {%- endfor %}
+      ]
+    }{% endif %}
+  ]
+}
+</script>
+{% endif %}

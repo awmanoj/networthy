@@ -385,6 +385,23 @@ def home(request: Request):
         # tool pages use, so the landing can't drift from what it links to.
         return templates.TemplateResponse("landing.html", {
             "request": request,
+            # The <title> is the strongest on-page signal there is and the line
+            # that shows in a result. "Networthy HQ — see where you stand" was
+            # brand plus a tagline containing none of the words anyone searches;
+            # the H1 stays human, the title competes.
+            "page_title": "Free Net Worth Tracker for India",
+            "page_description": (
+                "A free net worth tracker built for India. Bring together stocks, "
+                "mutual funds, crypto, gold, property, bank balances and loans — "
+                "priced live, private by design."
+            ),
+            "canonical_path": "/",
+            "schema_app": (
+                "Track your complete net worth in one place — Indian and US stocks, "
+                "mutual funds, crypto, gold, real estate, bank balances and loans, "
+                "priced live. Import an NSDL CAS or CAMS statement, or enter "
+                "anything by hand."
+            ),
             "top1_india": _inr_short(wealth.wealth_for_top_pct(1.0, "india")),
             "fire_one_lakh": _inr_short(
                 expenses.fire_target(100_000 * 12, expenses.DEFAULT_SWR_PCT)),

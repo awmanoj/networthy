@@ -126,11 +126,15 @@ def test_per_page_meta(client):
     assert page.count('name="description"') == 1
 
 
-def test_landing_keeps_the_default_meta_and_only_one_description(client):
+def test_landing_keeps_one_description_and_targets_its_own_keyword(client):
     page = client.get("/").text
     assert page.count('name="description"') == 1
     assert 'href="https://networthyhq.com/"' in page          # canonical
-    assert "Track your complete net worth" in page
+    # The title is what shows in a result and the strongest on-page signal there
+    # is. Brand plus a tagline containing none of the searched words was the
+    # single biggest on-page miss on the site.
+    assert "<title>Free Net Worth Tracker for India — Networthy HQ</title>" in page
+    assert "net worth tracker" in page.lower()
 
 
 def test_logged_out_gets_signup_cta_logged_in_gets_breadcrumbs(client):
@@ -332,3 +336,42 @@ def test_signed_in_readers_get_their_own_asset_mix(client):
 
     anon = client.get("/how-do-i-get-to-10-crore").text
     assert "What your current mix would plausibly earn" not in anon
+
+
+
+# --- Structured data ---------------------------------------------------------
+
+def _ld(body: str) -> list[dict]:
+    """Every JSON-LD block on the page, parsed. Parsing is the point: a template
+    that emits subtly invalid JSON fails silently in the browser and is only
+    caught by a crawler, weeks later."""
+    import json, re
+    return [json.loads(b) for b in
+            re.findall(r'<script type="application/ld\+json">(.*?)</script>', body, re.S)]
+
+
+def test_public_pages_carry_valid_structured_data(client):
+    for path in ("/", "/how-rich-am-i", "/how-much-do-i-need-to-retire",
+                 "/how-do-i-get-to-10-crore", "/about"):
+        (block,) = _ld(client.get(path).text)
+        types = [n["@type"] for n in block["@graph"]]
+        assert "Organization" in types and "WebSite" in types, path
+
+
+def test_only_the_landing_declares_the_application(client):
+    assert "WebApplication" in [n["@type"] for n in _ld(client.get("/").text)[0]["@graph"]]
+    types = [n["@type"] for n in _ld(client.get("/about").text)[0]["@graph"]]
+    assert "WebApplication" not in types
+
+
+def test_structured_data_never_invents_ratings(client):
+    """No aggregateRating or review markup anywhere. We have no ratings, and
+    faking them to win stars in a result is a manual-action risk and a lie."""
+    body = client.get("/").text
+    assert "aggregateRating" not in body and "reviewCount" not in body
+
+
+def test_no_structured_data_on_authenticated_pages(client):
+    """Same gate as analytics: schema is for crawlers, and a signed-in page has
+    no business emitting anything about itself."""
+    assert _ld(client.get("/expenses", cookies=_login()).text) == []
