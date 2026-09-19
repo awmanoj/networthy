@@ -184,6 +184,42 @@
   </a>
 </section>
 
+{# The honest half of the headline number. Live prices refresh themselves;
+   everything below was typed by hand and has been sitting there since. Showing
+   which is which is what stops a two-year-old valuation being presented with the
+   same confidence as an NSE quote — and it turns "update everything" into a
+   short list someone can actually finish. #}
+{% if d.stale %}
+<section class="dash-card stale-card">
+  <div class="bh">
+    <h2>{{ d.stale_total }} figure{{ '' if d.stale_total == 1 else 's' }} worth a second look</h2>
+    <span class="hint">Hand-entered · not refreshed by live prices</span>
+  </div>
+  <p class="muted stale-lead">
+    These haven't been touched in over six months, so your net worth is partly
+    quoting them from memory. Oldest first.
+  </p>
+  <ul class="stale-list">
+    {% for f in d.stale %}
+    <li>
+      <a class="stale-name" href="{{ f.url }}">{{ f.label }}</a>
+      <span class="stale-val num">₹{{ "{:,.0f}".format(f.value) }}</span>
+      <span class="stale-age">{{ f.months }} months ago</span>
+      <form method="post" action="/networth/touch" class="stale-ok">
+        <input type="hidden" name="source" value="{{ f.source }}">
+        <input type="hidden" name="id" value="{{ f.id }}">
+        <input type="hidden" name="redirect" value="/">
+        <button type="submit" title="Keep the value, reset the clock">Still right</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if d.stale_total > d.stale|length %}
+  <p class="muted stale-more">…and {{ d.stale_total - d.stale|length }} more.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if d.buckets %}
 <section class="dash-card dash-holdings">
   <div class="bh">

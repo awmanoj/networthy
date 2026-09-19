@@ -14,6 +14,7 @@ batch. Emails go out via `mailer` (which no-ops to a log without RESEND_API_KEY)
 from __future__ import annotations
 
 import json
+from html import escape as html_escape
 import logging
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -160,6 +161,29 @@ def _breakdown_rows(live_now: dict, base: dict | None) -> str:
     return rows
 
 
+def _stale_row(stale: list[dict]) -> str:
+    """One line about the oldest hand-entered figure.
+
+    Weekly only, and only ever the single oldest. The point is a specific, small
+    task — "your Pune flat is 14 months old" — not a backlog. A digest that lists
+    nine chores every week is a digest people filter.
+    """
+    if not stale:
+        return ""
+    oldest = stale[0]
+    extra = (f" (and {len(stale) - 1} other{'s' if len(stale) > 2 else ''})"
+             if len(stale) > 1 else "")
+    return f"""\
+        <tr><td style="padding:16px 28px 4px;">
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.12em;color:{_FAINT};font-weight:700;">Worth a second look</div>
+          <div style="margin-top:6px;font-size:14px;color:{_MUTED};line-height:1.6;">
+            <b style="color:#1F3A5F;">{html_escape(str(oldest["label"]))}</b> was last updated
+            {oldest["months"]} months ago{extra}. Live prices keep themselves current;
+            hand-entered figures don't.
+          </div>
+        </td></tr>"""
+
+
 def weekly_email(day: date, dash: dict, live_now: dict, base: dict | None) -> tuple[str, str]:
     net = dash["net_worth"]
     base_net = base.get("net_worth") if base else None
@@ -188,7 +212,8 @@ def weekly_email(day: date, dash: dict, live_now: dict, base: dict | None) -> tu
           </table>
         </td></tr>"""
 
-    body = _hero_row(f"Net worth · {day.strftime('%d %b %Y')}", net, change) + table
+    body = (_hero_row(f"Net worth · {day.strftime('%d %b %Y')}", net, change)
+            + table + _stale_row(dash.get("stale") or []))
     return _shell(body), subject
 
 

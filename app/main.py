@@ -347,6 +347,52 @@ _CAT_COLOR = {
 _ALLOC_PARENTS = ("assets/financial-assets", "assets/non-financial-assets")
 
 
+def _leaf_paths() -> dict[str, str]:
+    """slug -> "assets/financial-assets/ppf". Built from the tree, so a link can
+    never point at a category that was renamed out from under it."""
+    out: dict[str, str] = {}
+
+    def walk(node, prefix: str):
+        path = f"{prefix}/{node.slug}" if prefix else node.slug
+        out[node.slug] = path
+        for child in node.children:
+            walk(child, path)
+
+    for section in networth.SECTIONS:
+        walk(section, "")
+    return out
+
+
+def _stale_figures(user, limit: int = 6) -> list[dict]:
+    """The oldest hand-entered figures, ready to render as a worklist.
+
+    Each row links straight to its own edit form rather than to the leaf, because
+    the whole value here is turning "go update everything" into a specific, small
+    task the user can finish.
+    """
+    paths = _leaf_paths()
+    rows = []
+    for r in storage.stale_entries(user.id)[:limit]:
+        path = paths.get(r["leaf_slug"])
+        if not path:
+            continue                      # a leaf that no longer exists; skip quietly
+        touched = r["touched"][:10]
+        try:
+            days = (date.today() - date.fromisoformat(touched)).days
+        except ValueError:
+            continue
+        rows.append({
+            "label": r["label"] or "Untitled",
+            "value": r["value"],
+            "days": days,
+            "months": days // 30,
+            "url": f"/networth/{path}?edit={r['id']}",
+            "source": r["source"],
+            "id": r["id"],
+        })
+    return rows
+
+
 def _dashboard(user) -> dict:
     """Everything the home dashboard shows, derived from the rolled-up tree.
 
@@ -386,6 +432,9 @@ def _dashboard(user) -> dict:
         "non_fin": values.get("assets/non-financial-assets", 0.0),
         "buckets": buckets,
         "has_data": bool(buckets) or liabilities > 0,
+        # Which parts of this number are someone's memory rather than a live price.
+        "stale": _stale_figures(user),
+        "stale_total": len(storage.stale_entries(user.id)),
     }
 
 
@@ -432,6 +481,20 @@ def home(request: Request):
         "networth.html",
         {"request": request, "user": user, "dash": dash, "nw_series": series},
     )
+
+
+@app.post("/networth/touch")
+def networth_touch(request: Request, source: str = Form(...), id: int = Form(...),
+                   redirect: str = Form("/")):
+    """Mark a hand-entered figure as checked, without changing its value.
+
+    "I looked, it's still right" has to be expressible. Without it the only way
+    to clear a stale flag is to retype a number you haven't verified, which is
+    precisely the habit this feature exists to discourage.
+    """
+    storage.touch_row(source, id, request.state.user.id)
+    return RedirectResponse(url=redirect if redirect.startswith("/") else "/",
+                            status_code=303)
 
 
 @app.get("/admin", response_class=HTMLResponse)

@@ -145,6 +145,41 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   created *after* the legacy migration in `init_db`, so its FK isn't rewritten onto the dropped
   legacy snapshots table.
 
+- **Parser self-check** (`models.Reconciliation`, `ParsedStatement.reconciliation`) — a CAS
+  states its own portfolio total *and* lists the holdings; parsing them separately makes them
+  an independent check on each other, and **nothing else in the pipeline can catch a parser
+  that silently drops a section or invents a value**. Both real parser bugs found so far would
+  have been caught here: an NSDL layout change that made the whole equity block parse empty,
+  and a 12-digit folio number read as a value (a ₹477 billion position). In each case the app
+  showed a wrong breakdown with no error at all — a crash is honest, a confident wrong number
+  isn't. Four deliberate choices: it **warns, never refuses** (the headline total is read
+  straight off the document and stays trustworthy; only the breakdown is suspect, and
+  rejecting the upload leaves the user with nothing); a **summary CAS is not flagged**
+  (`checked=False` when there are no rows — crying wolf on a good file is how a warning stops
+  being read); tolerance is **1%**, not tight, because both real failures were enormous and a
+  threshold that fires on ordinary statements is worse than no check; and `main.nsdl_cas`
+  **recomputes from stored rows** rather than persisting a flag, so a parser fix plus a
+  re-upload clears the banner by itself. `test_reconcile.py` pins all four.
+
+- **Staleness** (`storage._STALE_SOURCES`, `stale_entries`, `touch_row`, `STALE_AFTER_DAYS`
+  = 182; `main._stale_figures` + `_leaf_paths`; the Dashboard card; the weekly digest line) —
+  the answer to this app's one structural weakness: **live prices refresh themselves,
+  hand-entered figures don't**, and the dashboard presented a two-year-old property valuation
+  with exactly the same confidence as an NSE quote. Every hand-entered table carries
+  `updated_at` (added by migration and **backfilled from `created_at`**, not left NULL — a row
+  entered eighteen months ago and never touched *is* eighteen months old, and starting
+  everyone's clock at migration time would hide the figures most worth revisiting).
+  `storage.update_row` stamps it on every edit, so no caller has to remember. Live-priced
+  tables (`crypto_holdings`, `foreign_holdings`, `forex_holdings`) are **deliberately absent**
+  from `_STALE_SOURCES`; `gold_items` is in it but only for **flat-valued** rows, since a row
+  entered as weight + karat is priced from the live gold rate. The Dashboard card links each
+  row to **its own `?edit={id}` form** rather than to the leaf — the whole value is turning
+  "update everything" into a specific, finishable task. **`POST /networth/touch`** ("Still
+  right") resets the clock without changing the value, because otherwise the only way to clear
+  a flag is to retype a number you haven't verified, which is the exact habit this discourages;
+  it validates `source` against `_STALE_SOURCES` since that name reaches SQL. The weekly digest
+  names **only the oldest** — a digest listing nine chores a week is one people filter.
+
 - **`app/classify.py`** — a layered, config-driven asset-class rule engine (section context >
   ISIN prefix > description keywords > manual override), **wired into `_find_accounts`** so each
   stored holding carries an `asset_class`. Two traps it guards, both cases where the ISIN

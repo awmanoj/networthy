@@ -1718,6 +1718,26 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .rec-warn strong { color: var(--text); }
 .r-warn { margin: 6px 0 0; font-size: 0.82rem; }
 
+/* --- Stale hand-entered figures ---------------------------------------------- */
+.stale-card { padding: 20px 24px; margin-bottom: 18px; }
+.stale-lead { margin: 0 0 14px; font-size: 0.87rem; line-height: 1.6; max-width: 66ch; }
+.stale-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.stale-list li {
+  display: grid; grid-template-columns: 1fr auto auto auto; gap: 14px;
+  align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.stale-list li:last-child { border-bottom: none; }
+.stale-name { color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.92rem; }
+.stale-name:hover { color: var(--brand); text-decoration: underline; }
+.stale-val { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+.stale-age { color: var(--copper); font-size: 0.8rem; white-space: nowrap; }
+.stale-ok button {
+  background: transparent; border: 1px solid var(--border); border-radius: 7px;
+  padding: 4px 10px; font: inherit; font-size: 0.78rem; color: var(--muted); cursor: pointer;
+}
+.stale-ok button:hover { border-color: var(--brand); color: var(--brand); }
+.stale-more { margin: 12px 0 0; font-size: 0.83rem; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }
@@ -1792,4 +1812,9 @@ a.btn { color: var(--btn-fg); }
   .calc-row { flex-direction: column; align-items: stretch; gap: 5px; }
   .calc-box { justify-content: flex-end; }
   .calc-in { width: 100%; }
+}
+
+@media (max-width: 560px) {
+  .stale-list li { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .stale-age { grid-column: 1; }
 }

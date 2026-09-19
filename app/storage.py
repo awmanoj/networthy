@@ -513,6 +513,15 @@ def init_db() -> None:
             _add_column_if_missing(conn, "user_settings", col, "INTEGER")
         for col in ("plan_annual_savings", "plan_return_pct", "plan_inflation_pct"):
             _add_column_if_missing(conn, "user_settings", col, "REAL")
+        # Freshness stamps on every hand-entered table. Backfilled from
+        # created_at, not left NULL: a row entered eighteen months ago and never
+        # touched since IS eighteen months old, and starting everyone's clock at
+        # migration time would hide exactly the figures most worth revisiting.
+        for _table, *_ in _STALE_SOURCES:
+            if _add_column_if_missing(conn, _table, "updated_at", "TEXT"):
+                conn.execute(
+                    f"UPDATE {_table} SET updated_at = created_at WHERE updated_at IS NULL"
+                )
         # Annual income, detected from salary credits on an imported statement or
         # typed in. Nothing in the app requires it — net worth and expenses stand
         # on their own — but it's the missing side of the picture: without it the
@@ -532,11 +541,17 @@ def init_db() -> None:
 
 def _add_column_if_missing(
     conn: sqlite3.Connection, table: str, column: str, decl: str
-) -> None:
-    """Add `column` to `table` if an older DB predates it. Idempotent."""
+) -> bool:
+    """Add `column` to `table` if an older DB predates it. Idempotent.
+
+    Returns True only when it actually added the column, so a caller that needs
+    to backfill the new column can do it once rather than on every startup.
+    """
     cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
-    if column not in cols:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    if column in cols:
+        return False
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    return True
 
 
 def _migrate_legacy_snapshots(conn: sqlite3.Connection) -> None:
@@ -604,6 +619,71 @@ def get_or_create_user(email: str) -> User:
     return _row_to_user(row)
 
 
+# Hand-entered tables whose figure goes stale, with the columns needed to show a
+# row and link to it. Live-priced tables (crypto_holdings, foreign_holdings,
+# forex_holdings) and statement-derived rows are deliberately absent: their value
+# refreshes itself, so "when did you last touch this" means nothing for them.
+#
+# (table, label expr, value column, leaf-slug expr, extra WHERE or None)
+_STALE_SOURCES: list[tuple[str, str, str, str, str | None]] = [
+    ("manual_holdings",   "scheme",                        "investment_amount", "leaf_slug", None),
+    ("property_holdings", "label",                         "current_value",     "leaf_slug", None),
+    ("bank_cash",         "COALESCE(label, bank_name)",    "balance",           "leaf_slug", None),
+    ("alt_investments",   "name",   "current_value", "'alternate-investments'", None),
+    ("business_holdings", "name",   "current_value", "'private-business'",      None),
+    ("liabilities",       "lender", "outstanding",   "leaf_slug",               None),
+    # Only flat-valued gold. A row entered as weight + karat is priced live from
+    # the gold rate, so it can't go stale however long ago it was typed.
+    ("gold_items", "description", "flat_value", "'physical-gold'",
+     "flat_value IS NOT NULL AND flat_value > 0"),
+]
+
+# The default "this is old" line. Six months is roughly the cadence at which a
+# property valuation, a PPF balance or a loan outstanding has genuinely moved.
+STALE_AFTER_DAYS = 182
+
+
+def stale_entries(user_id: int, older_than_days: int = STALE_AFTER_DAYS) -> list[dict]:
+    """Hand-entered figures that haven't been touched in a while, oldest first.
+
+    The point isn't nagging — it's that a net worth built partly from live prices
+    and partly from a number typed 14 months ago presents both with exactly the
+    same confidence. This is what lets the app say which half is which, and turn
+    "update everything" into a short, finite list.
+    """
+    parts, params = [], []
+    for table, label, value, leaf, extra in _STALE_SOURCES:
+        where = f"user_id = ? AND {value} IS NOT NULL AND {value} > 0"
+        if extra:
+            where += f" AND ({extra})"
+        parts.append(
+            f"SELECT '{table}' AS source, id, {label} AS label, {value} AS value, "
+            f"{leaf} AS leaf_slug, COALESCE(updated_at, created_at) AS touched "
+            f"FROM {table} WHERE {where} "
+            f"AND COALESCE(updated_at, created_at) <= datetime('now', ?)"
+        )
+        params.extend([user_id, f"-{int(older_than_days)} days"])
+    sql = " UNION ALL ".join(parts) + " ORDER BY touched ASC"
+    with _connect() as conn:
+        return [dict(r) for r in conn.execute(sql, params)]
+
+
+def touch_row(table: str, row_id: int, user_id: int) -> None:
+    """Mark a row as reviewed without changing any of its values.
+
+    "I checked, it's still right" has to be expressible, or the only way to clear
+    a stale flag is to retype a number that hasn't changed — which teaches people
+    to edit figures they haven't verified.
+    """
+    if table not in {t for t, *_ in _STALE_SOURCES}:
+        return
+    with _connect() as conn:
+        conn.execute(
+            f"UPDATE {table} SET updated_at = datetime('now') WHERE id = ? AND user_id = ?",
+            (row_id, user_id),
+        )
+
+
 def update_row(table: str, row_id: int, user_id: int, **fields) -> None:
     """Update a manual-entry row's columns, scoped to its owner.
 
@@ -614,6 +694,11 @@ def update_row(table: str, row_id: int, user_id: int, **fields) -> None:
     if not fields:
         return
     cols = ", ".join(f"{k} = ?" for k in fields)
+    # Saving an edit is the act that makes a figure current again, so the
+    # freshness stamp rides along with every update rather than being a thing
+    # each caller has to remember.
+    if table in {t for t, *_ in _STALE_SOURCES}:
+        cols += ", updated_at = datetime('now')"
     with _connect() as conn:
         conn.execute(
             f"UPDATE {table} SET {cols} WHERE id = ? AND user_id = ?",
