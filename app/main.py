@@ -20,6 +20,7 @@ from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
                wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
+from .models import Reconciliation
 from .parser import CASParseError, parse_cams, parse_cas
 
 
@@ -285,6 +286,17 @@ def nsdl_cas(request: Request):
 
     # Detailed holdings for the latest snapshot (merged in from the old Portfolio).
     accounts = storage.list_accounts(latest.id) if latest else []
+    # Re-run the parse-time reconciliation against what was actually stored, so a
+    # statement whose rows don't add up keeps saying so rather than only warning
+    # once at upload — and so a fixed parser plus a re-upload clears it by itself.
+    check = None
+    if latest:
+        stored = Reconciliation(
+            stated=latest.total_value,
+            parsed=sum(h.value or 0.0 for a in accounts for h in a.holdings),
+            checked=bool(accounts),
+        )
+        check = stored if not stored.ok else None
     by_class: dict[str, float] = {}
     for account in accounts:
         for h in account.holdings:
@@ -303,6 +315,7 @@ def nsdl_cas(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {
+            "reconcile": check,
             "request": request,
             "user": user,
             "snapshots": list(reversed(snapshots)),  # newest-first in the table
@@ -2564,10 +2577,18 @@ async def upload(
         # portfolio view can explode it. Re-uploading a date rebuilds its rows.
         storage.replace_holdings(snapshot_id, statement.accounts)
         saved += 1
+        # The statement states its own total; the rows are parsed separately. When
+        # they disagree, the breakdown is wrong even though the headline figure
+        # isn't — and a wrong breakdown shown confidently is this app's worst
+        # failure mode. Still saved: the total is read straight off the document
+        # and is trustworthy, and refusing the upload would leave the user with
+        # nothing and no explanation.
+        check = statement.reconciliation
         results.append(
             {
                 "filename": f.filename,
                 "ok": True,
+                "warn": None if check.ok else check.summary(),
                 "message": (
                     f"{statement.statement_date.strftime('%d %b %Y')} · "
                     f"₹{statement.total_value:,.0f} "

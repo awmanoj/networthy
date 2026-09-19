@@ -1707,6 +1707,17 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 }
 .calc-doc ol.calc-list { display: grid; gap: 7px; }
 
+/* --- Statement didn't reconcile --------------------------------------------- */
+.rec-warn, .r-warn {
+  display: block;
+  background: color-mix(in srgb, var(--loss) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--loss) 40%, var(--border));
+  border-radius: 10px; padding: 13px 16px; margin-bottom: 18px;
+  font-size: 0.88rem; line-height: 1.6;
+}
+.rec-warn strong { color: var(--text); }
+.r-warn { margin: 6px 0 0; font-size: 0.82rem; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

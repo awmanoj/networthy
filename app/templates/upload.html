@@ -42,6 +42,8 @@
         <span class="r-body">
           <span class="r-file">{{ r.filename }}</span>
           <span class="r-msg">{{ r.message }}</span>
+          {% if r.warn %}<span class="r-warn">{{ r.warn }} Saved anyway — the total is
+          read from the statement and is right; it's the breakdown that's off.</span>{% endif %}
         </span>
       </li>
       {% endfor %}

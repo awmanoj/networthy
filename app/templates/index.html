@@ -16,6 +16,21 @@
   <a href="/upload" class="btn">Upload CAS</a>
 </section>
 
+{# A statement whose rows don't add up to its own stated total. The headline
+   figure is still right — it's read straight off the document — but the
+   breakdown below it isn't, and showing a wrong breakdown with no warning is
+   the worst thing this app can do. #}
+{% if reconcile %}
+<div class="rec-warn">
+  <strong>The breakdown below doesn't add up.</strong>
+  {{ reconcile.summary() }}
+  The total above is taken from the statement itself and is still correct — it's the
+  per-holding rows, and any net-worth category fed by them, that are off. This usually
+  means the statement's layout changed.
+  <a href="/feedback">Tell us about it</a> and re-upload once it's fixed.
+</div>
+{% endif %}
+
 <section class="card">
   <h2>Net worth over time</h2>
   <div id="chart"></div>
