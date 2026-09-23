@@ -380,6 +380,10 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id)")
+        # Why a submission was held back, NULL for the ones that look human.
+        # Stored rather than discarded: the filter can be wrong, and a real bug
+        # report thrown away leaves no trace that it ever existed.
+        _add_column_if_missing(conn, "feedback", "spam", "TEXT")
         # Financial goals: a target amount by a target date, how much is saved toward
         # it so far (hand-entered), and an expected return — from which we derive the
         # required monthly SIP. A separate planning lens, not part of the net-worth tree.
@@ -1765,28 +1769,31 @@ def delete_liability(user_id: int, liab_id: int) -> None:
 # --- Expenses ---------------------------------------------------------------
 
 def add_feedback(kind: str, message: str, reply_to: str | None,
-                 user_id: int | None) -> None:
-    """Record one bug report or suggestion."""
+                 user_id: int | None, spam: str | None = None) -> None:
+    """Record one bug report or suggestion. `spam` is the reason it was held."""
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO feedback (user_id, kind, message, reply_to) VALUES (?, ?, ?, ?)",
-            (user_id, kind, message, reply_to),
+            "INSERT INTO feedback (user_id, kind, message, reply_to, spam) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user_id, kind, message, reply_to, spam),
         )
 
 
-def list_feedback(limit: int = 50) -> list[dict]:
+def list_feedback(limit: int = 50, spam: bool = False) -> list[dict]:
     """Recent reports, newest first — for the owner-only admin page.
 
-    Not user-scoped: this is the operator's inbox, not anyone's own data.
+    `spam=True` returns the held-back ones instead. Not user-scoped: this is the
+    operator's inbox, not anyone's own data.
     """
     with _connect() as conn:
         rows = conn.execute(
             """
             SELECT f.*, u.email AS account_email
               FROM feedback f LEFT JOIN users u ON u.id = f.user_id
+             WHERE (f.spam IS NULL) = (? = 0)
              ORDER BY f.created_at DESC, f.id DESC LIMIT ?
             """,
-            (limit,),
+            (1 if spam else 0, limit),
         ).fetchall()
     return [dict(r) for r in rows]
 

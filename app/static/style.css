@@ -1738,6 +1738,13 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .stale-ok button:hover { border-color: var(--brand); color: var(--brand); }
 .stale-more { margin: 12px 0 0; font-size: 0.83rem; }
 
+/* Honeypot: off-screen rather than display:none — some bots skip anything that
+   is explicitly hidden, and fill everything else. */
+.fb-hp {
+  position: absolute; left: -9999px; top: auto;
+  width: 1px; height: 1px; overflow: hidden;
+}
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

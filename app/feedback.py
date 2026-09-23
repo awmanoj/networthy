@@ -23,8 +23,12 @@ privacy-first app invites the user to type free text that leaves the machine:
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import html
 import os
+import re
+import time
 
 from app import auth, mailer, storage
 
@@ -46,6 +50,118 @@ MIN_MESSAGE = 10          # "it's broken" is not a report; ask for a sentence
 # One submission per reporter per interval. A public form that sends email is a
 # spam relay otherwise.
 THROTTLE_SECONDS = 30
+
+# --- Spam defence -----------------------------------------------------------
+#
+# Deliberately no CAPTCHA. Every hosted CAPTCHA is a third-party script that
+# would watch a page this site promises is unwatched, and the self-hosted ones
+# tax the exact person we most want to hear from — someone annoyed enough by a
+# bug to fill in a form. All three layers below are invisible to a human.
+#
+# The failure mode is chosen too: suspected spam is **stored and not emailed**,
+# never rejected. A false positive costs a report sitting in /admin instead of
+# an inbox; rejecting would lose a real bug report with no trace of it.
+
+# Nothing human reads a form and writes a usable bug report in three seconds.
+MIN_FILL_SECONDS = 3
+# Past this the timing signal is meaningless — a tab left open over a weekend is
+# not evidence of anything, so it stops counting rather than becoming suspicious.
+TOKEN_MAX_AGE = 48 * 3600
+
+_URL_RE = re.compile(r"(https?://|www\.)\S*", re.I)
+# Our own links don't count. The form asks reporters to say which page they were
+# on, so penalising them for pasting it would punish following the instructions.
+_OWN_LINK_RE = re.compile(r"(https?://)?(www\.)?networthyhq\.com\S*", re.I)
+# Bots echo the page they scraped. The sample that prompted this ended
+# "— report a bug · networthy hq", which is this site's own <title>.
+_ECHO_RE = re.compile(r"report a bug|networthy\s*hq", re.I)
+# Generic contact-bait with no reference to anything on the page.
+_TEMPLATE_RE = re.compile(
+    r"(more info(rmation)?\b.{0,40}(contact|e-?mail)"
+    r"|contact me (by|via|on|at) (e-?mail|whatsapp|telegram))",
+    re.I,
+)
+# Vocabulary that is categorically not bug-report vocabulary. Nobody describing
+# a broken page reaches for "backlinks". Strong enough to act on alone, unlike
+# the softer signals above — which is why "partnership" and "collaborate" are
+# deliberately absent: someone offering to contribute to the project would use
+# both, and that's a message worth receiving.
+_SOLICIT_RE = re.compile(
+    r"(seo services|back-?links?|link.?building|guest post"
+    r"|digital marketing|increase your (traffic|ranking|sales)"
+    r"|web ?(site )?design services|crypto ?investment opportunit)",
+    re.I,
+)
+# Two independent soft signals before we act. One alone is ordinary: a real
+# reporter may well paste a link, or name the page they were on.
+_SPAM_SCORE_THRESHOLD = 2
+
+
+def _secret() -> bytes:
+    return (os.environ.get("APP_SECRET") or "networthy-dev").encode()
+
+
+def issue_token(now: float | None = None) -> str:
+    """A signed timestamp, rendered into the form when it's served.
+
+    Signed rather than plain so it can't be back-dated, and stateless so it
+    costs no storage and works across processes.
+    """
+    ts = int(now if now is not None else time.time())
+    sig = hmac.new(_secret(), str(ts).encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{ts}.{sig}"
+
+
+def token_age(token: str, now: float | None = None) -> float | None:
+    """Seconds since the form was served, or None if the token isn't ours."""
+    try:
+        raw, sig = (token or "").split(".", 1)
+        ts = int(raw)
+    except (ValueError, AttributeError):
+        return None
+    expected = hmac.new(_secret(), str(ts).encode(), hashlib.sha256).hexdigest()[:32]
+    if not hmac.compare_digest(sig, expected):
+        return None
+    return (now if now is not None else time.time()) - ts
+
+
+def spam_reason(message: str, token: str, honeypot: str,
+                now: float | None = None) -> str | None:
+    """Why this looks automated, or None if it looks like a person.
+
+    Returned as a string rather than a bool so /admin can show *why* something
+    was held back — a filter whose decisions can't be inspected is one nobody
+    trusts enough to leave switched on.
+    """
+    if honeypot.strip():
+        return "filled a field that is invisible to humans"
+
+    age = token_age(token, now)
+    if age is None:
+        return "posted without a valid form token"
+    if age < MIN_FILL_SECONDS:
+        return f"submitted {age:.1f}s after the form loaded"
+
+    # Links are examined first and then removed, so the words inside a URL can't
+    # also trip the title-echo rule — "networthyhq.com" is not someone quoting
+    # the page title back at us.
+    external = _URL_RE.sub(lambda m: "" if _OWN_LINK_RE.fullmatch(m.group()) else m.group(),
+                           message)
+    prose = _URL_RE.sub(" ", message)
+
+    if _SOLICIT_RE.search(prose):
+        return "sales solicitation, not a bug report"
+
+    signals = []
+    if _URL_RE.search(external):
+        signals.append("contains a link to somewhere else")
+    if _ECHO_RE.search(prose):
+        signals.append("echoes the page title back")
+    if _TEMPLATE_RE.search(prose):
+        signals.append("generic contact template")
+    if len(signals) >= _SPAM_SCORE_THRESHOLD:
+        return ", ".join(signals)
+    return None
 
 
 def kind_label(slug: str) -> str:
@@ -110,13 +226,18 @@ def _body(kind: str, message: str, who: str, account: str | None) -> str:
 
 
 def submit(kind: str, message: str, reply_to: str,
-           user_id: int | None = None, account_email: str | None = None) -> bool:
+           user_id: int | None = None, account_email: str | None = None,
+           spam: str | None = None) -> bool:
     """Record a report and try to email it. True if it was also sent.
 
     The row is written first and unconditionally: delivery is the nice-to-have,
-    durability is the requirement.
+    durability is the requirement. Suspected spam is stored and *not* emailed —
+    kept because the filter can be wrong, unsent because the whole point is an
+    inbox worth reading.
     """
-    storage.add_feedback(kind, message, reply_to or None, user_id)
+    storage.add_feedback(kind, message, reply_to or None, user_id, spam=spam)
+    if spam:
+        return False
 
     to = destination()
     if not to:

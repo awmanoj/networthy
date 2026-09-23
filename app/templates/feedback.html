@@ -30,6 +30,19 @@
 {% if error %}<div class="alert">{{ error }}</div>{% endif %}
 
 <form class="dash-card fb-form" method="post" action="/feedback">
+  {# Spam defence, both invisible to a person. The token is a signed timestamp,
+     so how long the form was open is knowable without storing anything. The
+     field below is styled off-screen rather than type="hidden" — plenty of bots
+     skip hidden inputs but fill everything they can see in the markup. It is
+     aria-hidden and untabbable, so a screen reader and a keyboard never meet
+     it. No CAPTCHA: every hosted one is a third-party script watching a page
+     this site promises is unwatched. #}
+  <input type="hidden" name="form_token" value="{{ form_token }}">
+  <div class="fb-hp" aria-hidden="true">
+    <label>Website
+      <input name="website" type="text" tabindex="-1" autocomplete="off">
+    </label>
+  </div>
   <label class="fb-field">
     <span class="fb-label">What kind of thing is it?</span>
     <select name="kind">

@@ -143,6 +143,26 @@
   {% else %}
   <p class="muted">Nothing yet.</p>
   {% endif %}
+
+  {% if spam_reports %}
+  {# Shown, not deleted, and with the reason for each: a filter whose decisions
+     can't be inspected is one nobody trusts enough to leave switched on. #}
+  <details class="adm-spam">
+    <summary>{{ spam_reports|length }} held as spam</summary>
+    <ul class="adm-fb-list">
+      {% for r in spam_reports %}
+      <li>
+        <div class="adm-fb-head">
+          <span class="adm-fb-kind">{{ r.spam }}</span>
+          <span class="muted">{{ r.created_at }}</span>
+          <span class="muted adm-fb-from">{{ r.reply_to or 'anonymous' }}</span>
+        </div>
+        <p class="adm-fb-msg muted">{{ r.message }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
 </section>
 
 {% endblock %}

@@ -512,6 +512,7 @@ def admin_analytics(request: Request):
     return templates.TemplateResponse(
         "admin.html",
         {"request": request, "user": user, "reports": storage.list_feedback(),
+         "spam_reports": storage.list_feedback(spam=True),
          **analytics.overview()}
     )
 
@@ -554,6 +555,9 @@ def _feedback_page(request: Request, *, error: str = "", sent: bool = False,
             # will happen rather than what happens on the hosted one.
             "can_email": bool(feedback.destination()),
             "max_message": feedback.MAX_MESSAGE,
+            # Signed at render time; how long the form was open is one of the
+            # three things that separate a person from a script.
+            "form_token": feedback.issue_token(),
             "page_title": "Report a bug",
             "page_description": (
                 "Report a bug, a wrong number, or an idea for Networthy HQ."
@@ -574,7 +578,9 @@ def feedback_form(request: Request):
 def feedback_submit(request: Request,
                     kind: str = Form(feedback.DEFAULT_KIND),
                     message: str = Form(""),
-                    reply_to: str = Form("")):
+                    reply_to: str = Form(""),
+                    form_token: str = Form(""),
+                    website: str = Form("")):
     """Record the report and mail it to the operator.
 
     Re-renders the form with the text still in it on any failure. Losing what
@@ -593,9 +599,19 @@ def feedback_submit(request: Request,
             request, kind=kind, message=message, reply_to=reply_to, status=429,
             error="That went through a moment ago — give it a minute before sending another.")
 
+    # A signed-in account is a real person who proved they own an inbox; the
+    # filter is for anonymous submissions and would only ever be noise here.
+    held = None if user else feedback.spam_reason(message, form_token, website)
     delivered = feedback.submit(kind, message, reply_to,
                                 user_id=user.id if user else None,
-                                account_email=user.email if user else None)
+                                account_email=user.email if user else None,
+                                spam=held)
+    # A held submission must get the page a successful one gets. Telling a bot it
+    # was filtered is how it learns which layer caught it; and the honest reading
+    # for the rare false positive is that the report *did* land — in /admin,
+    # where the operator can still see and answer it.
+    if held:
+        delivered = bool(feedback.destination())
     # Whether it actually reached an inbox changes what we're entitled to say:
     # a self-hosted instance with no mail provider records the report and sends
     # nothing, and promising a reply there would be a lie.

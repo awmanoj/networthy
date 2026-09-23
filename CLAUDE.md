@@ -373,6 +373,35 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   version if this is ever revisited. Storing them is not — that would put images of
   people's holdings into the server's backups, a category of data this app has never held.
 
+    **Spam defence** (`feedback.spam_reason`, `issue_token`, `token_age`) — three layers, all
+  invisible to a person, added after a real bot submission whose tail was the page's own
+  `<title>` ("…— report a bug · networthy hq"). **No CAPTCHA, deliberately**: every hosted one
+  is a third-party script watching a page this site promises is unwatched, and the self-hosted
+  ones tax exactly the person we most want to hear from. (1) A **honeypot** `website` field,
+  positioned off-screen rather than `display:none` — plenty of bots skip explicitly hidden
+  inputs and fill everything else — `aria-hidden` and `tabindex="-1"` so assistive tech and
+  keyboards never meet it. (2) A **signed timestamp** (`form_token`, HMAC over `APP_SECRET`,
+  stateless): missing or forged means the form was never loaded, and under `MIN_FILL_SECONDS`
+  (3) means nothing human wrote it. Past `TOKEN_MAX_AGE` (48 h) the timing signal is *ignored
+  rather than treated as suspicious* — a tab left open over a weekend is not evidence. (3)
+  **Content signals**, needing **two** to act (`_SPAM_SCORE_THRESHOLD`): an external link, the
+  page title echoed back, generic contact-bait. One alone is ordinary — the form *asks* people
+  to name the page they were on, so `_OWN_LINK_RE` excludes our own domain, and URLs are
+  stripped before the echo test so `networthyhq.com` inside a link can't read as quoting the
+  title. `_SOLICIT_RE` (SEO/backlinks/guest post) fires **alone**, since that vocabulary is
+  categorically not bug-report vocabulary — but "partnership" and "collaborate" are
+  deliberately absent, because someone offering to contribute would use both.
+
+  Two behaviours matter more than the rules. Suspected spam is **stored and not emailed, never
+  rejected** (`storage.add_feedback(spam=...)`, `list_feedback(spam=True)`, shown in a
+  `<details>` on `/admin` **with its reason** — a filter whose decisions can't be inspected is
+  one nobody leaves switched on): a false positive costs a report sitting in `/admin` instead
+  of an inbox, whereas rejecting would lose a real bug report with no trace. And the
+  thank-you page is **byte-identical either way** — telling a bot it was filtered is how it
+  learns which layer to defeat. Signed-in users **skip the filter entirely**: they proved they
+  own an inbox, so it could only generate false positives on the people most likely to report
+  real bugs.
+
     Destination is `FEEDBACK_TO`, falling back to `auth.owner_email()` — the hosted deploy
   already sets `OWNER_EMAIL`, so no second secret. Unset means the report is recorded and
   not sent, and the page says that. `SUPPORT_EMAIL` optionally renders a `mailto:` beside
