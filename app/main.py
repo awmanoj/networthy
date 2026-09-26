@@ -1315,6 +1315,10 @@ def _leaf_holdings(user, slug: str) -> dict | None:
         "as_of": as_of,
         "import_label": import_label,
         "import_url": import_url,
+        # Every data-backed leaf can also be filled from a spreadsheet. The CSV
+        # importer was only linked from the CAS page, which is not where anyone
+        # goes looking to import funds — or anything else.
+        "csv_url": "/import/csv",
         # Manual entries.
         "manual_enabled": manual_enabled,
         "manual": manual,

@@ -1779,6 +1779,9 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .csv-field select { background: var(--surface-2); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.86rem; color: var(--text); }
 
+.nw-blank-alt { margin: 12px 0 0; font-size: 0.83rem; max-width: 52ch; }
+.nw-csv-cta { margin-left: 8px; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

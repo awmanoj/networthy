@@ -108,6 +108,25 @@
   </p>
 </section>
 
+{# The CSV route is generic and has always handled funds — an INF ISIN classifies
+   as a mutual fund, a gold fund still routes to Gold & Silver. It was only ever
+   linked from the CAS page, which is not where anyone goes looking to import
+   funds. #}
+<section class="card">
+  <h2>Or import a CSV instead</h2>
+  <p class="muted">
+    If the statement won't arrive, won't open, or won't parse, any spreadsheet of your
+    funds works just as well — an export from your broker, from MF Central, or a sheet you
+    keep yourself. You confirm which column is which, so the format doesn't have to be one
+    we've seen before.
+  </p>
+  <p class="muted">
+    A CSV import and a CAMS statement sit side by side: a fund in both is matched on ISIN
+    and counted once, with the CAMS figure winning because it's the registrar's own record.
+  </p>
+  <a class="btn btn-outline" href="/import/csv">Import funds from a CSV →</a>
+</section>
+
 <section class="card cams-step cams-pan">
   <h2>Save your PAN (optional)</h2>
   <p class="muted cams-lead">

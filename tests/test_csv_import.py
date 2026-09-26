@@ -211,3 +211,30 @@ def test_two_rows_with_no_isin_and_the_same_name_in_one_source_both_survive(clie
     rows = [{"isin": None, "name": "Gold Bond 2031", "value": 500_000.0, "source": "cams"},
             {"isin": None, "name": "GOLD BOND 2031", "value": 300_000.0, "source": "cams"}]
     assert sum(r["value"] for r in m.merge_sources(rows, [])) == 800_000.0
+
+
+def test_csv_import_is_offered_where_people_look_for_it(client):
+    """It was only linked from the NSDL CAS page — not from the mutual-fund
+    import page, and not from a leaf sitting empty, which are the two places
+    someone actually goes when they want to get holdings in."""
+    uid, ck = _login("find@test.com")
+    assert "/import/csv" in client.get("/networth/import/cams", cookies=ck).text
+    leaf = client.get("/networth/assets/financial-assets/mutual-funds", cookies=ck).text
+    assert "/import/csv" in leaf
+
+
+def test_a_mutual_fund_csv_lands_in_the_mutual_funds_leaf(client):
+    """The importer was always generic — an INF ISIN classifies as a fund, and a
+    gold fund still routes to Gold & Silver rather than being counted twice."""
+    uid, ck = _login("mfcsv@test.com")
+    csv = ("Scheme Name,ISIN,Folio,Closing Units,NAV,Market Value\n"
+           "HDFC Flexi Cap Fund - Direct Growth,INF179K01WN9,12345,3308.5,1874.20,6200000\n"
+           "HDFC Flexi Cap Fund - Direct Growth,INF179K01WN9,99887,2187.4,1874.20,4100000\n"
+           "SBI Gold Fund - Direct,INF200K01SZ4,77711,1000.0,25.50,25500\n")
+    client.post("/import/csv/confirm",
+                data={"raw_csv": csv, "col_name": "0", "col_isin": "1",
+                      "col_units": "3", "col_price": "4", "col_value": "5"}, cookies=ck)
+    funds = storage.list_networth_holdings(uid, {"mutual_fund"})
+    assert len(funds) == 2                                   # both folios survive
+    assert sum(f["value"] for f in funds) == 10_300_000.0
+    assert len(storage.list_networth_holdings(uid, {"gold"})) == 1

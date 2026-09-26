@@ -863,6 +863,13 @@
       price and current value.
     </p>
     <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
+    {% if leaf_data.data_backed %}
+    <a href="{{ leaf_data.csv_url }}" class="btn btn-outline">Import a CSV</a>
+    <p class="muted nw-blank-alt">
+      A spreadsheet from your broker works too — you confirm which column is which, so a
+      format we've never seen still reads.
+    </p>
+    {% endif %}
   </section>
   {% else %}
   {% set ed = (leaf_data.manual | selectattr('id','equalto',edit_id) | first) if edit_id else none %}
@@ -882,6 +889,7 @@
       </div>
       {% if leaf_data.data_backed %}
       <a href="{{ leaf_data.import_url }}" class="btn">{{ leaf_data.import_label }}</a>
+      <a href="{{ leaf_data.csv_url }}" class="btn btn-outline nw-csv-cta">CSV</a>
       {% endif %}
     </div>
 

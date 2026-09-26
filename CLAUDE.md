@@ -184,6 +184,12 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
     wrong number the user can see.
   - Stored via `replace_networth_import(source="csv")` — the delete is source-scoped, so a CSV
     import and a CAMS import never clobber each other.
+  - **It is not equity-only.** The importer is generic and always was: an `INF` ISIN
+    classifies as a mutual fund, a gold fund still routes to Gold & Silver, and two folios of
+    one scheme both survive. It was simply linked *only* from the NSDL CAS page — not from the
+    CAMS/mutual-fund import page and not from an empty leaf, which are the two places someone
+    actually goes to get holdings in. Now linked from both (`leaf_data.csv_url`, and a section
+    on `cams_import.html`).
 
   **`merge_sources` dedupes BETWEEN sources, never WITHIN one** — and that distinction is the
   whole of it. `list_networth_holdings` returns every import source at once, so a fund in both
