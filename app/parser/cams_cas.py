@@ -107,7 +107,8 @@ def parse_cams(file_bytes: bytes, password: str | None = None) -> CamsImport:
     holdings = _parse_schemes(text)
     if not holdings:
         raise CASParseError(
-            "No mutual-fund holdings found — is this a CAMS / KFintech CAS?"
+            "No mutual-fund holdings found — is this a CAMS / KFintech CAS?",
+            cause="layout",
         )
     return CamsImport(
         holdings=holdings,

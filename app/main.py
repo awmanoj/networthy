@@ -22,6 +22,7 @@ from .auth import SESSION_COOKIE, SessionMiddleware
 from .classify import LABELS, AssetClass
 from .models import Reconciliation
 from .parser import CASParseError, parse_cams, parse_cas
+from .parser.diagnose import as_text, diagnose
 
 
 def _class_label(asset_class: str) -> str:
@@ -2640,7 +2641,14 @@ async def upload(
                 contents, password or None, source_filename=f.filename
             )
         except CASParseError as exc:
-            results.append({"filename": f.filename, "ok": False, "message": str(exc)})
+            cause = getattr(exc, "cause", "unknown")
+            # Only worth a diagnostic when the file opened and we still couldn't
+            # read it — that's our bug, and the one failure the user can't fix by
+            # retyping something. A wrong password needs no forensics.
+            report = (as_text(diagnose(contents, password or None))
+                      if cause in ("layout", "scanned") else None)
+            results.append({"filename": f.filename, "ok": False, "cause": cause,
+                            "message": str(exc), "diagnostic": report})
             continue
 
         snapshot_id = storage.upsert_snapshot(
@@ -2685,6 +2693,9 @@ async def upload(
             "error": None,
             "results": results,
             "saved": saved,
+            # So a failed parse can be reported in one click, with the shape of
+            # the file attached and nothing else.
+            "form_token": feedback.issue_token(),
         },
         status_code=200 if saved else 400,
     )

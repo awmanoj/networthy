@@ -85,6 +85,31 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   CAS has no per-holding rows to explode. Shares decrypt/text/float helpers with the CAMS
   parser via `app/parser/_common.py`.
 
+- **When a statement won't parse** (`CASParseError.cause`, `app/parser/diagnose.py`, the
+  failure block in `upload.html`) — the highest-stakes screen in the app: it's the first thing
+  a new user does, and a statement we can't read is the most likely reason someone tries this
+  once and never returns. It used to show a ✕, one sentence and nothing else. Two changes:
+  - **`CASParseError` carries a `cause`** (`password` / `scanned` / `unreadable` / `layout` /
+    `unknown`) so the UI branches on structure, not message text. Four are the reader's to fix
+    in seconds and get specific help (the PAN is uppercase, no spaces; a scan has no text in
+    it). `layout` is **ours**, is said to be ours, and never dead-ends. **Every** failure also
+    says the CAS is a shortcut and not a requirement, with a link to manual entry — the escape
+    hatch that makes a parse failure survivable, and which nothing on that page used to
+    mention.
+  - **`diagnose.py` describes the layout, never the contents.** The real problem isn't the
+    failed parse, it's the **silence**: a parser can only be hardened against layouts you can
+    see, and the app can never see the statement. So it reports which anchors matched, how many
+    rows carry an ISIN, which headings are missing, and a few row shapes with every letter
+    masked to `X` and every digit to `9` — punctuation and spacing survive *because they are
+    the diagnostic* ("9,99,999.99" vs "999999.99" is what breaks an amount regex). Enough to
+    fix the parser; no name, amount, ISIN, folio or PAN. It is **shown in full** in a
+    `<details>` before sending, so the claim is checkable rather than trusted, and posts through
+    the existing feedback form. Only runs for `layout`/`scanned` — a wrong password needs no
+    forensics and couldn't be decrypted anyway. **Nothing in it raises**: a diagnostic that
+    dies on a broken file is useless exactly when it's needed. `test_upload_failure.py` pins
+    that masking destroys the content, and that no raw statement text reaches the rendered
+    report.
+
 - **`app/parser/cams_cas.py`** — sibling parser for a **CAMS / KFintech mutual-fund CAS**
   (MF-only, all AMCs). `parse_cams()` anchors on the ISIN scheme line and reads "Closing Unit
   Balance / NAV on <date> / Market Value on <date>". Classifies with `classify(section=UNKNOWN)`

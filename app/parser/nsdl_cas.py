@@ -103,7 +103,7 @@ def _find_statement_date(text: str) -> date:
             except ValueError:
                 continue
     raise CASParseError(
-        "Could not locate the statement date ('as on ...') in the CAS."
+        "Could not find the statement date in this CAS.", cause="layout"
     )
 
 
@@ -114,7 +114,7 @@ def _find_total_value(text: str) -> float:
             if value is not None and value > 0:
                 return value
     raise CASParseError(
-        "Could not locate the consolidated portfolio total in the CAS."
+        "Could not find the portfolio total in this CAS.", cause="layout"
     )
 
 

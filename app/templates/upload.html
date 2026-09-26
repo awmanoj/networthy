@@ -44,6 +44,57 @@
           <span class="r-msg">{{ r.message }}</span>
           {% if r.warn %}<span class="r-warn">{{ r.warn }} Saved anyway — the total is
           read from the statement and is right; it's the breakdown that's off.</span>{% endif %}
+
+          {# A failure must never be the end of the page. Four of the five causes
+             the reader can fix in seconds; the fifth is ours, and it gets an
+             apology, a one-click report and a way to carry on regardless. #}
+          {% if not r.ok %}
+          <div class="r-help">
+            {% if r.cause == 'password' %}
+            <p><strong>Try the password again.</strong> For an NSDL CAS it's your
+            <strong>PAN in capitals</strong>, no spaces — e.g. <code>ABCDE1234F</code>.
+            Statements for different months all share it.</p>
+            {% elif r.cause == 'scanned' %}
+            <p><strong>This file is a picture, not a document.</strong> That happens when a
+            statement is scanned or photographed. Download the original PDF from the email
+            NSDL or CAMS sent you and upload that one.</p>
+            {% elif r.cause == 'unreadable' %}
+            <p><strong>That file didn't open as a PDF.</strong> Check it downloaded fully,
+            and that it's the statement rather than a ZIP or an email attachment stub.</p>
+            {% elif r.cause == 'layout' %}
+            <p><strong>This one is our fault, not yours.</strong> The file opened and read
+            fine — we just don't recognise how this statement is laid out. These formats
+            change, and we can only fix the ones we hear about.</p>
+            {% else %}
+            <p>Something went wrong reading that file.</p>
+            {% endif %}
+
+            {% if r.diagnostic %}
+            <details class="r-diag">
+              <summary>Send us the shape of this file (no figures, no names)</summary>
+              <p class="muted">
+                This is <em>everything</em> that would be sent. Every letter is replaced with
+                X and every digit with 9, so it describes the layout and nothing in it — no
+                names, no amounts, no ISINs, no folio numbers. Read it first; it's yours.
+              </p>
+              <form method="post" action="/feedback">
+                <input type="hidden" name="kind" value="bug">
+                <input type="hidden" name="form_token" value="{{ form_token }}">
+                <textarea name="message" rows="10" readonly>A statement failed to parse.
+
+{{ r.diagnostic }}</textarea>
+                <button class="btn" type="submit">Send this report</button>
+              </form>
+            </details>
+            {% endif %}
+
+            <p class="r-alts">
+              Meanwhile you can still use everything: <a href="/networth">add your holdings
+              by hand</a> — a statement is a shortcut, not a requirement — or try a
+              <a href="/networth/import/cams">CAMS mutual-fund statement</a> instead.
+            </p>
+          </div>
+          {% endif %}
         </span>
       </li>
       {% endfor %}

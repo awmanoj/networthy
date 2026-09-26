@@ -1745,6 +1745,24 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
   width: 1px; height: 1px; overflow: hidden;
 }
 
+/* --- Upload failure: help, not a wall ---------------------------------------- */
+.r-help { margin: 10px 0 0; font-size: 0.87rem; line-height: 1.6; }
+.r-help p { margin: 0 0 8px; }
+.r-help code {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px;
+  padding: 1px 5px; font-size: 0.9em;
+}
+.r-diag { margin: 10px 0; }
+.r-diag summary { cursor: pointer; font-weight: 600; color: var(--brand); }
+.r-diag p { margin: 8px 0; font-size: 0.83rem; }
+.r-diag textarea {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px 12px; color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.76rem;
+  line-height: 1.5; margin-bottom: 10px; resize: vertical;
+}
+.r-alts { margin: 10px 0 0; font-size: 0.85rem; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }
