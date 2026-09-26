@@ -19,6 +19,7 @@ from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
                feedback, goals, networth, pathto, prices, projection, storage,
                wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
+from . import importer
 from .classify import LABELS, AssetClass
 from .models import Reconciliation
 from .parser import CASParseError, parse_cams, parse_cas
@@ -484,6 +485,74 @@ def home(request: Request):
     )
 
 
+@app.get("/import/csv", response_class=HTMLResponse)
+def csv_import_form(request: Request):
+    """Import holdings from any broker's CSV export."""
+    return templates.TemplateResponse(
+        "csv_import.html",
+        {"request": request, "user": request.state.user, "sheet": None, "error": None},
+    )
+
+
+@app.post("/import/csv", response_class=HTMLResponse)
+async def csv_import_review(request: Request, file: UploadFile = File(...)):
+    """Read the sheet and ask the user to confirm what each column is.
+
+    Confirmation is the whole design. A broker format nobody has ever seen is
+    resolved by a person picking from a dropdown, not by shipping a new parser —
+    which is why this one importer replaces the five broker-specific ones it
+    would otherwise take, and can't break when a vendor renames a column.
+    """
+    raw = await file.read()
+    try:
+        sheet = importer.read_csv(raw)
+        holdings, skipped = importer.build(sheet, sheet.mapping)
+    except importer.ImportError_ as exc:
+        return templates.TemplateResponse(
+            "csv_import.html",
+            {"request": request, "user": request.state.user,
+             "sheet": None, "error": str(exc)},
+        )
+    except Exception:                       # a malformed upload must not 500
+        return templates.TemplateResponse(
+            "csv_import.html",
+            {"request": request, "user": request.state.user, "sheet": None,
+             "error": "Couldn't read that as a spreadsheet. Export it as CSV and retry."},
+        )
+
+    return templates.TemplateResponse(
+        "csv_import.html",
+        {
+            "request": request, "user": request.state.user, "error": None,
+            "sheet": sheet, "fields": importer.FIELDS,
+            "holdings": holdings, "skipped": skipped,
+            "total": sum(h.value or 0.0 for h in holdings),
+            "class_label": _class_label,
+            # The file rides back through the form rather than being stored:
+            # nothing about a holdings sheet touches disk until it's confirmed.
+            "raw_csv": raw.decode("utf-8-sig", errors="replace"),
+        },
+    )
+
+
+@app.post("/import/csv/confirm")
+async def csv_import_confirm(request: Request):
+    """Save the confirmed rows, replacing any previous CSV import."""
+    form = await request.form()
+    try:
+        sheet = importer.read_csv(str(form.get("raw_csv", "")).encode())
+        mapping = {key: _opt_int(str(form.get(f"col_{key}", "")))
+                   for key, _label, _roots in importer.FIELDS}
+        # _opt_int gives None for "", which is exactly "this column isn't here";
+        # column 0 is falsy but valid, so the check below must be `is None`.
+        holdings, _skipped = importer.build(sheet, mapping)
+    except (importer.ImportError_, Exception):
+        return RedirectResponse(url="/import/csv", status_code=303)
+
+    storage.replace_networth_import(request.state.user.id, "csv", date.today(), holdings)
+    return RedirectResponse(url="/networth?imported=%d" % len(holdings), status_code=303)
+
+
 @app.post("/networth/touch")
 def networth_touch(request: Request, source: str = Form(...), id: int = Form(...),
                    redirect: str = Form("/")):
@@ -757,6 +826,13 @@ MIN_EQUITY_VALUE = 10_000.0
 
 SOURCE_CAMS = "CAMS"
 SOURCE_NSDL = "CAS"
+SOURCE_CSV = "CSV"
+# How a stored `networth_holdings.source` renders as the chip beside the ISIN.
+_IMPORT_LABELS = {"cams": SOURCE_CAMS, "csv": SOURCE_CSV}
+# Who wins when the same instrument arrives from more than one import. CAMS is
+# the registrar's own record and carries the NAV the AMC published; a broker CSV
+# is a broker's copy of it.
+_IMPORT_RANK = {"cams": 0, "csv": 1}
 
 
 def _norm_name(name: str | None) -> str:
@@ -780,10 +856,25 @@ def merge_sources(cams: list[dict], nsdl: list[dict]) -> list[dict]:
     row missing an ISIN would otherwise never match anything and would be added
     *alongside* its own duplicate, which is exactly the double-count this exists
     to prevent.
+
+    The first list is now **also deduped against itself**, because it holds every
+    import source at once — a fund can sit in both a CAMS statement and a broker
+    CSV, and before this it was emitted twice. Sorting is stable, so CAMS wins
+    and position order survives within a source.
     """
-    out = [dict(h, source=SOURCE_CAMS) for h in cams]
-    seen_isin = {h["isin"] for h in cams if h.get("isin")}
-    seen_name = {_norm_name(h.get("name")) for h in cams}
+    out: list[dict] = []
+    seen_isin: set[str] = set()
+    seen_name: set[str] = set()
+    for h in sorted(cams, key=lambda r: _IMPORT_RANK.get(r.get("source"), 9)):
+        isin = h.get("isin")
+        name = _norm_name(h.get("name"))
+        if (isin and isin in seen_isin) or (name and name in seen_name):
+            continue
+        out.append(dict(h, source=_IMPORT_LABELS.get(h.get("source"), SOURCE_CAMS)))
+        if isin:
+            seen_isin.add(isin)
+        if name:
+            seen_name.add(name)
     for h in nsdl:
         isin = h.get("isin")
         if isin and isin in seen_isin:

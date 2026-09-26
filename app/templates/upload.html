@@ -27,6 +27,12 @@
     <button class="btn btn-lg" type="submit">Parse &amp; save</button>
   </form>
 
+  <p class="muted csv-note">
+    No CAS, or it won't read? You can
+    <a href="/import/csv">import holdings from any broker's CSV export</a> instead —
+    Zerodha, Groww, ICICI Direct, Trendlyne and Screener all offer one.
+  </p>
+
   <div id="upload-progress" class="upload-progress" hidden>
     <div class="up-bar"><div class="up-fill" id="up-fill"></div></div>
     <p class="up-status" id="up-status">Preparing…</p>
@@ -90,8 +96,9 @@
 
             <p class="r-alts">
               Meanwhile you can still use everything: <a href="/networth">add your holdings
-              by hand</a> — a statement is a shortcut, not a requirement — or try a
-              <a href="/networth/import/cams">CAMS mutual-fund statement</a> instead.
+              by hand</a>, <a href="/import/csv">import a CSV from your broker</a>, or try a
+              <a href="/networth/import/cams">CAMS mutual-fund statement</a> — a CAS is a
+              shortcut, not a requirement.
             </p>
           </div>
           {% endif %}

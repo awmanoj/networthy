@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}Import holdings from a CSV · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/networth">Net worth</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">Import from CSV</span>
+</nav>
+
+<section class="nw-page-head">
+  <h1>Import holdings from a CSV</h1>
+  <p class="muted">
+    Any broker's export works — Zerodha Console, Groww, ICICI Direct, Trendlyne, Screener,
+    or a sheet you keep yourself. We'll guess what each column is and
+    <strong>show you the guess before anything is saved</strong>, so a format we've never
+    seen still works.
+  </p>
+</section>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+{% if not sheet %}
+<section class="dash-card csv-upload">
+  <form method="post" action="/import/csv" enctype="multipart/form-data">
+    <label class="csv-file">
+      <span>Your holdings file (.csv)</span>
+      <input type="file" name="file" accept=".csv,text/csv,text/plain" required>
+    </label>
+    <button class="btn btn-lg" type="submit">Read the file</button>
+  </form>
+  <p class="muted csv-note">
+    Export as <strong>CSV</strong> — every broker offers it, and it reads far more reliably
+    than a PDF. Nothing is saved until you've checked the columns on the next screen, and
+    the file itself is never stored.
+  </p>
+</section>
+
+<section class="dash-card calc-doc">
+  <h2>What it needs</h2>
+  <ul class="calc-list">
+    <li><strong>A name</strong> for each holding — scheme, stock, security, whatever your broker calls it.</li>
+    <li><strong>A value</strong> — either a value column, or a quantity and a price we can multiply.</li>
+    <li><strong>An ISIN, if you have one.</strong> Optional, but it's what lets us price the
+      holding live and file it in the right category by itself.</li>
+  </ul>
+  <p class="muted">
+    Headers don't need to match anything. "Cur. val", "Market Value" and "Current Value (INR)"
+    are all understood, and anything we get wrong you can correct on the next screen.
+  </p>
+</section>
+
+{% else %}
+
+<!-- Review. Every guess is visible and changeable; nothing is written yet. -->
+<form method="post" action="/import/csv/confirm">
+  <input type="hidden" name="raw_csv" value="{{ raw_csv }}">
+
+  <section class="dash-card csv-map">
+    <h2>Check the columns</h2>
+    <p class="muted imp-lead">
+      This is our guess at your file. Change anything that's wrong — the dropdowns list
+      every column we found.
+    </p>
+    <div class="csv-fields">
+      {% for key, label, _roots in fields %}
+      <label class="csv-field">
+        <span>{{ label }}{% if key == 'name' %} <em>required</em>{% endif %}</span>
+        <select name="col_{{ key }}">
+          <option value="">— not in this file —</option>
+          {% for h in sheet.headers %}
+          <option value="{{ loop.index0 }}"{{ ' selected' if sheet.mapping[key] == loop.index0 else '' }}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="dash-card csv-preview">
+    <div class="bh">
+      <h2>{{ holdings|length }} holding{{ '' if holdings|length == 1 else 's' }}</h2>
+      <span class="hint num">₹{{ "{:,.0f}".format(total) }} total</span>
+    </div>
+    <p class="muted imp-lead">
+      Compare that total against what your broker shows. If it's wildly off, a column is
+      mapped wrong — most often a <em>cost</em> column picked up instead of a market value.
+    </p>
+    <div class="stand-table-wrap">
+      <table class="holdings">
+        <thead><tr><th>Holding</th><th>ISIN</th><th>Category</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Value</th></tr></thead>
+        <tbody>
+          {% for h in holdings[:12] %}
+          <tr>
+            <td class="h-name">{{ h.name }}</td>
+            <td class="h-isin muted">{{ h.isin or '—' }}</td>
+            <td>{{ class_label(h.asset_class) }}</td>
+            <td class="num">{{ "{:,.3f}".format(h.units) if h.units else '—' }}</td>
+            <td class="num">{{ "{:,.2f}".format(h.price) if h.price else '—' }}</td>
+            <td class="num">₹{{ "{:,.0f}".format(h.value) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if holdings|length > 12 %}
+    <p class="muted stand-note">…and {{ holdings|length - 12 }} more.</p>
+    {% endif %}
+    {% if skipped %}
+    <p class="muted stand-note">
+      Skipped {{ skipped|length }} row{{ '' if skipped|length == 1 else 's' }} with no
+      usable value: {{ skipped[:4]|join(', ') }}{{ '…' if skipped|length > 4 else '' }}.
+    </p>
+    {% endif %}
+  </section>
+
+  <div class="imp-actions">
+    <button class="btn btn-lg" type="submit">Import these holdings</button>
+    <a class="btn btn-outline btn-lg" href="/import/csv">Start over</a>
+  </div>
+</form>
+
+<p class="muted stand-note">
+  Importing again replaces everything from this file — it won't create duplicates. Holdings
+  that also appear in an NSDL CAS or CAMS statement are matched on ISIN and counted once.
+</p>
+{% endif %}
+
+{{ fine_print("Values come from the file you upload. If your broker exports cost rather
+than market value, that's what will be imported — the total above is there to catch it.") }}
+
+{% endblock %}

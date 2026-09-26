@@ -1763,6 +1763,22 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 }
 .r-alts { margin: 10px 0 0; font-size: 0.85rem; }
 
+/* --- CSV holdings import ------------------------------------------------------ */
+.csv-upload { padding: 22px 26px; margin-bottom: 18px; }
+.csv-file { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem;
+  font-weight: 600; color: var(--muted); margin-bottom: 16px; }
+.csv-note { margin: 14px 0 0; font-size: 0.86rem; line-height: 1.6; max-width: 68ch; }
+.csv-map, .csv-preview { padding: 20px 24px; margin-bottom: 18px; }
+.csv-map h2, .csv-preview h2 { margin: 0 0 6px; font-family: var(--serif);
+  font-weight: 600; font-size: 1.15rem; }
+.csv-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px; }
+.csv-field { display: flex; flex-direction: column; gap: 5px; font-size: 0.8rem;
+  font-weight: 600; color: var(--muted); }
+.csv-field em { font-style: normal; font-weight: 400; color: var(--copper); }
+.csv-field select { background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.86rem; color: var(--text); }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

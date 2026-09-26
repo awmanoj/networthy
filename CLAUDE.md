@@ -161,6 +161,38 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   twice-a-year task, and it broke whenever the target form changed — don't reintroduce it. (We also
   deliberately did **not** build Gmail auto-ingest — the receiving side stays a manual upload.)
 
+- **`app/importer.py` + `GET`/`POST /import/csv`** (template `csv_import.html`) — **one CSV
+  importer, not one per broker.** Zerodha Console, Groww, ICICI Direct, Trendlyne and Screener
+  all export a sheet, and a parser each would be the CAS trap multiplied: five more things
+  that break silently when a vendor renames a column. Here **the user confirms the column
+  mapping**, so a format nobody has seen is resolved by a person picking from a dropdown
+  rather than by shipping code — which is what makes this the defensive answer to "what if
+  the CAS won't parse". The precedent is sound: the deleted bank-statement importer's
+  *extraction* read nine real formats exactly with the same word-root header matching; what
+  failed was the categorisation guesswork on top, and holdings have no equivalent —
+  `classify(section=UNKNOWN, ...)` runs, exactly as for CAMS, so a gold fund lands in Gold
+  rather than defaulting to Mutual Funds and being counted twice.
+  - **Market value beats cost basis** (`_COST_WORDS`, two-pass `hunt`). Zerodha exports
+    "Average Price" *to the left of* "Previous Closing"; taking the first match valued the
+    whole portfolio at cost, silently. Cost-ish columns are only used when nothing else fits.
+  - Roots are truncated to the shared stem — `clos` catches "Close" and "Previous Closing",
+    `val` catches "Cur. val". `_find_header_row` skips the title block broker exports open
+    with. Rows with no usable value are **listed as skipped**, not dropped quietly.
+  - **Nothing is stored but the result**: the file rides back through a hidden form field to
+    the confirm step, so no holdings sheet touches disk. The review screen shows the **total**,
+    which is the reconciliation principle again — a mis-mapped column shows up as a wildly
+    wrong number the user can see.
+  - Stored via `replace_networth_import(source="csv")` — the delete is source-scoped, so a CSV
+    import and a CAMS import never clobber each other.
+
+  **`merge_sources` now dedupes its first list against itself**, which it did not before.
+  `list_networth_holdings` returns *every* import source at once, so a fund present in both a
+  CAMS statement and a broker CSV was emitted twice and went straight into net worth. Order is
+  `_IMPORT_RANK` (CAMS over CSV — the registrar's own record, carrying the NAV the AMC
+  published) via a **stable** sort, so position order survives within a source; and the chip
+  is labelled from the row's real source (`_IMPORT_LABELS`) rather than hardcoded to CAMS,
+  which it also was. `test_csv_import.py` pins all three.
+
 - **`app/storage.py`** — SQLite persistence. `upsert_snapshot()` keys on `statement_date`, so
   **re-uploading a statement for the same date replaces the existing snapshot** rather than
   duplicating; it returns the row id so `replace_holdings()` can attach the detailed rows. The
