@@ -857,24 +857,39 @@ def merge_sources(cams: list[dict], nsdl: list[dict]) -> list[dict]:
     *alongside* its own duplicate, which is exactly the double-count this exists
     to prevent.
 
-    The first list is now **also deduped against itself**, because it holds every
-    import source at once — a fund can sit in both a CAMS statement and a broker
-    CSV, and before this it was emitted twice. Sorting is stable, so CAMS wins
-    and position order survives within a source.
+    De-duplication is **between** sources and never **within** one. That
+    distinction is the whole of it: two rows from the same statement with the
+    same ISIN are two folios of one scheme — two real holdings, which a CAMS
+    statement lists separately — while the same ISIN from two different sources
+    is one holding seen twice. Collapsing within a source deletes money from the
+    screen, and money silently going missing is worse than money counted twice,
+    because nothing tells the reader it happened.
     """
     out: list[dict] = []
     seen_isin: set[str] = set()
     seen_name: set[str] = set()
-    for h in sorted(cams, key=lambda r: _IMPORT_RANK.get(r.get("source"), 9)):
-        isin = h.get("isin")
-        name = _norm_name(h.get("name"))
-        if (isin and isin in seen_isin) or (name and name in seen_name):
-            continue
-        out.append(dict(h, source=_IMPORT_LABELS.get(h.get("source"), SOURCE_CAMS)))
-        if isin:
-            seen_isin.add(isin)
-        if name:
-            seen_name.add(name)
+
+    by_source: dict[str, list[dict]] = {}
+    for h in cams:
+        by_source.setdefault(h.get("source") or "cams", []).append(h)
+
+    for src in sorted(by_source, key=lambda s: _IMPORT_RANK.get(s, 9)):
+        # Matches are committed only after the whole batch, so rows inside one
+        # source can't suppress each other — only earlier sources can.
+        batch_isin: set[str] = set()
+        batch_name: set[str] = set()
+        for h in by_source[src]:
+            isin = h.get("isin")
+            name = _norm_name(h.get("name"))
+            if (isin and isin in seen_isin) or (name and name in seen_name):
+                continue
+            out.append(dict(h, source=_IMPORT_LABELS.get(src, SOURCE_CAMS)))
+            if isin:
+                batch_isin.add(isin)
+            if name:
+                batch_name.add(name)
+        seen_isin |= batch_isin
+        seen_name |= batch_name
     for h in nsdl:
         isin = h.get("isin")
         if isin and isin in seen_isin:

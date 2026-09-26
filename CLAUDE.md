@@ -185,13 +185,21 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   - Stored via `replace_networth_import(source="csv")` — the delete is source-scoped, so a CSV
     import and a CAMS import never clobber each other.
 
-  **`merge_sources` now dedupes its first list against itself**, which it did not before.
-  `list_networth_holdings` returns *every* import source at once, so a fund present in both a
-  CAMS statement and a broker CSV was emitted twice and went straight into net worth. Order is
+  **`merge_sources` dedupes BETWEEN sources, never WITHIN one** — and that distinction is the
+  whole of it. `list_networth_holdings` returns every import source at once, so a fund in both
+  a CAMS statement and a broker CSV was emitted twice; the first fix flattened the list and
+  deduped it wholesale, which **deleted ~₹1 crore from a real portfolio overnight**, because a
+  CAMS statement lists *each folio separately* and two folios of one scheme share an ISIN and
+  a name. Two rows from the same source are two real holdings; the same ISIN from two sources
+  is one holding seen twice. Matches are therefore accumulated per source and committed only
+  after the batch, so rows inside one source can never suppress each other. Priority is
   `_IMPORT_RANK` (CAMS over CSV — the registrar's own record, carrying the NAV the AMC
-  published) via a **stable** sort, so position order survives within a source; and the chip
-  is labelled from the row's real source (`_IMPORT_LABELS`) rather than hardcoded to CAMS,
-  which it also was. `test_csv_import.py` pins all three.
+  published), and the chip is labelled from the row's real source (`_IMPORT_LABELS`) rather
+  than hardcoded to CAMS, which it also was. `test_csv_import.py` pins all of it, including
+  the folio regression. **Known, pre-existing, not yet changed**: the NSDL side still collapses
+  duplicate ISINs within one snapshot, so the same stock held in two demat accounts is counted
+  once — the same bug class, but changing it risks a double-count if a CAS ever lists a
+  holding in both a summary and a detail section, so it wants deciding rather than assuming.
 
 - **`app/storage.py`** — SQLite persistence. `upsert_snapshot()` keys on `statement_date`, so
   **re-uploading a statement for the same date replaces the existing snapshot** rather than

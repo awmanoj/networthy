@@ -182,3 +182,32 @@ def test_csv_and_nsdl_holding_the_same_stock_is_counted_once(client):
         [{"isin": "INE002A01018", "name": "Reliance", "value": 340860.0, "source": "csv"}],
         [{"isin": "INE002A01018", "name": "RELIANCE INDUSTRIES", "value": 330000.0}])
     assert len(merged) == 1 and merged[0]["source"] == m.SOURCE_CSV
+
+
+def test_two_folios_of_one_scheme_both_survive(client):
+    """The regression that made a portfolio drop by a crore overnight.
+
+    A CAMS statement lists each folio separately, so two rows with the same ISIN
+    from the *same* source are two real holdings — not a duplicate. Collapsing
+    them deleted money from the screen with nothing to say it had happened, which
+    is strictly worse than counting it twice.
+
+    The rule: de-duplicate BETWEEN sources, never WITHIN one.
+    """
+    import app.main as m
+    rows = [{"isin": "INF179K01WN9", "name": "HDFC Flexi Cap Fund - Direct Growth",
+             "value": 6_200_000.0, "source": "cams"},
+            {"isin": "INF179K01WN9", "name": "HDFC FLEXI CAP FUND-DIRECT-GROWTH",
+             "value": 4_100_000.0, "source": "cams"}]
+    merged = m.merge_sources(rows, [])
+    assert len(merged) == 2
+    assert sum(r["value"] for r in merged) == 10_300_000.0
+
+
+def test_two_rows_with_no_isin_and_the_same_name_in_one_source_both_survive(client):
+    """Same rule via the name fallback, which is the path that bites hardest —
+    it matches loosely, so it collapses more."""
+    import app.main as m
+    rows = [{"isin": None, "name": "Gold Bond 2031", "value": 500_000.0, "source": "cams"},
+            {"isin": None, "name": "GOLD BOND 2031", "value": 300_000.0, "source": "cams"}]
+    assert sum(r["value"] for r in m.merge_sources(rows, [])) == 800_000.0
