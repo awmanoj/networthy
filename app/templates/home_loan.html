@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+{% if user %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a href="/">Dashboard</a><span class="crumb-sep">/</span>
+  <span class="crumb-current">How much house can I afford?</span>
+</nav>
+{% endif %}
+
+<section class="card stand-intro">
+  <h1>How much house can I afford?</h1>
+  <p class="muted">
+    Two things decide it: what RBI lets a bank lend against the property, and what your
+    income can service. Then there's the part nobody budgets for —
+    <strong>stamp duty and registration are not covered by the loan</strong>, and on a
+    ₹1 crore flat that's several lakh in cash on top of the down payment.
+    {% if not user %}Everything here is worked out in your browser; nothing you type is
+    sent anywhere.{% endif %}
+  </p>
+
+  <div class="hl-controls">
+    <label class="hl-in">
+      <span>Property price</span>
+      <span class="hl-box"><i>₹</i>
+        <input id="hl-price" type="text" inputmode="decimal" autocomplete="off"
+               value="1,00,00,000" aria-label="Property price"></span>
+    </label>
+    <label class="hl-in">
+      <span>Where</span>
+      <select id="hl-state" aria-label="State">
+        {% for s in states %}
+        <option value="{{ s.state }}"{{ ' selected' if s.state == default_state else '' }}>{{ s.state }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="hl-in hl-sm">
+      <span>Interest rate</span>
+      <span class="hl-box"><input id="hl-rate" type="number" step="0.05" min="1" max="20"
+            value="{{ defaults.rate }}" aria-label="Interest rate"><i>%</i></span>
+    </label>
+    <label class="hl-in hl-sm">
+      <span>Tenure</span>
+      <span class="hl-box"><input id="hl-years" type="number" step="1" min="1" max="30"
+            value="{{ defaults.years }}" aria-label="Tenure in years"><i>yrs</i></span>
+    </label>
+    <label class="hl-in">
+      <span>Your monthly income <em>optional</em></span>
+      <span class="hl-box"><i>₹</i>
+        <input id="hl-income" type="text" inputmode="decimal" autocomplete="off"
+               value="{{ (my_monthly_income|round|int) if my_monthly_income else '' }}"
+               placeholder="to check eligibility" aria-label="Monthly income"></span>
+    </label>
+  </div>
+</section>
+
+<section class="hl-cards">
+  <div class="dash-card hl-stat">
+    <span class="eyebrow">Cash you need up front</span>
+    <span class="hl-figure num" id="hl-cash">—</span>
+    <span class="hero-note" id="hl-cash-note"></span>
+  </div>
+  <div class="dash-card hl-stat">
+    <span class="eyebrow">Bank can lend</span>
+    <span class="hl-figure num" id="hl-loan">—</span>
+    <span class="hero-note" id="hl-loan-note"></span>
+  </div>
+  <div class="dash-card hl-stat">
+    <span class="eyebrow">Monthly EMI</span>
+    <span class="hl-figure num" id="hl-emi">—</span>
+    <span class="hero-note" id="hl-emi-note"></span>
+  </div>
+</section>
+
+<p class="hl-verdict" id="hl-verdict" hidden></p>
+
+<!-- The point of the page. -->
+<section class="dash-card hl-ladder-card">
+  <h2>Pay a little extra each year, and finish years early</h2>
+  <p class="muted imp-lead">
+    The early years of an EMI are almost entirely interest, so money put in now is worth
+    far more than money put in later. This is the same loan, ended early — and what it
+    takes to do it.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr><th>Extra paid each year</th><th class="num">Loan ends in</th>
+            <th class="num">Total interest</th><th class="num">You save</th></tr>
+      </thead>
+      <tbody id="hl-ladder">
+        {# Server-rendered for the reference loan, so a crawler and a reader with
+           JavaScript off both see real figures rather than an empty table. #}
+        {% for r in ladder %}
+        <tr>
+          <td>{% if r.base %}Nothing{% else %}₹{{ "{:,.0f}".format(r.annual) }}<span class="hl-pm">₹{{ "{:,.0f}".format(r.annual / 12) }}/month</span>{% endif %}</td>
+          <td class="num">{{ "%.0f"|format(r.years) }} yrs</td>
+          <td class="num">₹{{ "{:,.0f}".format(r.interest) }}</td>
+          <td class="num gain">{{ "—" if r.base else "₹" ~ "{:,.0f}".format(r.saved) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note" id="hl-thumb"></p>
+</section>
+
+<!-- Reference content: the indexable half. -->
+<section class="dash-card calc-doc">
+  <h2>What a ₹1 crore home actually costs</h2>
+  <p>
+    Take a ₹1 crore flat in {{ default_state }}, the most common shape of this decision.
+    RBI's slab for a loan {{ eg.band }} caps the bank at <strong>{{ "%.0f"|format(eg.ltv) }}%</strong>
+    of the property value, so it lends <strong>₹{{ "{:,.0f}".format(eg.loan) }}</strong> and you
+    put down <strong>₹{{ "{:,.0f}".format(eg.down) }}</strong>.
+  </p>
+  <p>
+    Then stamp duty and registration — <strong>₹{{ "{:,.0f}".format(eg.duty) }}</strong> — which the
+    loan does not cover. <strong>Your cash requirement is
+    ₹{{ "{:,.0f}".format(eg.down + eg.duty) }}</strong>, not the ₹{{ "{:,.0f}".format(eg.down) }}
+    most people budget. That gap is the single most common miss in an Indian home purchase.
+  </p>
+
+  <h3>How much a bank may lend (RBI loan-to-value caps)</h3>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead><tr><th>Loan amount</th><th class="num">Max loan-to-value</th><th class="num">On a ₹1 crore property</th></tr></thead>
+      <tbody>
+        {% for b in ltv_bands %}
+        <tr><td>{{ b.label }}</td><td class="num">{{ "%.0f"|format(b.ltv) }}%</td>
+            <td class="num">₹{{ "{:,.0f}".format(b.example) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    These are ceilings, not entitlements — a lender may offer less. Your income caps it
+    separately: most keep the EMI under about {{ "%.0f"|format(defaults.foir) }}% of net
+    monthly income, and whichever limit binds first is what you're offered.
+  </p>
+
+  <h3>Stamp duty &amp; registration by state</h3>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead><tr><th>State</th><th class="num">Stamp duty</th><th class="num">Registration</th>
+                 <th class="num">If bought in a woman's name</th>
+                 <th class="num">On ₹1 crore</th></tr></thead>
+      <tbody>
+        {% for s in states %}
+        <tr>
+          <td>{{ s.state }}</td>
+          <td class="num">{{ "%g"|format(s.stamp) }}%</td>
+          <td class="num">{{ "%g"|format(s.reg) }}%</td>
+          <td class="num">{% if s.women and s.women < s.stamp %}{{ "%g"|format(s.women) }}%{% else %}same{% endif %}</td>
+          <td class="num">₹{{ "{:,.0f}".format((s.stamp + s.reg) * 1000000) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note">
+    <strong>Indicative.</strong> Rates move with state budgets and differ by city, by
+    property type, and sometimes by the buyer's gender — several states charge 1–2% less
+    when the property is registered in a woman's name, which on ₹1 crore is ₹1–2 lakh for a
+    change of name on the deed. Confirm with the sub-registrar before you budget.
+  </p>
+</section>
+
+<section class="dash-card calc-doc" id="faq">
+  <h2>Common questions</h2>
+  <dl class="calc-faq">
+    {% for item in faq %}<dt>{{ item.q }}</dt><dd>{{ item.a }}</dd>{% endfor %}
+  </dl>
+</section>
+
+{% if not user %}
+<section class="dash-card stand-cta">
+  <h2>A house is one line in a bigger picture.</h2>
+  <p class="muted">
+    Networthy HQ tracks the property and the loan against it — net worth counts the home at
+    market value and subtracts what's still owed, so you can watch the gap close.
+  </p>
+  <p>
+    <a href="/login" class="btn btn-lg">Get started — it's free</a>
+    <a href="/demo" class="btn btn-outline btn-lg">Explore the live demo</a>
+  </p>
+</section>
+{% endif %}
+
+<p class="muted stand-note">
+  Also useful: <a href="/net-worth-calculator">work out your net worth</a>,
+  <a href="/how-much-do-i-need-to-retire">how much you need to retire</a>, and
+  <a href="/how-rich-am-i">where your net worth ranks</a>.
+</p>
+
+{{ fine_print("Stamp duty rates and RBI's loan-to-value caps are as we understand them and
+change over time; a lender's own policy may be stricter. Confirm the duty with your
+sub-registrar and the offer with your bank before committing to anything.") }}
+
+<script src="/static/homeloan.js?v={{ version }}"></script>
+<script>initHomeLoan({{ cfg | tojson }});</script>
+{% endblock %}

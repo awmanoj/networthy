@@ -370,6 +370,39 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `fine_print`. Chart is `static/plan-chart.js` (deliberately separate from `chart.js`: age-indexed,
   three series, event markers).
 
+- **`app/homeloan.py` + `GET /how-much-house-can-i-afford`** (`main.how_much_house`, template
+  `home_loan.html`, `HOME_PATH`, JS `static/homeloan.js`) — the **fifth public tool**, for the
+  buying-a-home decision. Same shape as the rest: arithmetic in the browser (a property price
+  and a salary are about as personal as this app gets), over server-rendered tables that carry
+  the indexable answer. Three things it gets right that a bank's EMI calculator doesn't:
+  - **Stamp duty and registration are not covered by the loan.** RBI excludes them from the
+    property value when computing loan-to-value (the exception is loans ≤ ₹10 lakh, where
+    documentation charges may be added). So a buyer who saved "20% for the down payment" is
+    short by another 5–8% of the price. On the page's worked ₹1 crore example that's
+    **₹31 lakh in cash, not ₹25 lakh** — the headline, and the most common miss in an Indian
+    home purchase.
+  - **`LTV_BANDS` are defined on the *loan*, not the price, so `max_loan` is circular** — it
+    takes the most generous band whose resulting loan actually falls inside it (90% ≤ ₹30 L,
+    80% ₹30–75 L, 75% above). A ₹35 lakh property gets 80%, not 90%, because 90% would be
+    ₹31.5 L and out of the band. Income caps it separately via FOIR (`affordable_price`,
+    default 50%), and whichever binds first is the real ceiling.
+  - **The prepayment question asked the way people ask it** — not "what do I save with ₹1
+    lakh" but "what must I pay to be done in ten years". `prepay_for_target` **bisects**
+    (the month loop rounds to whole months and applies the lump sum in discrete jumps, so it
+    doesn't invert cleanly; it *is* monotonic, which is all bisection needs — same reasoning
+    as `projection.corpus_requirement`). `test_homeloan.py` pins the **round trip**: paying
+    exactly what the ladder says ends the loan in exactly that year, and 10% less doesn't.
+
+  `STAMP_DUTY` is **indicative and says so** — rates move with state budgets and differ by
+  city, property type and buyer gender, so every figure is editable and the page tells the
+  reader to confirm with the sub-registrar. The women's-name rebate is surfaced because it's
+  ₹1–2 lakh on a ₹1 crore property for a change of name on the deed. `homeloan.js` mirrors
+  the Python exactly (slabs, amortisation, bisection) and was **cross-checked against it in
+  Node across four loan shapes, agreeing to the paisa** — keep them in step, as with
+  `standing.js`. Config reaches the browser as **one `cfg` object dumped with `tojson`**; the
+  top LTV band's `inf` becomes a finite sentinel, because `Infinity` is valid JS but invalid
+  JSON and a test asserts the block parses.
+
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **public full page at
   `GET /how-rich-am-i`** (`main.how_rich_am_i`, template `standing.html`) reached from the Dashboard
   CTA tile, the landing page and the footer; pre-fills with the user's live sum-the-tree net worth

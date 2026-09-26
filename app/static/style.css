@@ -1782,6 +1782,33 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .nw-blank-alt { margin: 12px 0 0; font-size: 0.83rem; max-width: 52ch; }
 .nw-csv-cta { margin-left: 8px; }
 
+/* --- How much house can I afford --------------------------------------------- */
+.hl-controls { display: flex; flex-wrap: wrap; gap: 16px 20px; margin-top: 20px; align-items: flex-end; }
+.hl-in { display: flex; flex-direction: column; gap: 5px; font-size: 0.78rem;
+  font-weight: 600; color: var(--muted); flex: 1 1 190px; }
+.hl-in.hl-sm { flex: 0 1 120px; }
+.hl-in em { font-style: normal; font-weight: 400; opacity: 0.75; }
+.hl-box { display: flex; align-items: center; gap: 4px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 9px; padding: 8px 11px; }
+.hl-box i { font-style: normal; color: var(--faint); font-size: 0.88rem; }
+.hl-box input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit;
+  color: var(--text); outline: none; font-variant-numeric: tabular-nums; }
+.hl-in select { background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 0.9rem; color: var(--text); }
+.hl-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+.hl-stat { padding: 20px 22px; display: flex; flex-direction: column; gap: 3px; }
+.hl-figure { font-family: var(--serif); font-size: 1.85rem; font-weight: 600; letter-spacing: -0.01em; }
+.hl-verdict { padding: 12px 16px; border-radius: 10px; font-size: 0.89rem; line-height: 1.55;
+  margin: 0 0 18px; }
+.hl-verdict.ok { background: color-mix(in srgb, var(--gain) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gain) 40%, var(--border)); }
+.hl-verdict.no { background: color-mix(in srgb, var(--copper) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--copper) 40%, var(--border)); }
+.hl-ladder-card { padding: 22px 26px; margin-bottom: 18px; }
+.hl-ladder-card h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; }
+.hl-pm { display: block; font-size: 0.76rem; color: var(--muted); }
+.stand-table td.gain { color: var(--gain); font-weight: 600; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }
@@ -1862,3 +1889,5 @@ a.btn { color: var(--btn-fg); }
   .stale-list li { grid-template-columns: 1fr auto; row-gap: 4px; }
   .stale-age { grid-column: 1; }
 }
+
+@media (max-width: 760px) { .hl-cards { grid-template-columns: 1fr; } }

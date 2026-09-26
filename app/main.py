@@ -19,7 +19,7 @@ from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
                feedback, goals, networth, pathto, prices, projection, storage,
                wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
-from . import importer
+from . import homeloan, importer
 from .classify import LABELS, AssetClass
 from .models import Reconciliation
 from .parser import CASParseError, parse_cams, parse_cas
@@ -2163,6 +2163,7 @@ def robots_txt():
         "User-agent: *\n"
         "Allow: /$\n"
         f"Allow: {CALC_PATH}\n"
+        f"Allow: {HOME_PATH}\n"
         f"Allow: {XLSX_PATH}\n"
         f"Allow: {STANDING_PATH}\n"
         f"Allow: {RETIRE_PATH}\n"
@@ -2185,6 +2186,106 @@ def robots_txt():
 
 
 # The public, indexable surface. Everything else is behind the session gate.
+HOME_PATH = "/how-much-house-can-i-afford"
+
+# The reference loan the server-rendered tables are worked through. A figure a
+# crawler (and a reader with JS off) can actually see, rather than empty divs.
+_HOME_EG_PRICE = 10_000_000.0
+
+_HOME_FAQ = [
+    {"q": "How much home loan can I get?",
+     "a": "RBI caps it by slab: up to 90% of the property value for loans up to ₹30 lakh, "
+          "80% between ₹30 and ₹75 lakh, and 75% above ₹75 lakh. Your income caps it "
+          "separately — most lenders keep the EMI under about half your net monthly "
+          "income. Whichever of the two is lower is what you'll actually be offered."},
+    {"q": "Is stamp duty included in the home loan?",
+     "a": "No. RBI excludes stamp duty and registration charges from the property value "
+          "when working out loan-to-value, so they come out of your own pocket on top of "
+          "the down payment. The only exception is loans up to ₹10 lakh, where "
+          "documentation charges may be added in. On a ₹1 crore flat that's another ₹5–10 "
+          "lakh in cash, and it's the most common thing buyers forget to budget for."},
+    {"q": "How much down payment do I need for a house?",
+     "a": "At least 10–25% of the price depending on the loan slab, plus stamp duty and "
+          "registration. On a ₹1 crore property in Karnataka that's ₹25 lakh down plus "
+          "about ₹6 lakh in duty — ₹31 lakh in cash, not ₹25 lakh."},
+    {"q": "Does prepaying a home loan actually help?",
+     "a": "Enormously, and earlier is worth far more than later, because the early years "
+          "of an EMI are almost entirely interest. On a ₹75 lakh loan at 8.5% over 20 "
+          "years, paying roughly ₹1.1 lakh extra a year — about ₹9,000 a month — ends the "
+          "loan five years early and saves over ₹22 lakh in interest."},
+    {"q": "Should I prepay the loan or invest the money instead?",
+     "a": "Compare your loan rate against what you'd earn after tax, and remember a "
+          "prepayment is a guaranteed, risk-free return equal to your interest rate. At "
+          "8.5% that's a high bar. Interest on a self-occupied house is deductible up to "
+          "₹2 lakh a year under the old regime, which lowers the effective rate — but "
+          "under the new regime there's no such deduction, so prepaying is worth more."},
+    {"q": "Is registration cheaper if the property is in a woman's name?",
+     "a": "In several states, yes. Delhi charges 4% instead of 6%, Haryana and Punjab 5% "
+          "instead of 7%, Maharashtra and UP 1% less. On a ₹1 crore property that's ₹1–2 "
+          "lakh saved for a change of name on the deed."},
+]
+
+
+@app.get(HOME_PATH, response_class=HTMLResponse)
+def how_much_house(request: Request):
+    """What a house actually costs, and how fast you can be free of the loan.
+
+    The fifth public tool. Same shape as the others: the arithmetic runs in
+    `static/homeloan.js` so a property price typed by a visitor never leaves the
+    tab, over server-rendered tables that carry the indexable answer.
+    """
+    user = request.state.user
+    income = storage.get_annual_income(user.id) if user else None
+    loan, ltv, band = homeloan.max_loan(_HOME_EG_PRICE)
+    return templates.TemplateResponse(
+        "home_loan.html",
+        {
+            "request": request,
+            "user": user,
+            "states": homeloan.STAMP_DUTY,
+            "default_state": homeloan.DEFAULT_STATE,
+            "ltv_bands": [
+                {"label": label, "ltv": ltv * 100,
+                 "example": _HOME_EG_PRICE * ltv, "ceiling": ceiling}
+                for ceiling, ltv, label in homeloan.LTV_BANDS
+            ],
+            # A worked example, server-side, so the numbers are in the HTML.
+            "eg": {
+                "price": _HOME_EG_PRICE, "loan": loan, "ltv": ltv * 100, "band": band,
+                "down": _HOME_EG_PRICE - loan,
+                "duty": _HOME_EG_PRICE * (homeloan.duty_for(homeloan.DEFAULT_STATE)["stamp"]
+                                          + homeloan.duty_for(homeloan.DEFAULT_STATE)["reg"]) / 100.0,
+            },
+            "ladder": homeloan.ladder(loan, homeloan.DEFAULT_RATE_PCT, homeloan.DEFAULT_YEARS),
+            "base_emi": homeloan.emi(loan, homeloan.DEFAULT_RATE_PCT, homeloan.DEFAULT_YEARS),
+            "defaults": {"rate": homeloan.DEFAULT_RATE_PCT, "years": homeloan.DEFAULT_YEARS,
+                         "foir": homeloan.DEFAULT_FOIR_PCT},
+            # One object, built here and dumped once. Assembling it out of five
+            # Jinja filters in a <script> block was unreadable, and `inf` is not
+            # valid JSON — hence the finite sentinel for the top slab.
+            "cfg": {
+                "ltv": [[min(c, 1e18), r, label] for c, r, label in homeloan.LTV_BANDS],
+                "duty": {d["state"]: {"stamp": d["stamp"], "reg": d["reg"]}
+                         for d in homeloan.STAMP_DUTY},
+                "defaultState": homeloan.DEFAULT_STATE,
+                "rate": homeloan.DEFAULT_RATE_PCT,
+                "years": homeloan.DEFAULT_YEARS,
+                "foir": homeloan.DEFAULT_FOIR_PCT,
+                "targets": list(homeloan.TARGET_YEARS),
+            },
+            "my_monthly_income": (income / 12.0) if income else None,
+            "faq": _HOME_FAQ,
+            "page_title": "How Much House Can I Afford? (India, with stamp duty)",
+            "page_description": (
+                "Work out what a home really costs in India — RBI loan-to-value limits, "
+                "the down payment, stamp duty your loan won't cover, the EMI, and exactly "
+                "how much to prepay each year to finish a 20-year loan in 10."
+            ),
+            "canonical_path": HOME_PATH,
+        },
+    )
+
+
 CALC_PATH = "/net-worth-calculator"
 
 # Which tree nodes become rows in the calculator. Curated — the full tree is 40+
@@ -2352,7 +2453,8 @@ def net_worth_tracker_excel(request: Request):
     )
 
 
-_SITEMAP_PATHS = [("/", "1.0"), (CALC_PATH, "0.9"), (XLSX_PATH, "0.8"),
+_SITEMAP_PATHS = [("/", "1.0"), (CALC_PATH, "0.9"), (HOME_PATH, "0.9"),
+                  (XLSX_PATH, "0.8"),
                   (STANDING_PATH, "0.9"),
                   (RETIRE_PATH, "0.9"), (PATH_TO_PATH, "0.9"), ("/about", "0.5"),
                   ("/privacy", "0.3"), ("/terms", "0.3")]
