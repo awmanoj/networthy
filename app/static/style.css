@@ -1816,8 +1816,12 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .cof-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 26px 0 18px; }
 .cof-btn { min-width: 92px; }
 .cof-note { font-size: 0.82rem !important; }
-.cof-love { margin: 22px 0 0; font-family: var(--serif); font-size: 1rem; color: var(--copper); }
+.cof-love { margin: 22px 0 0; font-family: var(--serif); font-size: 1rem; }
 .foot-love { font-size: 0.82rem; }
+/* Its own colour, not a theme token: a heart is red in both light and dark, and
+   --loss is the red that means "your money went down" — borrowing it here would
+   tie an affectionate line to the palette of a bad day. */
+.heart { color: #e0245e; font-style: normal; }
 
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }

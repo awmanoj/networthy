@@ -33,7 +33,9 @@ def test_a_username_becomes_a_buymeacoffee_link(client, monkeypatch):
     monkeypatch.setenv("COFFEE_URL", "manoj")
     body = client.get("/buy-me-a-coffee").text
     assert f'href="{BMC}"' in body
-    assert "Built with ♥" in body
+    # The heart is wrapped so it can be red; assert on the pieces, not the
+    # rendered string, or any styling change breaks the test.
+    assert "Built with" in body and '<span class="heart">♥</span> for India' in body
 
 
 @pytest.mark.parametrize("raw", ["@manoj", "manoj/", " manoj "])
