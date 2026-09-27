@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 
 from app import prices, storage
 
+BMC = "https://buymeacoffee.com/manoj"
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -22,55 +24,64 @@ def test_absent_entirely_when_unconfigured(client, monkeypatch):
     """A self-hosted copy must never solicit money on someone else's behalf, and
     a dead donate link is worse than no link. Same fail-closed shape as
     OWNER_EMAIL and SUPPORT_EMAIL."""
-    monkeypatch.delenv("PAYPAL_ME", raising=False)
+    monkeypatch.delenv("COFFEE_URL", raising=False)
     assert client.get("/buy-me-a-coffee").status_code == 404
     assert "/buy-me-a-coffee" not in client.get("/").text
 
 
-def test_amounts_and_a_custom_option(client, monkeypatch):
-    monkeypatch.setenv("PAYPAL_ME", "manoj")
+def test_a_username_becomes_a_buymeacoffee_link(client, monkeypatch):
+    monkeypatch.setenv("COFFEE_URL", "manoj")
     body = client.get("/buy-me-a-coffee").text
-    for amount in (5, 10, 25):
-        assert f"https://paypal.me/manoj/{amount}USD" in body
-    assert 'href="https://paypal.me/manoj"' in body        # let them choose
+    assert f'href="{BMC}"' in body
     assert "Built with ♥" in body
 
 
-def test_currency_is_settable(client, monkeypatch):
-    monkeypatch.setenv("PAYPAL_ME", "manoj")
-    monkeypatch.setenv("PAYPAL_CURRENCY", "inr")
-    assert "https://paypal.me/manoj/5INR" in client.get("/buy-me-a-coffee").text
-
-
 @pytest.mark.parametrize("raw", ["@manoj", "manoj/", " manoj "])
-def test_a_handle_pasted_with_decoration_still_works(client, monkeypatch, raw):
-    """People copy '@handle' or a trailing slash out of PayPal without thinking."""
-    monkeypatch.setenv("PAYPAL_ME", raw)
-    assert "https://paypal.me/manoj/5USD" in client.get("/buy-me-a-coffee").text
+def test_a_username_pasted_with_decoration_still_works(client, monkeypatch, raw):
+    """People copy '@handle' or a trailing slash out of a profile page."""
+    monkeypatch.setenv("COFFEE_URL", raw)
+    assert f'href="{BMC}"' in client.get("/buy-me-a-coffee").text
+
+
+@pytest.mark.parametrize("url", ["https://ko-fi.com/manoj", "https://buymeacoffee.com/x"])
+def test_a_full_url_is_taken_as_given(client, monkeypatch, url):
+    """Moving to Ko-fi or anything else is an env change, not a deploy."""
+    monkeypatch.setenv("COFFEE_URL", url)
+    assert f'href="{url}"' in client.get("/buy-me-a-coffee").text
+
+
+def test_no_preset_amounts_are_invented(client, monkeypatch):
+    """Buy Me a Coffee picks the quantity on its own page. Guessing a query
+    parameter it may not honour would produce links that look precise and
+    quietly do nothing."""
+    monkeypatch.setenv("COFFEE_URL", "manoj")
+    body = client.get("/buy-me-a-coffee").text
+    assert "buymeacoffee.com/manoj?" not in body
+    assert "buymeacoffee.com/manoj/" not in body
 
 
 def test_footer_link_appears_once_configured(client, monkeypatch):
-    monkeypatch.setenv("PAYPAL_ME", "manoj")
+    monkeypatch.setenv("COFFEE_URL", "manoj")
     assert "/buy-me-a-coffee" in client.get("/").text          # public landing
     assert "/buy-me-a-coffee" in client.get("/about").text     # and content pages
 
 
 def test_no_third_party_script_is_loaded(client, monkeypatch):
-    """Plain links, not PayPal's button SDK — nothing external runs on the page."""
-    monkeypatch.setenv("PAYPAL_ME", "manoj")
+    """A plain link, not BMC's widget — nothing external runs on the page."""
+    monkeypatch.setenv("COFFEE_URL", "manoj")
     body = client.get("/buy-me-a-coffee").text
-    assert "paypalobjects" not in body and "<script src=\"https://" not in body
+    assert "buymeacoffee.com/widget" not in body
+    assert '<script src="https://' not in body
 
 
-def test_links_do_not_leak_the_referrer(client, monkeypatch):
-    """rel=noreferrer, so PayPal isn't told which page they came from — that page
-    can be a signed-in URL naming what someone holds."""
-    monkeypatch.setenv("PAYPAL_ME", "manoj")
-    body = client.get("/buy-me-a-coffee").text
-    assert body.count('rel="noopener noreferrer"') >= 4
+def test_the_link_does_not_leak_the_referrer(client, monkeypatch):
+    """rel=noreferrer, so BMC isn't told which page they came from — that page
+    can be a signed-in URL naming which asset classes someone holds."""
+    monkeypatch.setenv("COFFEE_URL", "manoj")
+    assert 'rel="noopener noreferrer"' in client.get("/buy-me-a-coffee").text
 
 
 def test_it_is_not_in_the_sitemap(client, monkeypatch):
     """Public so it's reachable, but a tip jar is not content to rank."""
-    monkeypatch.setenv("PAYPAL_ME", "manoj")
+    monkeypatch.setenv("COFFEE_URL", "manoj")
     assert "/buy-me-a-coffee" not in client.get("/sitemap.xml").text

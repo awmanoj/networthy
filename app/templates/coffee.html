@@ -17,16 +17,14 @@
   </p>
 
   <div class="cof-row">
-    {% for l in links %}
-    <a class="btn {{ 'btn-outline' if l.amount is none else '' }} cof-btn"
-       href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.label }}</a>
-    {% endfor %}
+    <a class="btn btn-lg cof-btn" href="{{ tip_url }}"
+       target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
   </div>
 
   <p class="muted cof-note">
-    Opens PayPal in a new tab. Nothing about your account is shared with it — the link
-    carries an amount and nothing else, and we're never told whether you went through
-    with it.
+    Opens Buy Me a Coffee in a new tab, where you pick the amount. Nothing about your
+    account goes with you — not even which page you came from — and we're never told
+    whether you went through with it.
   </p>
   <p class="cof-love">Built with ♥ for India.</p>
 </section>

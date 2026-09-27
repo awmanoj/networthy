@@ -518,18 +518,22 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   against pasting figures. `feedback` is in `EXPORT_TABLES`: a report is the user's own
   words, so it leaves and is deleted with their account.
 
-- **Tip jar** (`main.paypal_me`, `_coffee_links`, `GET /buy-me-a-coffee`, template
-  `coffee.html`, env `PAYPAL_ME` + optional `PAYPAL_CURRENCY`) — plain **PayPal.me links**,
-  not PayPal's button SDK: the amount goes in the URL path (`paypal.me/<handle>/5USD`), so
-  nothing third-party runs on a page this site promises is unwatched. `rel="noreferrer"` too,
-  because the referring page can be a signed-in URL naming which asset classes someone holds.
-  **Unset means absent**, not disabled — the route 404s and the footer link doesn't render, so
-  a self-hosted copy never solicits money on someone else's behalf and there's no dead donate
-  link. Public but deliberately **not in `_SITEMAP_PATHS`**: reachable, not content to rank.
-  The handle is normalised (`@handle`, trailing slash, stray spaces) because that's how people
-  paste it. Exposed to the footer as a template **global returning a callable**, evaluated per
-  render rather than at import — 74 routes shouldn't each have to remember to pass it, and a
-  value frozen at startup would make the link depend on import order.
+- **Tip jar** (`main.coffee_url`, `GET /buy-me-a-coffee`, template `coffee.html`, env
+  `COFFEE_URL`) — a **plain link** to Buy Me a Coffee, not their widget: nothing third-party
+  runs on a page this site promises is unwatched, and `rel="noreferrer"` keeps BMC from being
+  told which page someone came from, since that can be a signed-in URL naming what they hold.
+  `COFFEE_URL` takes a username *or* a full URL, so moving to Ko-fi is an env change rather
+  than a deploy. **Unset means absent**, not disabled — the route 404s and the footer link
+  doesn't render, so a self-hosted copy never solicits money on someone else's behalf and
+  nobody meets a dead donate link. Public but deliberately **not in `_SITEMAP_PATHS`**:
+  reachable, not content to rank. **No preset amounts in the URL** — BMC picks the quantity on
+  its own page, and inventing a query parameter it may not honour would give links that look
+  precise and quietly do nothing (PayPal.me *does* support `/5USD`, which is why the first
+  version had them; PayPal.me is unavailable to India-registered accounts, hence the switch).
+  Exposed to the footer as a template **global returning a callable**, evaluated per render —
+  74 routes shouldn't each pass it. The route's own context key is `tip_url`, **not**
+  `coffee_url`: a context key of that name shadows the global and breaks the footer on this
+  page alone, which is exactly the page that matters.
 
 - **Google Analytics** (`templates/_analytics.html`, env `GA_MEASUREMENT_ID`) — on the hosted
   deployment only, and **three gates deep**. (1) Unset means **absent, not disabled**: a
