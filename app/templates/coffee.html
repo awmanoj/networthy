@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} · Networthy HQ{% endblock %}
+{% block content %}
+
+<section class="card narrow cof">
+  <div class="cof-cup" aria-hidden="true">☕</div>
+  <h1>Buy me a coffee</h1>
+  <p class="muted">
+    Networthy HQ is free, has no ads, and doesn't sell anything — not your data, not a
+    premium tier, not a credit card you didn't ask for. It's a nights-and-weekends project
+    that exists because I wanted it to exist.
+  </p>
+  <p class="muted">
+    If it's saved you an afternoon with a spreadsheet, or told you something you didn't
+    know about your own money, a coffee is a lovely way to say so. Entirely optional —
+    nothing on the site changes either way.
+  </p>
+
+  <div class="cof-row">
+    {% for l in links %}
+    <a class="btn {{ 'btn-outline' if l.amount is none else '' }} cof-btn"
+       href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.label }}</a>
+    {% endfor %}
+  </div>
+
+  <p class="muted cof-note">
+    Opens PayPal in a new tab. Nothing about your account is shared with it — the link
+    carries an amount and nothing else, and we're never told whether you went through
+    with it.
+  </p>
+  <p class="cof-love">Built with ♥ for India.</p>
+</section>
+
+{% endblock %}

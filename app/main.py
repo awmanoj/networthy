@@ -41,6 +41,9 @@ templates.env.globals["version"] = str(int(time.time()))
 # Absolute base URL for social-share tags (og:image must be absolute). Override
 # with SITE_URL if the app runs on a different domain.
 templates.env.globals["site_url"] = os.environ.get("SITE_URL", "https://networthyhq.com")
+# Read per-render, not once at import: a global evaluated at startup would make
+# the footer link depend on import order, and tests set the env var afterwards.
+templates.env.globals["paypal_me"] = lambda: paypal_me()
 # Google Analytics measurement id. **Unset means absent** — not disabled, absent:
 # a self-hosted instance or `uvx networthy` renders no tag and makes no request.
 # See templates/_analytics.html for the other two gates.
@@ -2186,6 +2189,53 @@ def robots_txt():
 
 
 # The public, indexable surface. Everything else is behind the session gate.
+COFFEE_PATH = "/buy-me-a-coffee"
+COFFEE_AMOUNTS = (5, 10, 25)
+
+
+def paypal_me() -> str:
+    """The PayPal.me handle to send tips to, or empty.
+
+    Unset means the page and every link to it simply don't exist — the same
+    fail-closed shape as `auth.owner_email()` and `feedback.support_address()`.
+    A self-hosted copy should never quietly solicit money on someone else's
+    behalf, and a dead donate link is worse than none.
+    """
+    return os.environ.get("PAYPAL_ME", "").strip().lstrip("@").rstrip("/")
+
+
+def _coffee_links() -> list[dict]:
+    """Plain PayPal.me URLs — no SDK, no button script, nothing third-party on
+    the page. The amount goes in the path; an empty one lets them choose."""
+    handle = paypal_me()
+    if not handle:
+        return []
+    currency = os.environ.get("PAYPAL_CURRENCY", "USD").strip().upper() or "USD"
+    base = f"https://paypal.me/{handle}"
+    out = [{"label": f"${a}", "url": f"{base}/{a}{currency}", "amount": a}
+           for a in COFFEE_AMOUNTS]
+    out.append({"label": "Something else", "url": base, "amount": None})
+    return out
+
+
+@app.get(COFFEE_PATH, response_class=HTMLResponse)
+def buy_me_a_coffee(request: Request):
+    """A tip jar. 404s when PAYPAL_ME isn't set, so a self-hosted copy has none."""
+    links = _coffee_links()
+    if not links:
+        return HTMLResponse("Not found", status_code=404)
+    return templates.TemplateResponse(
+        "coffee.html",
+        {
+            "request": request, "user": request.state.user, "links": links,
+            "page_title": "Buy me a coffee",
+            "page_description": "Networthy HQ is free and always will be. If it's been "
+                                "useful, you can buy me a coffee.",
+            "canonical_path": COFFEE_PATH,
+        },
+    )
+
+
 HOME_PATH = "/how-much-house-can-i-afford"
 
 # The reference loan the server-rendered tables are worked through. A figure a

@@ -518,6 +518,19 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   against pasting figures. `feedback` is in `EXPORT_TABLES`: a report is the user's own
   words, so it leaves and is deleted with their account.
 
+- **Tip jar** (`main.paypal_me`, `_coffee_links`, `GET /buy-me-a-coffee`, template
+  `coffee.html`, env `PAYPAL_ME` + optional `PAYPAL_CURRENCY`) — plain **PayPal.me links**,
+  not PayPal's button SDK: the amount goes in the URL path (`paypal.me/<handle>/5USD`), so
+  nothing third-party runs on a page this site promises is unwatched. `rel="noreferrer"` too,
+  because the referring page can be a signed-in URL naming which asset classes someone holds.
+  **Unset means absent**, not disabled — the route 404s and the footer link doesn't render, so
+  a self-hosted copy never solicits money on someone else's behalf and there's no dead donate
+  link. Public but deliberately **not in `_SITEMAP_PATHS`**: reachable, not content to rank.
+  The handle is normalised (`@handle`, trailing slash, stray spaces) because that's how people
+  paste it. Exposed to the footer as a template **global returning a callable**, evaluated per
+  render rather than at import — 74 routes shouldn't each have to remember to pass it, and a
+  value frozen at startup would make the link depend on import order.
+
 - **Google Analytics** (`templates/_analytics.html`, env `GA_MEASUREMENT_ID`) — on the hosted
   deployment only, and **three gates deep**. (1) Unset means **absent, not disabled**: a
   self-hosted instance or `uvx networthy` renders no tag and makes no request, so the local

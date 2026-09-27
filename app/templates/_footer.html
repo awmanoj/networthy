@@ -3,6 +3,7 @@
     <div class="mkt-foot-brand">
       <span class="brand"><span class="mark">₹</span>Networthy HQ</span>
       <span class="muted">See where you stand.</span>
+      <span class="muted foot-love">Built with ♥ for India.</span>
     </div>
 
     {# Grouped and stacked rather than one long row. Six question-style labels
@@ -24,6 +25,7 @@
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="/feedback">Report a bug</a>
+        {% if paypal_me() %}<a href="/buy-me-a-coffee">Buy me a coffee ☕</a>{% endif %}
       </div>
     </nav>
   </div>

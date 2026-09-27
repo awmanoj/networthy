@@ -1809,6 +1809,16 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .hl-pm { display: block; font-size: 0.76rem; color: var(--muted); }
 .stand-table td.gain { color: var(--gain); font-weight: 600; }
 
+/* --- Tip jar ------------------------------------------------------------------ */
+.cof { text-align: center; }
+.cof-cup { font-size: 3rem; line-height: 1; margin-bottom: 6px; }
+.cof p { max-width: 54ch; margin-left: auto; margin-right: auto; }
+.cof-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 26px 0 18px; }
+.cof-btn { min-width: 92px; }
+.cof-note { font-size: 0.82rem !important; }
+.cof-love { margin: 22px 0 0; font-family: var(--serif); font-size: 1rem; color: var(--copper); }
+.foot-love { font-size: 0.82rem; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }
