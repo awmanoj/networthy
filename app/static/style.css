@@ -1831,6 +1831,12 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .hd.up b, .hd.up i { color: var(--gain); }
 .hd.down b, .hd.down i { color: var(--loss); }
 
+/* The four question pages are the top of the funnel — brighter and heavier than
+   the utility links they sit above, which stay in the default muted style. */
+.mkt-foot-col a.foot-primary { color: var(--text); font-weight: 600; font-size: 0.92rem; }
+.mkt-foot-col a.foot-primary:hover { color: var(--brand); }
+.foot-rule { display: block; height: 1px; background: var(--border); margin: 5px 0 2px; max-width: 200px; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

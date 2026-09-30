@@ -375,3 +375,22 @@ def test_no_structured_data_on_authenticated_pages(client):
     """Same gate as analytics: schema is for crawlers, and a signed-in page has
     no business emitting anything about itself."""
     assert _ld(client.get("/expenses", cookies=_login()).text) == []
+
+
+def test_footer_leads_with_the_four_question_pages(client):
+    """They're the top of the funnel and the reason most visitors arrive, so they
+    come first and carry the emphasis; the calculator and spreadsheet are
+    utilities and sit below a divider in the quieter default style."""
+    import re
+    body = client.get("/about").text
+    foot = body[body.index("<footer"):]
+    col = foot[foot.index("Free tools"):foot.index("mkt-foot-head", foot.index("Free tools") + 5)]
+    links = [(m.group(1), m.group(2))
+             for m in re.finditer(r'<a([^>]*?)href="([^"]+)"', col)]
+    assert [href for _cls, href in links] == [
+        "/how-much-house-can-i-afford", "/how-rich-am-i",
+        "/how-much-do-i-need-to-retire", "/how-do-i-get-to-10-crore",
+        "/net-worth-calculator", "/net-worth-tracker-excel",
+    ]
+    assert all("foot-primary" in cls for cls, _href in links[:4])
+    assert not any("foot-primary" in cls for cls, _href in links[4:])
