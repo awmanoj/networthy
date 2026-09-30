@@ -1823,6 +1823,14 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
    tie an affectionate line to the palette of a bad day. */
 .heart { color: #e0245e; font-style: normal; }
 
+/* --- Net-worth change, beside the hero total --------------------------------- */
+.hero-deltas { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 6px 0 2px; }
+.hd { font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
+.hd b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.hd i { font-style: normal; opacity: 0.8; margin-left: 2px; }
+.hd.up b, .hd.up i { color: var(--gain); }
+.hd.down b, .hd.down i { color: var(--loss); }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

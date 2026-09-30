@@ -97,6 +97,23 @@
   <div class="dash-card hero-main">
     <span class="eyebrow">Total net worth</span>
     <div class="hero-nw num"><span class="rs">₹</span>{{ "{:,.0f}".format(d.net_worth) }}</div>
+    {# Change since yesterday and since last week. Absent, not zero, when there's
+       no history to compare against — a new account hasn't been flat, it has no
+       past, and "no change" would be a claim we can't make. #}
+    {% if d.deltas %}
+    <div class="hero-deltas">
+      {% for c in d.deltas %}
+      <span class="hd {{ 'flat' if c.flat else ('up' if c.up else 'down') }}">
+        {%- if c.flat -%}
+        <b>—</b> flat {{ c.label }}
+        {%- else -%}
+        <b>{{ '▲' if c.up else '▼' }} ₹{{ "{:,.0f}".format(c.delta|abs) }}</b>
+        <i>{{ "%+.1f"|format(c.pct) }}%</i> {{ c.label }}
+        {%- endif -%}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
     <span class="hero-note">Valued live where we can · as of today</span>
     <div class="hero-split">
       <div>

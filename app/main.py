@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -398,6 +398,43 @@ def _stale_figures(user, limit: int = 6) -> list[dict]:
     return rows
 
 
+def _nw_deltas(user, net_worth: float) -> list[dict]:
+    """Day-over-day and week-over-week change, from the recorded history.
+
+    Both are read from `nw_history`, the same series the trend chart and the
+    digests use — so the dashboard can't disagree with the email that lands the
+    same evening.
+
+    Two deliberate omissions. A period with **no recorded point** is skipped
+    rather than shown as zero: a new account hasn't been flat, it has no
+    history, and "no change" would be a claim we can't make. And a point from
+    *today* is never used as a baseline — `ensure_nw_point` writes one on every
+    dashboard view, so comparing against it would report ₹0 forever.
+    """
+    today = digest.ist_today()
+    out: list[dict] = []
+    for label, base_row in (
+        ("today", storage.latest_nw_snapshot_before(user.id, today.isoformat())),
+        ("this week", storage.nw_snapshot_on_or_before(
+            user.id, (today - timedelta(days=7)).isoformat())),
+    ):
+        if not base_row:
+            continue
+        base = base_row.get("net_worth")
+        if not base:
+            continue
+        delta = net_worth - base
+        out.append({
+            "label": label,
+            "delta": delta,
+            "pct": (delta / base * 100.0) if base else 0.0,
+            # A rupee either way on a crore is noise, not news.
+            "flat": abs(delta) < 1.0,
+            "up": delta > 0,
+        })
+    return out
+
+
 def _dashboard(user) -> dict:
     """Everything the home dashboard shows, derived from the rolled-up tree.
 
@@ -437,6 +474,9 @@ def _dashboard(user) -> dict:
         "non_fin": values.get("assets/non-financial-assets", 0.0),
         "buckets": buckets,
         "has_data": bool(buckets) or liabilities > 0,
+        # Day-over-day and week-over-week, from the same series as the chart
+        # and the digests, so the three can never disagree.
+        "deltas": _nw_deltas(user, assets - liabilities),
         # Which parts of this number are someone's memory rather than a live price.
         "stale": _stale_figures(user),
         "stale_total": len(storage.stale_entries(user.id)),

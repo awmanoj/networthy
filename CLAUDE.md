@@ -120,7 +120,8 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
 
 - **`app/networth.py` + the Networth pages** — a declarative Assets/Liabilities tree. Two views of
   it: the **Dashboard** (`GET /` → `main.home` + `main._dashboard`, template `networth.html`) is the
-  at-a-glance home — a hero total (Assets − Liabilities, summed live via `_networth_values`), an
+  at-a-glance home — a hero total (Assets − Liabilities, summed live via `_networth_values`) with
+  **day-over-day and week-over-week change** beneath it (`main._nw_deltas`), an
   allocation strip, a **net-worth-over-time trend chart**, category tiles, a "Where do you stand?"
   CTA, and a "where it sits" list (empty categories omitted). The **trend** is the forward series from
   `nw_history`: `main.home` **bootstraps** it by recording today's point on each view
@@ -231,6 +232,17 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   threshold that fires on ordinary statements is worse than no check; and `main.nsdl_cas`
   **recomputes from stored rows** rather than persisting a flag, so a parser fix plus a
   re-upload clears the banner by itself. `test_reconcile.py` pins all four.
+
+- **Hero deltas** (`main._nw_deltas`, `d.deltas`, `.hero-deltas` in `networth.html`) — change
+  since yesterday and since last week, in small type under the dashboard total. Both read
+  `nw_history`, the **same series** the trend chart and the digest emails use, so the three
+  can't tell the user different numbers. Two deliberate choices: a period with no recorded
+  point is **omitted, not shown as zero** — a new account hasn't been flat, it has no history,
+  and "no change" is a claim we can't make; and **today's own point is never a baseline**,
+  because `main.home` calls `ensure_nw_point` on every view, so comparing against it would
+  report ₹0 forever (`latest_nw_snapshot_before` is strictly `<` today, which is what makes
+  this work). Sub-₹1 moves read as "flat" — live prices wobble and a rupee on a crore is
+  noise. `test_hero_delta.py` pins all of it, including agreement with the digest.
 
 - **Staleness** (`storage._STALE_SOURCES`, `stale_entries`, `touch_row`, `STALE_AFTER_DAYS`
   = 182; `main._stale_figures` + `_leaf_paths`; the Dashboard card; the weekly digest line) —
