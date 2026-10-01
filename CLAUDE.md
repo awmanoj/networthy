@@ -680,6 +680,15 @@ Tests target the fragile logic directly, without needing a real password-protect
 
 If you rename or change the signature of a `_`-prefixed parser helper, the tests break by design.
 
+**`tests/conftest.py` points `storage.DATA_DIR`/`DB_PATH` at a tmp dir for every test**
+(autouse). `DB_PATH` is module-level by design — the launcher and the tests both repoint it —
+so a test that forgets to redirect reads and writes the developer's own `data/networthy.db`.
+That failure is **invisible locally**: the file exists with the right tables, so the test
+passes *and silently inserts rows*. It only surfaces on a fresh checkout with no `data/`
+directory — i.e. in CI, as `no such table` — which is how `test_message_is_escaped_into_the_email`
+went unnoticed through four failed releases while writing 45 rows into the dev DB. Don't
+remove the fixture, and don't rely on a test's own `client` fixture being the only guard.
+
 ## Running locally (`uvx networthy`)
 
 The app ships as a PyPI package so anyone can run it on their own machine — the answer

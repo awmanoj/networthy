@@ -102,7 +102,9 @@ def test_signed_in_report_carries_the_account_and_nothing_else(client, outbox):
     assert "/networth" not in mail["html"]
 
 
-def test_message_is_escaped_into_the_email(outbox):
+def test_message_is_escaped_into_the_email(client, outbox):
+    # `client` is what points storage at a temp DB and creates the tables. Without
+    # it this wrote into the developer's own data/networthy.db and passed.
     feedback.submit("bug", "<script>alert(1)</script> & co", "", None, None)
     (mail,) = outbox
     assert "<script>" not in mail["html"]
