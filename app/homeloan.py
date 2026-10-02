@@ -27,30 +27,69 @@ LTV_BANDS: list[tuple[float, float, str]] = [
     (float("inf"), 0.75, "above ₹75 lakh"),
 ]
 
-# Indicative stamp duty + registration, as a share of the agreement value. These
-# move with state budgets and vary by city, by gender of the buyer, and sometimes
-# by whether the property is new — so the page says "indicative, confirm with the
-# sub-registrar" and every figure is editable. Getting a user to the right
-# *order of magnitude* is the goal; pretending to three decimal places would be
-# false precision on something they must verify anyway.
+# Stamp duty + registration, as a share of the agreement value.
+#
+# **These are checked against official/industry sources on the date noted and go
+# stale.** Rates move with state budgets: Karnataka doubled its registration fee
+# from 1% to 2% in August 2025, the first revision since 2003, and this table
+# carried the old figure for weeks. Only rows marked `verified` have been
+# checked; the rest are shown with a caveat rather than presented as fact.
+#
+# Several states levy a **cess and surcharge on top of the stamp duty** (not on
+# the property value), which is why `stamp`, `cess_pct` and `surcharge_pct` are
+# separate: Karnataka's headline 5% is really 5.6% once a 10% cess and a 2%
+# urban surcharge are applied to it. A model with only `stamp` and `reg` cannot
+# express that, and silently understated the real cost by 1.6 points.
 STAMP_DUTY: list[dict] = [
-    {"state": "Maharashtra (Mumbai)", "stamp": 6.0, "reg": 1.0, "women": 5.0},
-    {"state": "Maharashtra (Pune/Nagpur)", "stamp": 7.0, "reg": 1.0, "women": 6.0},
-    {"state": "Karnataka", "stamp": 5.0, "reg": 1.0, "women": None},
-    {"state": "Delhi", "stamp": 6.0, "reg": 1.0, "women": 4.0},
-    {"state": "Tamil Nadu", "stamp": 7.0, "reg": 4.0, "women": None},
-    {"state": "Telangana", "stamp": 5.5, "reg": 0.5, "women": None},
-    {"state": "Haryana", "stamp": 7.0, "reg": 1.0, "women": 5.0},
-    {"state": "Uttar Pradesh", "stamp": 7.0, "reg": 1.0, "women": 6.0},
-    {"state": "Gujarat", "stamp": 4.9, "reg": 1.0, "women": 4.9},
-    {"state": "West Bengal", "stamp": 6.0, "reg": 1.0, "women": None},
-    {"state": "Rajasthan", "stamp": 6.0, "reg": 1.0, "women": 5.0},
-    {"state": "Madhya Pradesh", "stamp": 7.5, "reg": 1.0, "women": 7.5},
-    {"state": "Kerala", "stamp": 8.0, "reg": 2.0, "women": None},
-    {"state": "Punjab", "stamp": 7.0, "reg": 1.0, "women": 5.0},
-    {"state": "Andhra Pradesh", "stamp": 5.0, "reg": 1.0, "women": None},
+    # state, stamp %, cess (% OF the stamp duty), surcharge (% OF the stamp duty),
+    # registration % of value, women's stamp % if lower, verified date
+    {"state": "Karnataka (urban/BBMP)", "stamp": 5.0, "cess_pct": 10.0,
+     "surcharge_pct": 2.0, "reg": 2.0, "women": None, "verified": "2026-10"},
+    {"state": "Maharashtra (Mumbai)", "stamp": 6.0, "cess_pct": 0.0,
+     "surcharge_pct": 0.0, "reg": 1.0, "women": 5.0, "verified": None},
+    {"state": "Maharashtra (Pune/Nagpur)", "stamp": 7.0, "cess_pct": 0.0,
+     "surcharge_pct": 0.0, "reg": 1.0, "women": 6.0, "verified": None},
+    {"state": "Delhi", "stamp": 6.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 4.0, "verified": None},
+    {"state": "Tamil Nadu", "stamp": 7.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 4.0, "women": None, "verified": None},
+    {"state": "Telangana", "stamp": 5.5, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 0.5, "women": None, "verified": None},
+    {"state": "Haryana", "stamp": 7.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 5.0, "verified": None},
+    {"state": "Uttar Pradesh", "stamp": 7.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 6.0, "verified": None},
+    {"state": "Gujarat", "stamp": 4.9, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 4.9, "verified": None},
+    {"state": "West Bengal", "stamp": 6.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": None, "verified": None},
+    {"state": "Rajasthan", "stamp": 6.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 5.0, "verified": None},
+    {"state": "Madhya Pradesh", "stamp": 7.5, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 7.5, "verified": None},
+    {"state": "Kerala", "stamp": 8.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 2.0, "women": None, "verified": None},
+    {"state": "Punjab", "stamp": 7.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": 5.0, "verified": None},
+    {"state": "Andhra Pradesh", "stamp": 5.0, "cess_pct": 0.0, "surcharge_pct": 0.0,
+     "reg": 1.0, "women": None, "verified": None},
 ]
-DEFAULT_STATE = "Karnataka"
+
+
+def effective_pct(duty: dict) -> float:
+    """Total statutory cost as a share of property value.
+
+    Cess and surcharge apply **to the stamp duty**, not to the property value —
+    Karnataka's 5% headline becomes 5.6% before registration is added. Getting
+    this wrong understates the cash a buyer needs, which is the one thing this
+    page exists to prevent.
+    """
+    stamp = duty["stamp"]
+    loading = stamp * (duty.get("cess_pct", 0.0) + duty.get("surcharge_pct", 0.0)) / 100.0
+    return stamp + loading + duty["reg"]
+
+
+DEFAULT_STATE = "Karnataka (urban/BBMP)"
 
 DEFAULT_RATE_PCT = 8.5        # a typical floating home-loan rate
 DEFAULT_YEARS = 20

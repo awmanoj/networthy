@@ -405,10 +405,18 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
     as `projection.corpus_requirement`). `test_homeloan.py` pins the **round trip**: paying
     exactly what the ladder says ends the loan in exactly that year, and 10% less doesn't.
 
-  `STAMP_DUTY` is **indicative and says so** — rates move with state budgets and differ by
-  city, property type and buyer gender, so every figure is editable and the page tells the
-  reader to confirm with the sub-registrar. The women's-name rebate is surfaced because it's
-  ₹1–2 lakh on a ₹1 crore property for a change of name on the deed. `homeloan.js` mirrors
+  `STAMP_DUTY` carries **`cess_pct` and `surcharge_pct` separately from `stamp`**, because
+  several states levy those **on the stamp duty, not on the property value** — Karnataka's
+  headline 5% is really 5.6%. `effective_pct()` is the only place that arithmetic lives, and
+  both the page and `homeloan.js` consume its output rather than recomputing. The first
+  version modelled only `stamp` + `reg` and so read Karnataka as 6% when it is **7.60%**
+  (5% stamp, +10% cess and +2% urban surcharge on the duty, +2% registration — **doubled from
+  1% in August 2025**, the first revision since 2003). That understated a Bengaluru buyer's
+  cash by ₹1.6 lakh on a ₹1 crore flat, which is the exact miss the page exists to prevent;
+  a user's friend caught it. Each row now carries a **`verified` date, and the page tags the
+  rows that lack one** rather than presenting all fifteen with equal confidence — several of
+  the unverified ones look wrong by 1–3 points in both directions. **If you touch a rate,
+  set `verified` and update the worked example in `_HOME_FAQ`, which states figures in prose.** `homeloan.js` mirrors
   the Python exactly (slabs, amortisation, bisection) and was **cross-checked against it in
   Node across four loan shapes, agreeing to the paisa** — keep them in step, as with
   `standing.js`. Config reaches the browser as **one `cfg` object dumped with `tojson`**; the

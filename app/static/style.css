@@ -1837,6 +1837,11 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .mkt-foot-col a.foot-primary:hover { color: var(--brand); }
 .foot-rule { display: block; height: 1px; background: var(--border); margin: 5px 0 2px; max-width: 200px; }
 
+.stand-table tr.unverified td { opacity: 0.72; }
+.unv { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--copper); border: 1px solid var(--border); border-radius: 5px;
+  padding: 1px 5px; margin-left: 6px; white-space: nowrap; }
+
 @media (max-width: 560px) {
   .mkt-foot-inner { gap: 24px 28px; }
   .mkt-foot-cols { gap: 28px; }

@@ -88,8 +88,11 @@ function initHomeLoan(cfg) {
     const price = num(priceEl, 1e7);
     const ratePct = num(rateEl, cfg.rate);
     const years = Math.max(1, num(yearsEl, cfg.years));
+    // Effective rate comes from the server, already including any cess and
+    // surcharge — those apply to the stamp duty, not the property value, and
+    // recomputing that here is how the two would drift apart.
     const duty = cfg.duty[stateEl.value] || cfg.duty[cfg.defaultState];
-    const dutyPct = duty.stamp + duty.reg;
+    const dutyPct = duty.effective;
 
     const { loan, ratio, label } = maxLoan(price);
     const down = price - loan;
@@ -100,7 +103,8 @@ function initHomeLoan(cfg) {
     $("hl-loan-note").textContent = `${Math.round(ratio * 100)}% of the price — RBI's cap for a loan ${label}`;
     $("hl-cash").textContent = inr(cash);
     $("hl-cash-note").textContent =
-      `${compact(down)} down payment + ${compact(dutyAmt)} stamp duty & registration (${dutyPct.toFixed(1)}%)`;
+      `${compact(down)} down payment + ${compact(dutyAmt)} stamp duty & registration ` +
+      `(${dutyPct.toFixed(2)}%)` + (duty.verified ? "" : " — rate not recently verified");
 
     const base = run(loan, ratePct, years, 0);
     $("hl-emi").textContent = inr(base.emi);

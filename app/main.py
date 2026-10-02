@@ -2291,12 +2291,12 @@ _HOME_FAQ = [
      "a": "No. RBI excludes stamp duty and registration charges from the property value "
           "when working out loan-to-value, so they come out of your own pocket on top of "
           "the down payment. The only exception is loans up to ₹10 lakh, where "
-          "documentation charges may be added in. On a ₹1 crore flat that's another ₹5–10 "
+          "documentation charges may be added in. On a ₹1 crore flat that's another ₹6–10 "
           "lakh in cash, and it's the most common thing buyers forget to budget for."},
     {"q": "How much down payment do I need for a house?",
      "a": "At least 10–25% of the price depending on the loan slab, plus stamp duty and "
-          "registration. On a ₹1 crore property in Karnataka that's ₹25 lakh down plus "
-          "about ₹6 lakh in duty — ₹31 lakh in cash, not ₹25 lakh."},
+          "registration. On a ₹1 crore property in urban Karnataka that's ₹25 lakh down "
+          "plus ₹7.6 lakh in duty — ₹32.6 lakh in cash, not ₹25 lakh."},
     {"q": "Does prepaying a home loan actually help?",
      "a": "Enormously, and earlier is worth far more than later, because the early years "
           "of an EMI are almost entirely interest. On a ₹75 lakh loan at 8.5% over 20 "
@@ -2331,7 +2331,10 @@ def how_much_house(request: Request):
         {
             "request": request,
             "user": user,
-            "states": homeloan.STAMP_DUTY,
+            # Each row carries its computed effective rate and whether it's been
+            # checked, so the page can show unverified figures as unverified
+            # rather than presenting all fifteen with equal confidence.
+            "states": [dict(d, effective=homeloan.effective_pct(d)) for d in homeloan.STAMP_DUTY],
             "default_state": homeloan.DEFAULT_STATE,
             "ltv_bands": [
                 {"label": label, "ltv": ltv * 100,
@@ -2342,8 +2345,9 @@ def how_much_house(request: Request):
             "eg": {
                 "price": _HOME_EG_PRICE, "loan": loan, "ltv": ltv * 100, "band": band,
                 "down": _HOME_EG_PRICE - loan,
-                "duty": _HOME_EG_PRICE * (homeloan.duty_for(homeloan.DEFAULT_STATE)["stamp"]
-                                          + homeloan.duty_for(homeloan.DEFAULT_STATE)["reg"]) / 100.0,
+                "duty": _HOME_EG_PRICE
+                        * homeloan.effective_pct(homeloan.duty_for(homeloan.DEFAULT_STATE)) / 100.0,
+                "duty_pct": homeloan.effective_pct(homeloan.duty_for(homeloan.DEFAULT_STATE)),
             },
             "ladder": homeloan.ladder(loan, homeloan.DEFAULT_RATE_PCT, homeloan.DEFAULT_YEARS),
             "base_emi": homeloan.emi(loan, homeloan.DEFAULT_RATE_PCT, homeloan.DEFAULT_YEARS),
@@ -2354,7 +2358,11 @@ def how_much_house(request: Request):
             # valid JSON — hence the finite sentinel for the top slab.
             "cfg": {
                 "ltv": [[min(c, 1e18), r, label] for c, r, label in homeloan.LTV_BANDS],
-                "duty": {d["state"]: {"stamp": d["stamp"], "reg": d["reg"]}
+                # One number per state: the browser needs the effective rate, not
+                # the components, and keeping the cess/surcharge arithmetic in one
+                # place stops the JS drifting from the Python.
+                "duty": {d["state"]: {"effective": homeloan.effective_pct(d),
+                                      "verified": bool(d["verified"])}
                          for d in homeloan.STAMP_DUTY},
                 "defaultState": homeloan.DEFAULT_STATE,
                 "rate": homeloan.DEFAULT_RATE_PCT,

@@ -52,14 +52,38 @@ def test_stamp_duty_is_not_covered_by_the_loan():
     excludes stamp duty from the value when computing loan-to-value."""
     price = 10_000_000
     loan, _ltv, _band = h.max_loan(price)
-    duty = h.duty_for("Karnataka")
-    cash = (price - loan) + price * (duty["stamp"] + duty["reg"]) / 100
-    assert cash == pytest.approx(3_100_000)         # not the 25,00,000 people budget
+    cash = (price - loan) + price * h.effective_pct(h.duty_for(h.DEFAULT_STATE)) / 100
+    assert cash == pytest.approx(3_260_000)         # not the 25,00,000 people budget
+
+
+def test_karnataka_includes_its_cess_and_surcharge():
+    """Verified Oct 2026: 5% stamp, +10% cess and +2% urban surcharge *on the
+    duty*, +2% registration (doubled from 1% in Aug 2025) = 7.6%.
+
+    The old model had only `stamp` and `reg` and so read 6% — understating the
+    cash a Bengaluru buyer needs by ₹1.6 lakh on a ₹1 crore flat, which is
+    precisely the miss this page exists to prevent."""
+    k = h.duty_for("Karnataka (urban/BBMP)")
+    assert h.effective_pct(k) == pytest.approx(7.6)
+    assert k["verified"]
+
+
+def test_a_state_with_no_cess_is_just_stamp_plus_registration():
+    plain = {"stamp": 6.0, "cess_pct": 0.0, "surcharge_pct": 0.0, "reg": 1.0}
+    assert h.effective_pct(plain) == pytest.approx(7.0)
+
+
+def test_unverified_states_are_flagged_as_such():
+    """Rates move with state budgets. A row nobody has checked must not be shown
+    with the same confidence as one that has."""
+    assert any(d["verified"] for d in h.STAMP_DUTY)
+    assert any(not d["verified"] for d in h.STAMP_DUTY)
 
 
 def test_every_state_has_a_plausible_rate():
     for row in h.STAMP_DUTY:
         assert 0 < row["stamp"] <= 10 and 0 <= row["reg"] <= 5
+        assert 4.0 <= h.effective_pct(row) <= 12.0
         if row["women"] is not None:
             assert row["women"] <= row["stamp"]     # a rebate, never a surcharge
 
