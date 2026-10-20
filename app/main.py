@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import (__version__, analytics, auth, demo, digest, expenses, exporter,
-               feedback, goals, networth, pathto, prices, projection, storage,
+               feedback, goals, matrix, networth, pathto, prices, projection, storage,
                wealth)
 from .auth import SESSION_COOKIE, SessionMiddleware
 from . import homeloan, importer
@@ -2750,11 +2750,14 @@ def plan_page(request: Request):
         outflows = projection.outflows_from_goals(
             goal_rows, today, projection.END_AGE, current_age
         )
+        inflows = projection.inflows_from_goals(
+            goal_rows, today, projection.END_AGE, current_age
+        )
         inputs = projection.PlanInputs(
             current_age=current_age, retire_age=max(current_age, retire_age),
             annual_savings=annual_savings, corpus=corpus,
             annual_expense=annual_expense, return_pct=return_pct,
-            inflation_pct=inflation_pct, outflows=outflows,
+            inflation_pct=inflation_pct, outflows=outflows, inflows=inflows,
         )
         band = projection.project_band(inputs, today)
         # Plotted in today's rupees: a nominal curve compounding for 50 years is
@@ -2767,9 +2770,10 @@ def plan_page(request: Request):
             "retire_age": inputs.retire_age,
             # Age -> label, so the chart can mark the year a goal lands.
             "events": [
-                {"age": r.age, "labels": list(r.outflow_labels),
-                 "amount": round(r.outflows)}
-                for r in band["base"] if r.outflows
+                {"age": r.age,
+                 "labels": list(r.outflow_labels) + [f"+{l}" for l in r.inflow_labels],
+                 "amount": round(r.outflows - r.inflows)}
+                for r in band["base"] if r.outflows or r.inflows
             ],
             "real": True,
         }
@@ -2790,8 +2794,12 @@ def plan_page(request: Request):
             "inflation_pct": inflation_pct,
             "corpus": corpus,
             "annual_expense": annual_expense,
-            "dated_goals": [g for g in goal_rows if g.get("target_date")],
+            "dated_goals": [g for g in goal_rows
+                            if g.get("target_date") and g.get("kind") != "inflow"],
+            "dated_inflows": [g for g in goal_rows
+                              if g.get("target_date") and g.get("kind") == "inflow"],
             "undated_goals": [g for g in goal_rows if not g.get("target_date")],
+            "has_inflows": any(r.inflows for r in band["base"]) if band else False,
             "band_delta": projection.BAND_DELTA_PCT,
             "end_age": projection.END_AGE,
         },
@@ -2822,6 +2830,108 @@ def plan_settings_save(
     return RedirectResponse(url="/plan", status_code=303)
 
 
+def _matrix_horizon(raw) -> int:
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return matrix.DEFAULT_HORIZON
+    return n if n in matrix.HORIZONS else matrix.DEFAULT_HORIZON
+
+
+@app.get("/plan/by-instrument", response_class=HTMLResponse)
+def plan_matrix_page(request: Request, years: str = ""):
+    """The Plan, one instrument at a time — a year-by-instrument grid.
+
+    Reads the Plan's inputs and the live tree; the only things of its own are a
+    return per row and which row new savings land in. Never feeds anything
+    else: the Plan stays the forecast every public number hangs off.
+    """
+    user = request.state.user
+    today = date.today()
+    s = storage.get_plan_settings(user.id)
+    horizon = _matrix_horizon(years)
+
+    birth_year = s["birth_year"]
+    current_age = (today.year - birth_year) if birth_year else None
+    has_plan = current_age is not None and current_age < projection.END_AGE
+    ctx: dict = {
+        "request": request, "user": user, "has_plan": has_plan,
+        "horizons": matrix.HORIZONS, "years": horizon,
+        "instruments": matrix.INSTRUMENTS,
+        "inr_short": _inr_short_signed,
+    }
+    if not has_plan:
+        return templates.TemplateResponse("plan_matrix.html", ctx)
+
+    retire_age = max(current_age, s["retire_age"] or projection.DEFAULT_RETIRE_AGE)
+    return_pct = s["return_pct"] if s["return_pct"] is not None else projection.DEFAULT_RETURN_PCT
+    inflation_pct = (
+        s["inflation_pct"] if s["inflation_pct"] is not None
+        else projection.DEFAULT_INFLATION_PCT
+    )
+    annual_expense = sum(
+        expenses.annual_amount(e["amount"], e["count"], e["frequency"])
+        for e in storage.list_expenses(user.id)
+    )
+    goal_rows = storage.list_goals(user.id)
+    end_age = current_age + horizon
+    inputs = matrix.MatrixInputs(
+        current_age=current_age, retire_age=retire_age,
+        annual_savings=s["annual_savings"] or 0.0, annual_expense=annual_expense,
+        return_pct=return_pct, inflation_pct=inflation_pct,
+        values=matrix.instrument_values(_networth_values(user)),
+        rates=storage.get_plan_rates(user.id),
+        savings_slug=s["savings_slug"] or matrix.DEFAULT_SAVINGS_SLUG,
+        outflows=projection.outflows_from_goals(goal_rows, today, end_age, current_age),
+        inflows=projection.inflows_from_goals(goal_rows, today, end_age, current_age),
+        loans=matrix.loans_from_rows({
+            leaf: storage.list_liabilities(user.id, leaf)
+            for leaf in sorted(networth.LIABILITY_LEAVES)
+        }),
+        years=horizon,
+    )
+    grid = matrix.project_matrix(inputs, today)
+    # Rows worth a line: anything with money in it, the savings row, and any row
+    # the user has set a rate on. An empty crypto row is noise for most people.
+    shown = [r for r in grid.assets
+             if r.now > 0 or r.is_savings or r.slug in inputs.rates]
+    ctx.update({
+        "grid": grid, "shown": shown, "inputs": inputs,
+        "return_pct": return_pct, "inflation_pct": inflation_pct,
+        "retire_age": retire_age, "current_age": current_age,
+        "savings_slug": inputs.savings_slug if inputs.savings_slug in matrix.INSTRUMENT_BY_SLUG
+                        else matrix.DEFAULT_SAVINGS_SLUG,
+        "diverges": any(abs(a - b) > 1.0 for a, b in zip(grid.net_nominal, grid.plan_nominal)),
+        "any_shortfall": any(grid.shortfall),
+    })
+    return templates.TemplateResponse("plan_matrix.html", ctx)
+
+
+@app.post("/plan/by-instrument")
+async def plan_matrix_save(request: Request):
+    """Save per-row rates and the savings row. A blank rate clears the override
+    so that row goes back to tracking the Plan's rate."""
+    form = await request.form()
+    rates = {
+        inst.slug: _opt_float(str(form.get(f"rate_{inst.slug}", "")))
+        for inst in matrix.INSTRUMENTS if f"rate_{inst.slug}" in form
+    }
+    rates = {k: (v if v is None else max(0.0, v)) for k, v in rates.items()}
+    storage.save_plan_rates(request.state.user.id, rates)
+    slug = str(form.get("savings_slug", ""))
+    if slug in matrix.INSTRUMENT_BY_SLUG:
+        storage.save_plan_settings(request.state.user.id, savings_slug=slug)
+    horizon = _matrix_horizon(form.get("years"))
+    return RedirectResponse(url=f"/plan/by-instrument?years={horizon}", status_code=303)
+
+
+def _inr_short_signed(v: float) -> str:
+    """`_inr_short` for grid cells: a dash for nothing, a minus for a liability."""
+    if abs(v) < 0.5:
+        return "—"
+    return ("−" if v < 0 else "") + _inr_short(abs(v))
+
+
 @app.get("/goals", response_class=HTMLResponse)
 def goals_page(request: Request):
     """Financial goals: target-by-date with the required monthly SIP, plus a
@@ -2832,7 +2942,13 @@ def goals_page(request: Request):
     total_target = total_saved = total_monthly = total_lumpsum = 0.0
     for g in rows:
         d = _parse_date(g["target_date"])
-        p = goals.plan(g["target_amount"], g["saved_amount"], d, g["return_pct"], today)
+        if g.get("kind") == "inflow":
+            # Money arriving, not a target to save toward: no SIP, no progress,
+            # and it stays out of the totals (it isn't something to fund).
+            p = {"progress_pct": 0.0, "months_left": None, "projected": 0.0,
+                 "required_monthly": None, "required_lumpsum": None, "status": "inflow"}
+        else:
+            p = goals.plan(g["target_amount"], g["saved_amount"], d, g["return_pct"], today)
         g.update(p)
         g["target_fmt"] = d.strftime("%b %Y") if d else None
         g["return_pct_display"] = (
@@ -2841,6 +2957,8 @@ def goals_page(request: Request):
         g["category_label"] = goals.category_label(g["category"])
         g["category_color"] = goals.category_color(g["category"])
         g["category_icon"] = goals.category_icon(g["category"])
+        if p["status"] == "inflow":
+            continue
         total_target += g["target_amount"] or 0.0
         total_saved += g["saved_amount"] or 0.0
         total_monthly += p["required_monthly"] or 0.0
@@ -2897,9 +3015,11 @@ def goal_add(
     target_date: str = Form(""),
     return_pct: str = Form(""),
     notes: str = Form(""),
+    kind: str = Form("outflow"),
     id: str = Form(""),
 ):
-    """Add or edit a financial goal."""
+    """Add or edit a financial goal. `kind` is "outflow" (a target to reach by
+    a date) or "inflow" (money expected to arrive — an ESOP, gratuity, a sale)."""
     if name.strip() and category in goals.CATEGORY_BY_SLUG:
         f = {
             "name": name.strip(), "category": category,
@@ -2908,6 +3028,7 @@ def goal_add(
             "target_date": _opt_date(target_date),
             "return_pct": _opt_float(return_pct),
             "notes": notes.strip() or None,
+            "kind": "inflow" if kind == "inflow" else "outflow",
         }
         eid = _opt_int(id)
         if eid:

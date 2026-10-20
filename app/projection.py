@@ -56,6 +56,10 @@ class PlanInputs:
     inflation_pct: float = DEFAULT_INFLATION_PCT
     # (year_offset_from_now, amount, label) — dated goals, resolved by the caller.
     outflows: tuple[tuple[int, float, str], ...] = ()
+    # Same shape, money arriving: an ESOP vesting, gratuity, a property sale.
+    # Goals with kind="inflow" land here, so the Plan and the by-instrument
+    # matrix see the same windfalls and can't disagree about them.
+    inflows: tuple[tuple[int, float, str], ...] = ()
     end_age: int = END_AGE
 
 
@@ -78,6 +82,8 @@ class YearPoint:
     # bug. Everything user-facing shows this instead.
     real_closing: float
     retired: bool
+    inflows: float = 0.0
+    inflow_labels: tuple[str, ...] = ()
 
 
 def project(p: PlanInputs, today: date | None = None) -> list[YearPoint]:
@@ -96,6 +102,9 @@ def project(p: PlanInputs, today: date | None = None) -> list[YearPoint]:
     by_offset: dict[int, list[tuple[float, str]]] = {}
     for offset, amount, label in p.outflows:
         by_offset.setdefault(offset, []).append((amount, label))
+    in_by_offset: dict[int, list[tuple[float, str]]] = {}
+    for offset, amount, label in p.inflows:
+        in_by_offset.setdefault(offset, []).append((amount, label))
 
     rows: list[YearPoint] = []
     balance = float(p.corpus)
@@ -112,8 +121,10 @@ def project(p: PlanInputs, today: date | None = None) -> list[YearPoint]:
 
         due = by_offset.get(i, [])
         outflow_total = sum(a for a, _ in due)
+        arriving = in_by_offset.get(i, [])
+        inflow_total = sum(a for a, _ in arriving)
 
-        closing = opening + growth + savings - expenses - outflow_total
+        closing = opening + growth + savings - expenses - outflow_total + inflow_total
         if closing <= 0:
             closing = 0.0
 
@@ -129,6 +140,8 @@ def project(p: PlanInputs, today: date | None = None) -> list[YearPoint]:
             closing=closing,
             real_closing=closing / (1 + infl) ** i,
             retired=retired,
+            inflows=inflow_total,
+            inflow_labels=tuple(label for _, label in arriving),
         ))
 
         # Once it's gone it stays gone: a zero balance earns no return, so the
@@ -164,6 +177,7 @@ def summarise(rows: list[YearPoint], p: PlanInputs) -> dict:
         "final_corpus": rows[-1].closing if rows else 0.0,
         "final_corpus_real": rows[-1].real_closing if rows else 0.0,
         "total_outflows": sum(row.outflows for row in rows),
+        "total_inflows": sum(row.inflows for row in rows),
         "years_projected": len(rows),
         "end_age": p.end_age,
     }
@@ -275,7 +289,8 @@ def _with_corpus(p: PlanInputs, corpus: float) -> PlanInputs:
         current_age=p.current_age, retire_age=p.retire_age,
         annual_savings=p.annual_savings, corpus=corpus,
         annual_expense=p.annual_expense, return_pct=p.return_pct,
-        inflation_pct=p.inflation_pct, outflows=p.outflows, end_age=p.end_age,
+        inflation_pct=p.inflation_pct, outflows=p.outflows, inflows=p.inflows,
+        end_age=p.end_age,
     )
 
 
@@ -284,7 +299,8 @@ def _with_return(p: PlanInputs, return_pct: float) -> PlanInputs:
         current_age=p.current_age, retire_age=p.retire_age,
         annual_savings=p.annual_savings, corpus=p.corpus,
         annual_expense=p.annual_expense, return_pct=return_pct,
-        inflation_pct=p.inflation_pct, outflows=p.outflows, end_age=p.end_age,
+        inflation_pct=p.inflation_pct, outflows=p.outflows, inflows=p.inflows,
+        end_age=p.end_age,
     )
 
 
@@ -295,12 +311,28 @@ def outflows_from_goals(goals: list[dict], today: date | None = None,
 
     Undated goals are skipped — without a date there's no year to spend them in.
     Goals already in the past are skipped too: the projection starts today, and
-    a target date that has passed says nothing about future cash flow.
+    a target date that has passed says nothing about future cash flow. Goals
+    marked as inflows (a windfall) are not outflows; see `inflows_from_goals`.
     """
+    return _dated_flows(goals, "outflow", today, end_age, current_age)
+
+
+def inflows_from_goals(goals: list[dict], today: date | None = None,
+                       end_age: int = END_AGE,
+                       current_age: int = 0) -> tuple[tuple[int, float, str], ...]:
+    """The mirror of `outflows_from_goals` for goals with kind="inflow"."""
+    return _dated_flows(goals, "inflow", today, end_age, current_age)
+
+
+def _dated_flows(goals: list[dict], kind: str, today: date | None,
+                 end_age: int, current_age: int) -> tuple[tuple[int, float, str], ...]:
     today = today or date.today()
     horizon = end_age - current_age
     out: list[tuple[int, float, str]] = []
     for g in goals:
+        # Rows that predate the column have no kind and were always outflows.
+        if (g.get("kind") or "outflow") != kind:
+            continue
         raw = g.get("target_date")
         if not raw:
             continue

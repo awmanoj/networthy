@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% from "_notes.html" import fine_print %}
+{% block title %}Plan by instrument · Networthy HQ{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+
+<section class="nw-page-head">
+  <p class="muted" style="margin:0 0 4px"><a href="/plan">← Back to the Plan</a></p>
+  <h1>Your plan, one instrument at a time</h1>
+  <p class="muted">
+    The same plan as the <a href="/plan">Plan</a> page, with every asset class growing
+    at its own rate and each loan paying itself down on its own schedule. Edit a return,
+    pick where your savings go, and the grid recomputes. Nothing here changes the Plan.
+  </p>
+</section>
+
+{% if not has_plan %}
+<section class="dash-card plan-inputs">
+  <h2>First, set up your Plan</h2>
+  <p class="muted">
+    The grid reads your age, retirement age, savings and inflation assumption from the
+    Plan page. Fill in those four numbers and come back — <a href="/plan">set up your Plan →</a>
+  </p>
+</section>
+{% else %}
+
+<form method="post" action="/plan/by-instrument">
+<section class="dash-card plan-inputs">
+  <div class="matrix-controls">
+    <div class="manual-field">
+      <label for="m-years">Years ahead</label>
+      <select id="m-years" name="years">
+        {% for h in horizons %}
+        <option value="{{ h }}"{{ ' selected' if h == years else '' }}>{{ h }} years</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="manual-field">
+      <label for="m-sav">New savings &amp; windfalls go into</label>
+      <select id="m-sav" name="savings_slug">
+        {% for inst in instruments %}
+        <option value="{{ inst.slug }}"{{ ' selected' if inst.slug == savings_slug else '' }}>{{ inst.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="manual-actions" style="margin-left:auto">
+      <button class="btn" type="submit">Recalculate</button>
+    </div>
+  </div>
+  <p class="muted manual-hint" style="margin:0">
+    Every row starts at the Plan's {{ "%g"|format(return_pct) }}%. Leave a rate blank to
+    keep it there. Living costs after {{ retire_age }} and dated goals are drawn from the
+    top row down — cash first, property last.
+  </p>
+</section>
+
+<section class="dash-card plan-table-card">
+  <h2>Year by year, by instrument</h2>
+  <div class="stand-table-wrap">
+    <table class="stand-table matrix-table">
+      <thead>
+        <tr>
+          <th>Instrument</th>
+          <th>Return %/yr</th>
+          <th class="num col-now">Today</th>
+          {% for y in grid.years %}
+          <th class="num{% if grid.retired[loop.index0] %} retired-col{% endif %}">
+            {{ y }}{% if grid.ages[loop.index0] == retire_age %} <span class="plan-tag">retires</span>{% endif %}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in shown %}
+        <tr>
+          <th scope="row">
+            {{ r.label }}{% if r.is_savings %}<span class="matrix-tag">savings land here</span>{% endif %}
+            {% if r.hint %}<span class="hint">{{ r.hint }}</span>{% endif %}
+          </th>
+          <td class="rate-cell">
+            <input class="rate-input" name="rate_{{ r.slug }}" type="number" step="0.1" min="0" value="{{ '%g'|format(inputs.rates[r.slug]) if r.slug in inputs.rates else '' }}" placeholder="{{ '%g'|format(return_pct) }}" aria-label="Return for {{ r.label }}">
+          </td>
+          <td class="num col-now">{{ inr_short(r.now) }}</td>
+          {% for v in r.values %}<td class="num">{{ inr_short(v) }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+        <tr class="row-total">
+          <th scope="row">Total assets</th>
+          <td></td>
+          <td class="num col-now">{{ inr_short(grid.assets_total.now) }}</td>
+          {% for v in grid.assets_total.values %}<td class="num">{{ inr_short(v) }}</td>{% endfor %}
+        </tr>
+
+        {% for r in grid.loans %}
+        <tr class="row-loan">
+          <th scope="row">{{ r.label }}<span class="hint">{{ r.method }}</span></th>
+          <td></td>
+          <td class="num col-now">{{ inr_short(-r.now) }}</td>
+          {% for v in r.values %}<td class="num">{{ inr_short(-v) }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+        {% if grid.loans %}
+        <tr class="row-total row-loan">
+          <th scope="row">Total liabilities</th>
+          <td></td>
+          <td class="num col-now">{{ inr_short(-grid.loans_total.now) }}</td>
+          {% for v in grid.loans_total.values %}<td class="num">{{ inr_short(-v) }}</td>{% endfor %}
+        </tr>
+        {% endif %}
+
+        <tr class="row-total row-net">
+          <th scope="row">Net worth</th>
+          <td></td>
+          <td class="num col-now">{{ inr_short(grid.net_now) }}</td>
+          {% for v in grid.net_nominal %}
+          <td class="num{% if grid.shortfall[loop.index0] %} short{% endif %}">{{ inr_short(v) }}{% if grid.shortfall[loop.index0] %}*{% endif %}</td>
+          {% endfor %}
+        </tr>
+        <tr class="row-net">
+          <th scope="row">…in today's money</th>
+          <td></td>
+          <td class="num col-now">{{ inr_short(grid.net_now) }}</td>
+          {% for v in grid.net_real %}<td class="num">{{ inr_short(v) }}</td>{% endfor %}
+        </tr>
+        <tr class="row-plan">
+          <th scope="row">What the Plan says<span class="hint">one rate, {{ "%g"|format(return_pct) }}%, loans netted today</span></th>
+          <td></td>
+          <td class="num col-now">{{ inr_short(grid.net_now) }}</td>
+          {% for v in grid.plan_nominal %}<td class="num">{{ inr_short(v) }}</td>{% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="muted stand-note">
+    {% if diverges %}
+    The grid and the Plan differ because
+    {%- if inputs.rates %} you've given some rows their own return{% endif %}
+    {%- if inputs.rates and grid.loans %} and{% endif %}
+    {%- if grid.loans %} the grid pays loans down over time where the Plan subtracts
+    today's balance once{% endif %}. The Plan row is here so the gap is visible, not
+    something to notice later.
+    {% else %}
+    With every row at {{ "%g"|format(return_pct) }}% and no loans, the grid's net worth
+    is exactly the Plan's. Give a row its own rate above and the two will part ways.
+    {% endif %}
+    {% if any_shortfall %}
+    <strong>*</strong> A year the assets couldn't cover what had to be drawn.
+    {% endif %}
+    Cells are in that year's rupees; the "today's money" row deflates at
+    {{ "%g"|format(inflation_pct) }}%.
+  </p>
+
+  {% set ns = namespace(any=false) %}
+  {% for labels in grid.flow_labels %}{% if labels %}{% set ns.any = true %}{% endif %}{% endfor %}
+  {% if ns.any %}
+  <ul class="matrix-flows muted">
+    {% for labels in grid.flow_labels %}
+    {% if labels %}
+    <li><strong>{{ grid.years[loop.index0] }}</strong> ·
+      {% if grid.outflows[loop.index0] %}{{ inr_short(grid.outflows[loop.index0]) }} out{% endif %}
+      {% if grid.outflows[loop.index0] and grid.inflows[loop.index0] %}, {% endif %}
+      {% if grid.inflows[loop.index0] %}{{ inr_short(grid.inflows[loop.index0]) }} in{% endif %}
+      — {{ labels|join(", ") }}</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+</form>
+
+{{ fine_print("Steady returns, steady inflation, and no tax — the same simplifications
+as the Plan, applied one instrument at a time. Per-instrument rates make the
+assumptions visible; they don't make them right. Use the grid to see which
+assumption your future actually hangs on.") }}
+
+{% endif %}
+{% endblock %}

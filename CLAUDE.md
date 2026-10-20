@@ -382,6 +382,49 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   `fine_print`. Chart is `static/plan-chart.js` (deliberately separate from `chart.js`: age-indexed,
   three series, event markers).
 
+- **`app/matrix.py` + `GET`/`POST /plan/by-instrument`** (`main.plan_matrix_page`, template
+  `plan_matrix.html`; linked from one card at the foot of the Plan, **not** in the nav and **not** in
+  the footer — it needs a signed-in tree, so it can't be a public tool) — the Plan one instrument at
+  a time: a year × instrument grid with an editable return per row, loans paying down on their own
+  schedule, and a net-worth total row. **It is the microscope under the Plan, not a second
+  forecast**, and the whole design is about keeping the two from contradicting each other:
+  - **It inherits everything from the Plan** — age, retirement, savings, the Expenses burn,
+    inflation, dated goals and windfalls — and the current value per row from the live tree
+    (`matrix.instrument_values` collapses `_networth_values` onto `INSTRUMENTS`). Its only inputs
+    are a rate per row (`plan_rates` table, `get`/`save_plan_rates`; **blank clears the override**)
+    and which row new savings land in (`user_settings.plan_savings_slug`, in `_PLAN_COLS`).
+    Nothing here feeds the retire page, `corpus_requirement` or the digests.
+  - **The invariant** (`test_matrix.py`, first test): with every row at the Plan's rate and no
+    loans, the total row **is** `projection.project`'s balance to the rupee — same year loop, same
+    order (grow, then savings + windfalls land, then draws). The page shows the Plan's figure as a
+    reference row and says *why* they differ when they do (edited rates, and/or loans amortising
+    where the Plan nets today's balance once).
+  - **Money has to come from somewhere.** `INSTRUMENTS` is in **liquidity order and that is the
+    draw order**: cash → FDs/bonds → gold → MFs → equity → foreign → crypto → others → **PPF/EPF/NPS/
+    SSA/NSC** → AIF → business → real estate. The locked schemes are split out of fixed income
+    *because* a CAS files them there and the first version happily paid a house deposit out of
+    PPF; `test_every_fixed_income_leaf_is_on_exactly_one_row` makes a new leaf choose a side.
+    Savings and windfalls land in one chosen row (default Mutual Funds). A draw the assets can't
+    meet is flagged (`shortfall`), not hidden.
+  - **Loans** (`matrix.Loan`, `loans_from_rows`, `_loan_after_year`): with an EMI, twelve months
+    of interest-then-payment at the stored rate; with only an end date, straight line to zero; with
+    neither, **held flat and the row says so** — guessing a schedule would hide that there's nothing
+    to go on. An end date always wins. The valuation adjustment leaf is a haircut, not debt, and
+    never amortises. Loan rates aren't editable here — they're edited where they live.
+  - Horizon is 10/20/30 (`HORIZONS`, query `?years=`), capped at `END_AGE`. Cells are nominal with a
+    "today's money" row underneath; cells use `_inr_short_signed` (lakh/crore) because a 30 × 15
+    grid of eight-digit numbers is unreadable. Rows with nothing in them are hidden unless they're
+    the savings row or carry a rate. The table scrolls inside its card with the instrument column
+    sticky.
+
+  **Windfalls** (`goals.kind` = `outflow`/`inflow`, migrated with a default so old rows are
+  outflows; `projection.inflows_from_goals`, `PlanInputs.inflows`, `YearPoint.inflows`) were
+  deliberately put on **goals, not on the grid**, so the Plan and the grid see the same money
+  arriving. An inflow goal is one more option on the Goals form ("money arriving — ESOP, gratuity, a
+  sale"); it renders with no SIP, no progress bar and stays out of the Goals totals, lands on the
+  Plan's curve, year table (a Windfalls column that appears only when there is one) and flows list,
+  and lowers `corpus_requirement` the way a goal raises it.
+
 - **`app/homeloan.py` + `GET /how-much-house-can-i-afford`** (`main.how_much_house`, template
   `home_loan.html`, `HOME_PATH`, JS `static/homeloan.js`) — the **fifth public tool**, for the
   buying-a-home decision. Same shape as the rest: arithmetic in the browser (a property price

@@ -354,3 +354,48 @@ def test_plan_shows_what_it_would_take_to_reach_95(client):
     assert "To make it to 95 you'd need about" in page
     assert "more today" in page
     assert "a starting corpus of" in page
+
+
+# --- Windfalls --------------------------------------------------------------
+
+def test_inflow_goals_are_split_from_outflows():
+    goals = [
+        {"name": "College", "target_amount": 2_500_000.0, "target_date": "2031-06-01"},
+        {"name": "ESOP", "target_amount": 4_000_000.0, "target_date": "2029-04-01",
+         "kind": "inflow"},
+        {"name": "Old", "target_amount": 1.0, "target_date": "2029-04-01", "kind": "outflow"},
+    ]
+    assert projection.outflows_from_goals(goals, TODAY, 95, 40) == (
+        (3, 1.0, "Old"), (5, 2_500_000.0, "College"))
+    assert projection.inflows_from_goals(goals, TODAY, 95, 40) == ((3, 4_000_000.0, "ESOP"),)
+
+
+def test_a_windfall_is_added_in_its_year_and_reported():
+    plain = projection.project(_inputs(), TODAY)
+    rich = projection.project(_inputs(inflows=((2, 4_000_000.0, "ESOP"),)), TODAY)
+    assert rich[1].closing == plain[1].closing
+    assert rich[2].inflows == 4_000_000.0 and rich[2].inflow_labels == ("ESOP",)
+    assert rich[2].closing == pytest.approx(plain[2].closing + 4_000_000.0)
+    assert projection.summarise(rich, _inputs())["total_inflows"] == 4_000_000.0
+    # And it lowers what you'd need today, the way a goal raises it.
+    retired = dict(retire_age=40, annual_savings=0.0)
+    with_esop = _inputs(inflows=((2, 4_000_000.0, "ESOP"),), **retired)
+    assert projection.corpus_requirement(with_esop, TODAY)["needed"] \
+        < projection.corpus_requirement(_inputs(**retired), TODAY)["needed"]
+
+
+def test_plan_page_lists_windfalls_and_lands_them_on_the_curve(client):
+    from datetime import date
+    from app import storage
+    uid, ck = _login("wind@test.com")
+    storage.add_bank_cash(uid, "bank-accounts", 1_000_000.0, "HDFC", "savings", "main")
+    storage.add_goal(uid, "Gratuity", "other", 1_500_000.0,
+                     target_date=f"{date.today().year + 3}-01-01", kind="inflow")
+    client.post("/plan/settings", data={"current_age": "40", "retire_age": "60",
+                                        "annual_savings": "100000",
+                                        "return_pct": "10", "inflation_pct": "6"},
+                cookies=ck, follow_redirects=False)
+    page = client.get("/plan", cookies=ck).text
+    assert "what arrives" in page and "Gratuity" in page
+    assert "Windfalls" in page                      # the year table grows a column
+    assert '"+Gratuity"' in page                    # and the chart marks it

@@ -531,6 +531,28 @@ def init_db() -> None:
         # on their own — but it's the missing side of the picture: without it the
         # savings rate can't be known, only guessed at.
         _add_column_if_missing(conn, "user_settings", "annual_income", "REAL")
+        # A goal is money leaving by a date; a windfall (ESOP vesting, gratuity,
+        # a property sale) is the same row with the sign flipped. One column
+        # rather than a second table, so the Plan and the by-instrument matrix
+        # read both from one list and can't disagree about them.
+        _add_column_if_missing(conn, "goals", "kind", "TEXT NOT NULL DEFAULT 'outflow'")
+        # Which asset row new savings land in on the by-instrument matrix.
+        _add_column_if_missing(conn, "user_settings", "plan_savings_slug", "TEXT")
+        # Per-instrument return assumptions for the by-instrument matrix. Kept
+        # apart from the Plan's single blended rate on purpose: the Plan stays
+        # the forecast every public number hangs off, and these only ever
+        # shape the matrix page.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS plan_rates (
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                slug       TEXT NOT NULL,
+                rate_pct   REAL NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (user_id, slug)
+            )
+            """
+        )
         # Dates were added after the initial manual_holdings shape; `years` is kept
         # only as a display fallback for any rows entered before dates existed.
         _add_column_if_missing(conn, "manual_holdings", "investment_date", "TEXT")
@@ -946,7 +968,7 @@ def save_swr_pct(user_id: int, pct: float) -> None:
 
 
 _PLAN_COLS = ("plan_birth_year", "plan_retire_age", "plan_annual_savings",
-              "plan_return_pct", "plan_inflation_pct")
+              "plan_return_pct", "plan_inflation_pct", "plan_savings_slug")
 
 
 def get_plan_settings(user_id: int) -> dict:
@@ -986,6 +1008,37 @@ def save_plan_settings(user_id: int, **fields) -> None:
             """,
             (user_id, *values),
         )
+
+
+def get_plan_rates(user_id: int) -> dict[str, float]:
+    """Per-instrument return assumptions, slug -> percent. Missing slugs fall
+    back to the Plan's blended rate in the matrix layer."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT slug, rate_pct FROM plan_rates WHERE user_id = ?", (user_id,)
+        ).fetchall()
+    return {r["slug"]: r["rate_pct"] for r in rows}
+
+
+def save_plan_rates(user_id: int, rates: dict[str, float | None]) -> None:
+    """Upsert the given slugs; a None value removes the override so the row
+    goes back to tracking the Plan's rate."""
+    with _connect() as conn:
+        for slug, pct in rates.items():
+            if pct is None:
+                conn.execute(
+                    "DELETE FROM plan_rates WHERE user_id = ? AND slug = ?", (user_id, slug)
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO plan_rates (user_id, slug, rate_pct, updated_at)
+                    VALUES (?, ?, ?, datetime('now'))
+                    ON CONFLICT(user_id, slug) DO UPDATE SET
+                        rate_pct = excluded.rate_pct, updated_at = excluded.updated_at
+                    """,
+                    (user_id, slug, float(pct)),
+                )
 
 
 def get_annual_income(user_id: int) -> float | None:
@@ -1848,8 +1901,9 @@ def add_goal(
     user_id: int, name: str, category: str, target_amount: float,
     saved_amount: float = 0.0, target_date: str | None = None,
     return_pct: float | None = None, notes: str | None = None,
+    kind: str = "outflow",
 ) -> None:
-    """Append one financial goal."""
+    """Append one financial goal (`kind` is "outflow" or "inflow")."""
     with _connect() as conn:
         (n,) = conn.execute(
             "SELECT COUNT(*) FROM goals WHERE user_id = ?", (user_id,)
@@ -1858,11 +1912,11 @@ def add_goal(
             """
             INSERT INTO goals
                 (user_id, name, category, target_amount, saved_amount, target_date,
-                 return_pct, notes, position)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 return_pct, notes, kind, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (user_id, name, category, target_amount, saved_amount, target_date,
-             return_pct, notes, n),
+             return_pct, notes, kind, n),
         )
 
 
@@ -1878,7 +1932,7 @@ def list_goals(user_id: int) -> list[dict]:
             "id": r["id"], "name": r["name"], "category": r["category"],
             "target_amount": r["target_amount"], "saved_amount": r["saved_amount"],
             "target_date": r["target_date"], "return_pct": r["return_pct"],
-            "notes": r["notes"],
+            "notes": r["notes"], "kind": r["kind"] or "outflow",
         }
         for r in rows
     ]

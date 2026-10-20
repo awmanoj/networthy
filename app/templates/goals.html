@@ -57,7 +57,9 @@
 <section class="dash-card goal-card{% if ed and ed.id == g.id %} row-editing{% endif %}">
   <div class="goal-head">
     <span class="goal-title"><span class="goal-icon">{{ g.category_icon }}</span> {{ g.name }}</span>
-    {% if g.status == 'funded' %}
+    {% if g.status == 'inflow' %}
+    <span class="goal-chip goal-chip--auto">Expected inflow</span>
+    {% elif g.status == 'funded' %}
     <span class="goal-chip goal-chip--funded">Funded ✓</span>
     {% elif g.status == 'overdue' %}
     <span class="goal-chip goal-chip--overdue">Overdue</span>
@@ -67,6 +69,17 @@
     <span class="goal-chip goal-chip--active">{{ g.months_left }} mo left</span>
     {% endif %}
   </div>
+  {% if g.status == 'inflow' %}
+  <div class="goal-meta">
+    {{ g.category_label }}
+    {% if g.target_fmt %} · arrives {{ g.target_fmt }}{% else %} · no date — not on the Plan yet{% endif %}
+    {% if g.notes %} · {{ g.notes }}{% endif %}
+  </div>
+  <div class="goal-foot">
+    <span>+₹{{ "{:,.0f}".format(g.target_amount) }}</span>
+    <span class="goal-sip">Lands on the <a href="/plan">Plan</a> in the year it's due — nothing to save toward</span>
+  </div>
+  {% else %}
   <div class="goal-meta">
     {{ g.category_label }}
     {% if g.target_fmt %} · by {{ g.target_fmt }}{% endif %}
@@ -89,6 +102,7 @@
       {% endif %}
     </span>
   </div>
+  {% endif %}
   <div class="goal-actions nw-actions">
     <a class="link-edit" href="?edit={{ g.id }}#editform">edit</a>
     <form method="post" action="/goals/{{ g.id }}/delete"
@@ -107,6 +121,13 @@
     <div class="manual-field col-2">
       <label for="g-name">Goal</label>
       <input id="g-name" name="name" placeholder="e.g. Kids' education" value="{{ ed.name if ed else '' }}" required>
+    </div>
+    <div class="manual-field">
+      <label for="g-kind">This is</label>
+      <select id="g-kind" name="kind">
+        <option value="outflow"{{ ' selected' if not ed or ed.kind != 'inflow' else '' }}>Money I need by a date</option>
+        <option value="inflow"{{ ' selected' if ed and ed.kind == 'inflow' else '' }}>Money arriving (ESOP, gratuity, a sale)</option>
+      </select>
     </div>
     <div class="manual-field">
       <label for="g-cat">Type</label>

@@ -166,6 +166,23 @@
     a wedding, a house deposit — and it'll land on this curve in the year it's due.
   </p>
   {% endif %}
+  {% if dated_inflows %}
+  <h3 class="plan-inflow-head">…and what arrives</h3>
+  <table class="holdings">
+    <thead>
+      <tr><th>Windfall</th><th>When</th><th class="num">Amount</th></tr>
+    </thead>
+    <tbody>
+      {% for g in dated_inflows %}
+      <tr>
+        <td class="h-name">{{ g.name }}</td>
+        <td>{{ g.target_date }}</td>
+        <td class="num">+₹{{ "{:,.0f}".format(g.target_amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
   {% if undated_goals %}
   <p class="muted stand-note">
     {{ undated_goals|length }} goal{{ '' if undated_goals|length == 1 else 's' }} without a
@@ -184,12 +201,13 @@
         <tr>
           <th>Age</th><th>Year</th>
           <th class="num">Added</th><th class="num">Drawn</th>
-          <th class="num">Goals</th><th class="num">Balance (today's ₹)</th>
+          <th class="num">Goals</th>{% if has_inflows %}<th class="num">Windfalls</th>{% endif %}
+          <th class="num">Balance (today's ₹)</th>
         </tr>
       </thead>
       <tbody>
         {% for r in rows %}
-        {% if r.age % 5 == 0 or r.outflows or r.age == retire_age or loop.last %}
+        {% if r.age % 5 == 0 or r.outflows or r.inflows or r.age == retire_age or loop.last %}
         <tr{% if r.closing <= 0 %} class="plan-row-empty"{% endif %}>
           <th scope="row">{{ r.age }}{% if r.age == retire_age %} <span class="plan-tag">retires</span>{% endif %}</th>
           <td>{{ r.year }}</td>
@@ -199,6 +217,12 @@
             {%- if r.outflows %}₹{{ "{:,.0f}".format(r.outflows) }}
             <span class="muted">{{ r.outflow_labels|join(", ") }}</span>{% else %}—{% endif -%}
           </td>
+          {% if has_inflows %}
+          <td class="num">
+            {%- if r.inflows %}+₹{{ "{:,.0f}".format(r.inflows) }}
+            <span class="muted">{{ r.inflow_labels|join(", ") }}</span>{% else %}—{% endif -%}
+          </td>
+          {% endif %}
           <td class="num">₹{{ "{:,.0f}".format(r.real_closing) }}</td>
         </tr>
         {% endif %}
@@ -212,6 +236,19 @@
     you'd actually pay or save then; <strong>Balance</strong> is deflated to today's
     money so it's comparable to your net worth now.
   </p>
+</section>
+
+{# --- The microscope: the same plan, one instrument at a time ----------------- #}
+<section class="dash-card plan-matrix-link">
+  <div>
+    <h2>See it by instrument</h2>
+    <p class="muted">
+      This page compounds one number at {{ "%g"|format(return_pct) }}%. The grid view
+      gives every asset class its own return, pays each loan down on its own schedule,
+      and shows where each year's money comes from and goes.
+    </p>
+  </div>
+  <a class="btn btn-outline" href="/plan/by-instrument">Open the grid →</a>
 </section>
 
 {{ fine_print("This projection assumes steady returns and steady inflation. Real

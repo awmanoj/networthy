@@ -127,3 +127,29 @@ def test_fire_mirror_shows_only_with_expenses(client):
     # Add an expense -> FIRE mirror appears.
     storage.add_expense(uid, "Rent", "housing", 50_000.0, "monthly", count=1)
     assert "safe-withdrawal corpus" in client.get("/goals", cookies=ck).text
+
+
+def test_an_inflow_goal_has_no_sip_and_stays_out_of_the_totals(client):
+    uid, ck = _login("inflow@test.com")
+    client.post("/goals/add", cookies=ck, data={
+        "name": "ESOP vesting", "category": "wealth", "target_amount": "3000000",
+        "target_date": "2029-04-01", "kind": "inflow",
+    })
+    client.post("/goals/add", cookies=ck, data={
+        "name": "Car", "category": "vehicle", "target_amount": "1000000",
+        "target_date": "2029-04-01",
+    })
+    rows = {g["name"]: g for g in storage.list_goals(uid)}
+    assert rows["ESOP vesting"]["kind"] == "inflow" and rows["Car"]["kind"] == "outflow"
+    page = client.get("/goals", cookies=ck).text
+    assert "Expected inflow" in page and "arrives Apr 2029" in page
+    # The windfall contributes no SIP and isn't counted as something to fund.
+    assert page.count("Invest <strong>") == 1
+    # Editing keeps the kind selected.
+    ep = client.get(f"/goals?edit={rows['ESOP vesting']['id']}", cookies=ck).text
+    assert '<option value="inflow" selected' in ep
+    # An unknown kind is stored as an ordinary goal, never as free text.
+    client.post("/goals/add", cookies=ck, data={
+        "name": "Odd", "category": "other", "target_amount": "1", "kind": "sideways",
+    })
+    assert {g["name"]: g["kind"] for g in storage.list_goals(uid)}["Odd"] == "outflow"

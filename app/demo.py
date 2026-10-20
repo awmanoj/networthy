@@ -24,7 +24,7 @@ _TABLES = [
     "property_holdings", "bank_cash", "manual_holdings", "gold_items",
     "alt_investments", "crypto_holdings", "foreign_holdings", "forex_holdings",
     "business_holdings", "liabilities", "expenses", "goals", "networth_holdings",
-    "nw_history", "snapshots",
+    "nw_history", "snapshots", "plan_rates",
 ]
 
 

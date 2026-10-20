@@ -973,6 +973,43 @@ tr:hover .reclass select, .reclass select:focus { opacity: 1; }
 .p-mark-line { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; }
 .p-mark-text { fill: var(--faint); font-size: 10px; }
 .p-event { fill: var(--copper); stroke: var(--surface); stroke-width: 2; }
+.plan-inflow-head { margin: 18px 0 6px; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+
+/* The link card from the Plan to its by-instrument grid. */
+.plan-matrix-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 20px 24px; margin-bottom: 20px;
+}
+.plan-matrix-link h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.plan-matrix-link p { margin: 0; font-size: 0.9rem; max-width: 560px; }
+.plan-matrix-link .btn { white-space: nowrap; }
+
+/* The by-instrument grid. Wide by nature — it scrolls inside its card, and the
+   instrument column stays pinned so a row can be read at the far right. */
+.matrix-controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; margin-bottom: 14px; }
+.matrix-controls .manual-field { min-width: 180px; }
+.matrix-table { font-size: 0.84rem; }
+.matrix-table thead th:first-child, .matrix-table tbody th {
+  position: sticky; left: 0; z-index: 1; background: var(--surface);
+}
+.matrix-table tbody th { font-weight: 600; white-space: nowrap; }
+.matrix-table tbody th .hint { display: block; font-weight: 400; font-size: 0.72rem; color: var(--faint); white-space: normal; max-width: 180px; }
+.matrix-table .rate-input { width: 5.2em; padding: 4px 6px; font-size: 0.84rem; text-align: right; }
+.matrix-table .rate-cell { white-space: nowrap; }
+.matrix-table .col-now { border-right: 1px solid var(--border); }
+.matrix-table tr.row-total th, .matrix-table tr.row-total td { font-weight: 700; border-top: 2px solid var(--border); }
+.matrix-table tr.row-loan td, .matrix-table tr.row-loan th { color: var(--muted); }
+.matrix-table tr.row-net th, .matrix-table tr.row-net td { font-family: var(--serif); font-size: 0.95rem; }
+.matrix-table tr.row-plan th, .matrix-table tr.row-plan td { color: var(--muted); font-style: italic; }
+.matrix-table td.short { color: var(--loss); }
+.matrix-table .retired-col { color: var(--faint); }
+.matrix-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--copper) 18%, transparent); color: var(--copper);
+}
+.matrix-flows { margin: 14px 0 0; font-size: 0.86rem; }
+.matrix-flows li { margin: 2px 0; }
 .plan-tag {
   font-size: 0.68rem; font-weight: 600; color: var(--copper);
   text-transform: uppercase; letter-spacing: 0.04em;

@@ -42,6 +42,8 @@ EXPORT_TABLES: list[str] = [
     # Preferences (PAN, withdrawal rate, plan inputs) — easy to forget, and the
     # part a user would most notice missing after moving machines.
     "user_settings",
+    # Per-instrument return assumptions on the by-instrument matrix.
+    "plan_rates",
     # Asset-class corrections. Small, but they're work the user did by hand and
     # they'd have to redo it after a restore without them.
     "holding_overrides",
