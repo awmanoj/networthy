@@ -466,34 +466,54 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   top LTV band's `inf` becomes a finite sentinel, because `Infinity` is valid JS but invalid
   JSON and a test asserts the block parses.
 
-  Two additions once people had used it against a real sanction letter, both in `homeloan.py`
-  with twins in `homeloan.js` (cross-checked in Node again, to 1e-6 across five loan shapes
-  including never-closes and fully-parked):
+  Two additions once people had used it against a real sanction letter, and a restructuring
+  they forced. **There is one loan and one month loop** (`homeloan.payoff`). A new loan is an
+  existing loan whose balance is the whole principal, so the buying half of the page and the
+  already-have-a-loan half feed the same run: the lever table is read off it, the ladder is
+  bisected on it, and the year-by-year schedule it returns is the one the page shows. The first
+  version kept a second loop for *annual* lump-sum prepayments (`schedule`, since deleted) and the
+  two halves could not share inputs — "a user's sections don't talk to each other" was the report.
+  Twins in `homeloan.js` (cross-checked in Node to 1e-6 across six loan shapes including
+  never-closes, fully-parked and a partial final year).
   - **The slab is a ceiling, not the loan** (`loan_amount`). A bank applies its LTV to the
     *lower* of the agreement value and its own valuation, so a 65–72% sanction is ordinary,
-    and every rupee it doesn't lend is cash up front. An optional "Loan sanctioned" input
-    wins over the cap when filled (clamped to the price; a sanction above the cap is flagged,
-    not refused), and the "Bank can lend" card re-labels itself and shows what the cap would
-    have been. `main.how_much_house` works a 90%-valuation example server-side
-    (`sanction_eg`) and `_HOME_FAQ` quotes those figures in prose — **keep them in step**;
-    the first draft of the FAQ said ₹67.5 lakh at 75% when the ₹90 lakh valuation actually
-    falls in the 80% slab (₹72 lakh). The test pins both.
-  - **Closing a loan you already have** (`payoff`, `payoff_scenarios`, `PAYOFF_EXAMPLE`, the
-    `#payoff` section). Three levers, shown **each alone and then together**, because the
-    question is always "which one matters": the EMI actually paid, a monthly prepayment to
-    principal (the same rupees as a higher EMI — pinned — kept as a separate input because
-    people decide them separately), and money **parked in a MaxGain-style overdraft
-    account**, which is not repayment but is charged no interest, so interest accrues on
-    balance − parked and the loan closes when the book balance falls to the parked sum
-    (pinned equal to a prepayment of the same size). Levers left off produce no row and the
-    "together" row appears only with two or more, so the table lists only what was set. A
-    payment that doesn't cover the interest returns `closes=False` with `months=None` and the
-    page says "Never" — a loan like that grows, and a number in the thousands of months would
-    be mistaken for a date. `payoff` at the scheduled EMI must agree with `schedule` to the
-    rupee (pinned), or the two halves of the page contradict each other. An EMI *below* the
-    scheduled one is allowed — the other levers may still carry the loan home — but then the
-    "you save" figure is negative, and both the JS and the template render it as a red
-    "−₹X" with a note saying you'd pay more, never as a green saving with a minus sign.
+    and every rupee it doesn't lend is cash up front. "Loan you'll actually get" sits right
+    beside the price (it *is* the input; an earlier draft tagged it "optional" on a second row
+    and the owner couldn't find it). It wins over the cap when filled (clamped to the price; a
+    sanction above the cap is flagged, not refused). `main.how_much_house` works a
+    90%-valuation example server-side (`sanction_eg`) and `_HOME_FAQ` quotes those figures in
+    prose — **keep them in step**; the first draft of the FAQ said ₹67.5 lakh at 75% when the
+    ₹90 lakh valuation actually falls in the 80% slab (₹72 lakh). The test pins both.
+  - **The house → the loan.** A pill at the top, "I'm buying" / "I already have a loan". Buying
+    shows the house section (price, loan you'll get, state → cash up front) and **links** the
+    loan amount to it until the visitor types over the amount (a "use the house figure" link
+    restores). The other mode hides the house, relabels tenure as "years left", and the amount
+    is what's still owed. The pill is JS state; with no JS both sections render, which is what
+    a crawler sees.
+  - **Three levers, each alone and then together** (`payoff_scenarios`): the EMI actually
+    paid, a monthly prepayment to principal (the same rupees as a higher EMI — pinned — kept as
+    a separate input because people decide them separately), and money **parked in a
+    MaxGain-style overdraft account**, which is not repayment but is charged no interest, so
+    interest accrues on balance − parked and the loan closes when the book balance falls to
+    the parked sum (pinned equal to a prepayment of the same size). Parked is **held flat**;
+    money added monthly is the prepay lever. Levers left off produce no row and the "together"
+    row appears only with two or more. A payment that doesn't cover the interest returns
+    `closes=False` with `months=None` and the page says "Never". An EMI *below* the scheduled
+    one that still closes shows a red "−₹X, you'd pay more", never a green negative.
+  - **The ladder is per month** (`ladder`, `prepay_for_target`): "extra a month, on top of the
+    EMI you pay and what's parked, to finish in 15/12/10/7/5", with "about ₹12× a year" as a
+    sub-line — *about*, because a bonus paid once a year is not twelve monthly payments. The
+    FAQ's "about ₹8,800 a month… saves over ₹23 lakh" is pinned to the arithmetic.
+  - **The schedule** (`payoff(...)["yearly"]`, the `#schedule` `<details>`, collapsed): one row
+    per year — opening/closing *book* balance, paid, interest, principal — plus a net-of-parked
+    column that appears only when something is parked. Year rows, not month rows: 240 rows is a
+    spreadsheet, not a page. Pinned: principal sums to the balance, interest to the total, each
+    opening is the previous closing, a partial final year is its own row, and with money parked
+    the final book balance *is* the parked sum (it's yours again) while net is zero.
+  - `PAYOFF_EXAMPLE` is the **page's default state** (the ₹1 crore buyer's ₹75 lakh loan,
+    scheduled EMI, nothing extra) and the route asserts it equals the worked example's loan —
+    so the server-rendered lever table, ladder and 20-row schedule are what a visitor first
+    sees, not something JS repaints on load.
 
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **public full page at
   `GET /how-rich-am-i`** (`main.how_rich_am_i`, template `standing.html`) reached from the Dashboard

@@ -1848,6 +1848,18 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .stand-table td.loss { color: var(--loss); }
 .hl-payoff-controls { margin-top: 14px; margin-bottom: 18px; }
 .hl-payoff-cards { margin-bottom: 18px; }
+.hl-mode { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 14px; }
+.hl-mode label { padding: 7px 14px; border-radius: 999px; font-size: 0.86rem; font-weight: 600;
+  color: var(--muted); cursor: pointer; }
+.hl-mode input { position: absolute; opacity: 0; width: 0; height: 0; }
+.hl-mode input:checked + label { background: var(--btn-bg); color: var(--btn-fg); }
+.hl-mode input:focus-visible + label { outline: 2px solid var(--brand); outline-offset: 2px; }
+.hl-link { font-size: 0.74rem; font-weight: 400; margin-left: 6px; }
+.hl-cards.hl-two { grid-template-columns: repeat(2, 1fr); }
+.hl-sched summary { cursor: pointer; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; }
+.hl-sched summary .muted { font-family: inherit; font-weight: 400; font-size: 0.86rem; display: block; margin-top: 4px; }
+.hl-sched .stand-table-wrap { margin-top: 14px; }
 .hl-figure.gain { color: var(--gain); }
 .stand-table tr.hl-total td { font-weight: 600; border-top: 2px solid var(--border); }
 
@@ -1966,3 +1978,6 @@ a.btn { color: var(--btn-fg); }
 }
 
 @media (max-width: 760px) { .hl-cards { grid-template-columns: 1fr; } }
+/* Same-specificity gotcha: `.hl-cards.hl-two` outranks the generic `.hl-cards`
+   mobile rule above, so the two-card house row needs its own override here. */
+@media (max-width: 760px) { .hl-cards.hl-two { grid-template-columns: 1fr; } }

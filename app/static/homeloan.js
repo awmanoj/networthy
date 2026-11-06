@@ -4,17 +4,19 @@
 // app gets, so as with standing.js and retire.js there is no fetch in this file
 // and there must never be one.
 //
-// The arithmetic mirrors app/homeloan.py: the same RBI slabs, the same monthly
-// amortisation loop, and the same bisection for "what must I pay each year to
-// finish in N". Keep the two in step if either changes.
+// The arithmetic mirrors app/homeloan.py: the same RBI slabs, the same single
+// monthly loop (`payoff`) that the lever table, the ladder and the year-by-year
+// schedule are all read off, and the same bisection for "what must I pay a
+// month to finish in N". Keep the two in step if either changes.
 
 function initHomeLoan(cfg) {
   const $ = (id) => document.getElementById(id);
-  const priceEl = $("hl-price"), stateEl = $("hl-state"), rateEl = $("hl-rate"),
-        yearsEl = $("hl-years"), incomeEl = $("hl-income"), sanctionEl = $("hl-sanction");
-  const poBalance = $("po-balance"), poRate = $("po-rate"), poYears = $("po-years"),
-        poEmi = $("po-emi"), poPrepay = $("po-prepay"), poParked = $("po-parked");
-  if (!priceEl) return;
+  const priceEl = $("hl-price"), stateEl = $("hl-state"), sanctionEl = $("hl-sanction"),
+        amountEl = $("hl-amount"), rateEl = $("hl-rate"), yearsEl = $("hl-years"),
+        emiEl = $("po-emi"), prepayEl = $("po-prepay"), parkedEl = $("po-parked"),
+        incomeEl = $("hl-income"), relinkEl = $("hl-relink");
+  const modeBuy = $("hl-mode-buy"), modeHave = $("hl-mode-have");
+  if (!priceEl || !amountEl) return;
 
   const inr = (v) => "₹" + Math.round(v).toLocaleString("en-IN");
   const compact = (v) => {
@@ -32,6 +34,10 @@ function initHomeLoan(cfg) {
     if (/(l|lac|lakh|lakhs)$/.test(t)) return n * 1e5;
     return n;
   };
+  const yrsMo = (m) => {
+    const y = Math.floor(m / 12), mo = m % 12;
+    return `${y} yrs` + (mo ? ` ${mo} mo` : "");
+  };
 
   // --- the same maths as app/homeloan.py ------------------------------------
   const LTV = cfg.ltv;                 // [[ceiling, ratio, label], …]
@@ -43,46 +49,6 @@ function initHomeLoan(cfg) {
     }
     const [, ratio, label] = LTV[LTV.length - 1];
     return { loan: price * ratio, ratio, label };
-  }
-
-  function emi(principal, ratePct, years) {
-    const n = Math.round(years * 12), r = ratePct / 1200;
-    if (principal <= 0 || n <= 0) return 0;
-    if (r === 0) return principal / n;
-    const f = Math.pow(1 + r, n);
-    return (principal * r * f) / (f - 1);
-  }
-
-  function run(principal, ratePct, years, annualPrepay) {
-    const r = ratePct / 1200, instalment = emi(principal, ratePct, years);
-    const cap = Math.round(years * 12) + 1200;
-    let balance = principal, interest = 0, months = 0;
-    while (balance > 0.005 && months < cap) {
-      const due = balance * r;
-      const pay = Math.min(instalment, balance + due);
-      balance = balance + due - pay;
-      interest += due;
-      months++;
-      if (months % 12 === 0 && annualPrepay > 0 && balance > 0) {
-        balance -= Math.min(annualPrepay, balance);
-      }
-    }
-    return { months, interest, emi: instalment };
-  }
-
-  // Bisected, not solved: the loop rounds to whole months and applies the lump
-  // sum in discrete jumps, so it doesn't invert cleanly. It is monotonic in the
-  // prepayment, which is all bisection needs.
-  function prepayFor(principal, ratePct, years, targetYears) {
-    const target = Math.round(targetYears * 12);
-    if (target >= Math.round(years * 12)) return 0;
-    if (run(principal, ratePct, years, principal).months > target) return null;
-    let lo = 0, hi = principal;
-    for (let i = 0; i < 60; i++) {
-      const mid = (lo + hi) / 2;
-      if (run(principal, ratePct, years, mid).months <= target) hi = mid; else lo = mid;
-    }
-    return hi;
   }
 
   // RBI's slab caps the bank; it does not oblige it. A sanction letter wins when
@@ -97,24 +63,73 @@ function initHomeLoan(cfg) {
              sanctioned: true, overCap: loan > cap + 0.5 };
   }
 
-  // Closing a loan you already have. Interest accrues on balance − parked each
-  // month; the payment (EMI + monthly prepay) is applied to it. Closes when the
-  // net outstanding is nil. Never closes if the payment doesn't cover interest.
+  function emi(principal, ratePct, years) {
+    const n = Math.round(years * 12), r = ratePct / 1200;
+    if (principal <= 0 || n <= 0) return 0;
+    if (r === 0) return principal / n;
+    const f = Math.pow(1 + r, n);
+    return (principal * r * f) / (f - 1);
+  }
+
+  // The one loop. Interest accrues on balance − parked each month; the payment
+  // (EMI + monthly extra) is applied to it. Returns the year-by-year schedule.
+  // Never closes if the payment doesn't cover interest.
   function payoff(balance, ratePct, emiPaid, monthlyPrepay = 0, parked = 0) {
     const r = ratePct / 1200;
-    const netStart = Math.max(balance - Math.max(parked, 0), 0);
+    parked = Math.max(parked, 0);
+    const netStart = Math.max(balance - parked, 0);
     let net = netStart, interest = 0, months = 0;
     const payEach = Math.max(emiPaid, 0) + Math.max(monthlyPrepay, 0);
+    const yearly = [];
+    let yOpen = net + parked, yPaid = 0, yInt = 0;
+    const closeYear = () => yearly.push({ year: yearly.length + 1, opening: yOpen, paid: yPaid,
+      interest: yInt, principal: yPaid - yInt, closing: net + parked, net });
     while (net > 0.005 && months < cfg.payoffMaxMonths) {
       const due = net * r;
-      if (payEach <= due) return { months: null, interest: null, closes: false, netStart };
+      if (payEach <= due) return { months: null, interest: null, closes: false, netStart, yearly: [] };
       const pay = Math.min(payEach, net + due);
       net = net + due - pay;
       interest += due;
+      yPaid += pay; yInt += due;
       months++;
+      if (months % 12 === 0) { closeYear(); yOpen = net + parked; yPaid = 0; yInt = 0; }
     }
+    if (months % 12) closeYear();
     const closes = net <= 0.005;
-    return { months: closes ? months : null, interest: closes ? interest : null, closes, netStart };
+    return { months: closes ? months : null, interest: closes ? interest : null, closes, netStart, yearly };
+  }
+
+  // Extra per month, on top of emiPaid, to close within targetYears. Bisected:
+  // the loop rounds to whole months so it doesn't invert cleanly; it is
+  // monotonic in the prepayment, which is all bisection needs.
+  function prepayFor(balance, ratePct, emiPaid, targetYears, parked) {
+    const target = Math.round(targetYears * 12);
+    const base = payoff(balance, ratePct, emiPaid, 0, parked);
+    if (base.closes && base.months <= target) return 0;
+    let lo = 0, hi = Math.max(balance, 1);
+    const top = payoff(balance, ratePct, emiPaid, hi, parked);
+    if (!top.closes || top.months > target) return null;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      const run = payoff(balance, ratePct, emiPaid, mid, parked);
+      if (run.closes && run.months <= target) hi = mid; else lo = mid;
+    }
+    return hi;
+  }
+
+  function ladder(balance, ratePct, emiPaid, parked) {
+    const base = payoff(balance, ratePct, emiPaid, 0, parked);
+    if (!base.closes) return [];
+    const rows = [{ years: base.months / 12, monthly: 0, interest: base.interest, saved: 0, months: base.months, base: true }];
+    for (const target of cfg.targets) {
+      if (target * 12 >= base.months) continue;
+      const monthly = prepayFor(balance, ratePct, emiPaid, target, parked);
+      if (monthly === null) continue;
+      const run = payoff(balance, ratePct, emiPaid, monthly, parked);
+      rows.push({ years: run.months / 12, monthly, interest: run.interest,
+                  saved: base.interest - run.interest, months: run.months, base: false });
+    }
+    return rows;
   }
 
   function payoffScenarios(balance, ratePct, yearsLeft, emiPaid, monthlyPrepay, parked) {
@@ -136,102 +151,73 @@ function initHomeLoan(cfg) {
     return { scheduledEmi: sched, emiPaid: paid, base, combined, rows, levers };
   }
 
-  // --- render ----------------------------------------------------------------
-  const yrsMo = (m) => {
-    const y = Math.floor(m / 12), mo = m % 12;
-    return `${y} yrs` + (mo ? ` ${mo} mo` : "");
-  };
+  // --- the house → the loan ----------------------------------------------------
+  // The amount is linked to the house until the visitor types over it (or
+  // switches to "I already have a loan"); a small link restores the link.
+  let linked = true;
+  const buying = () => !modeHave || !modeHave.checked;
 
-  function recalc() {
+  function recalcHouse() {
     const price = num(priceEl, 1e7);
-    const ratePct = num(rateEl, cfg.rate);
-    const years = Math.max(1, num(yearsEl, cfg.years));
-    // Effective rate comes from the server, already including any cess and
-    // surcharge — those apply to the stamp duty, not the property value, and
-    // recomputing that here is how the two would drift apart.
     const duty = cfg.duty[stateEl.value] || cfg.duty[cfg.defaultState];
-    const dutyPct = duty.effective;
-
     const la = loanAmount(price, num(sanctionEl, 0));
-    const { loan, ratio, label } = la;
-    const down = price - loan;
-    const dutyAmt = (price * dutyPct) / 100;
-    const cash = down + dutyAmt;
+    const down = price - la.loan;
+    const dutyAmt = (price * duty.effective) / 100;
 
-    $("hl-loan").textContent = inr(loan);
+    $("hl-loan").textContent = inr(la.loan);
     $("hl-loan-eyebrow").textContent = la.sanctioned ? "Your sanctioned loan" : "Bank can lend";
     $("hl-loan-note").textContent = la.sanctioned
       ? (la.overCap
-          ? `${Math.round(ratio * 100)}% of the price — above RBI's ${Math.round((la.cap / price) * 100)}% cap for a loan ${label}; check the letter`
-          : `${Math.round(ratio * 100)}% of the price — RBI's cap would have allowed ${compact(la.cap)}`)
-      : `${Math.round(ratio * 100)}% of the price — RBI's cap for a loan ${label}`;
-    $("hl-cash").textContent = inr(cash);
+          ? `${Math.round(la.ratio * 100)}% of the price — above RBI's ${Math.round((la.cap / price) * 100)}% cap for a loan ${la.label}; check the letter`
+          : `${Math.round(la.ratio * 100)}% of the price — RBI's cap would have allowed ${compact(la.cap)}`)
+      : `${Math.round(la.ratio * 100)}% of the price — RBI's cap for a loan ${la.label}`;
+    $("hl-cash").textContent = inr(down + dutyAmt);
     $("hl-cash-note").textContent =
       `${compact(down)} down payment` + (la.sanctioned ? " (price − your loan)" : "") +
-      ` + ${compact(dutyAmt)} stamp duty & registration ` +
-      `(${dutyPct.toFixed(2)}%)` + (duty.verified ? "" : " — rate not recently verified");
+      ` + ${compact(dutyAmt)} stamp duty & registration (${duty.effective.toFixed(2)}%)` +
+      (duty.verified ? "" : " — rate not recently verified");
 
-    const base = run(loan, ratePct, years, 0);
-    $("hl-emi").textContent = inr(base.emi);
-    $("hl-emi-note").textContent =
-      `${inr(loan + base.interest)} repaid in total — ${compact(base.interest)} of it interest`;
-
-    // Income check: whichever ceiling binds first is the real one.
-    const income = num(incomeEl, 0);
-    const verdict = $("hl-verdict");
-    if (income > 0) {
-      const allowed = (income * cfg.foir) / 100;
-      const share = (base.emi / income) * 100;
-      const ok = base.emi <= allowed;
-      verdict.hidden = false;
-      verdict.className = "hl-verdict " + (ok ? "ok" : "no");
-      verdict.textContent = ok
-        ? `That EMI is ${share.toFixed(0)}% of your monthly income — inside the ~${cfg.foir}% most lenders allow.`
-        : `That EMI is ${share.toFixed(0)}% of your monthly income. Lenders usually stop near ${cfg.foir}%, so expect to be offered less — around ${compact(allowed)} a month.`;
-    } else {
-      verdict.hidden = true;
+    if (linked && buying()) {
+      amountEl.value = Math.round(la.loan).toLocaleString("en-IN");
     }
-
-    // The ladder.
-    const rows = [`<tr><td>Nothing</td><td class="num">${years.toFixed(0)} yrs</td>` +
-                  `<td class="num">${compact(base.interest)}</td><td class="num">—</td></tr>`];
-    for (const target of cfg.targets) {
-      if (target * 12 >= base.months) continue;
-      const annual = prepayFor(loan, ratePct, years, target);
-      if (annual === null) continue;
-      const r2 = run(loan, ratePct, years, annual);
-      rows.push(
-        `<tr><td>${inr(annual)}<span class="hl-pm">${inr(annual / 12)}/month</span></td>` +
-        `<td class="num">${(r2.months / 12).toFixed(0)} yrs</td>` +
-        `<td class="num">${compact(r2.interest)}</td>` +
-        `<td class="num gain">${compact(base.interest - r2.interest)}</td></tr>`);
-    }
-    $("hl-ladder").innerHTML = rows.join("");
-
-    // The classic rule of thumb, priced.
-    const extra = run(loan, ratePct, years, base.emi);
-    $("hl-thumb").textContent =
-      `One extra EMI a year (${inr(base.emi)}) ends it in ${(extra.months / 12).toFixed(1)} years ` +
-      `and saves ${compact(base.interest - extra.interest)}.`;
+    return la;
   }
 
-  function recalcPayoff() {
-    if (!poBalance) return;
-    const balance = num(poBalance, 0);
-    const ratePct = num(poRate, cfg.rate);
-    const years = Math.max(1, num(poYears, cfg.years));
-    const s = payoffScenarios(balance, ratePct, years, num(poEmi, 0), num(poPrepay, 0), num(poParked, 0));
-    poEmi.placeholder = inr(s.scheduledEmi).replace("₹", "");
+  function setMode() {
+    const buy = buying();
+    $("hl-house").hidden = !buy;
+    $("hl-loan-heading").textContent = buy ? "The loan" : "Your loan today";
+    $("hl-years-label").textContent = buy ? "Tenure" : "Years left";
+    amountEl.placeholder = buy ? "" : "what you still owe";
+    if (buy) { linked = true; recalcHouse(); } else { linked = false; }
+    syncAmountHint();
+  }
+
+  function syncAmountHint() {
+    const buy = buying();
+    $("hl-amount-hint").textContent = buy ? (linked ? "from the house above" : "edited") : "what you still owe";
+    relinkEl.hidden = !(buy && !linked);
+  }
+
+  // --- the loan ------------------------------------------------------------------
+  function recalcLoan() {
+    const balance = num(amountEl, 0);
+    const ratePct = num(rateEl, cfg.rate);
+    const years = Math.max(1, num(yearsEl, cfg.years));
+    const parked = num(parkedEl, 0), prepay = num(prepayEl, 0);
+    const s = payoffScenarios(balance, ratePct, years, num(emiEl, 0), prepay, parked);
+    emiEl.placeholder = Math.round(s.scheduledEmi).toLocaleString("en-IN");
     $("po-sched").textContent = inr(s.scheduledEmi);
     $("po-sched-note").textContent = `what the bank asks for over ${years.toFixed(0)} years`;
 
     const { base, combined } = s;
     const savedEl = $("po-saved");
-    savedEl.classList.remove("loss");
-    savedEl.classList.add("gain");
+    savedEl.classList.remove("loss", "gain");
+    if (s.levers) savedEl.classList.add("gain");
+    $("po-saved-eyebrow").textContent = s.levers ? "Interest you save" : "Total interest";
     if (balance <= 0 || !base.closes) {
       $("po-ends").textContent = "—";
-      $("po-ends-note").textContent = "enter what you still owe, the rate and the years left";
+      $("po-ends-note").textContent = "enter the loan amount, the rate and the years";
       savedEl.textContent = "—";
       $("po-saved-note").textContent = "";
     } else if (!combined.closes) {
@@ -253,14 +239,34 @@ function initHomeLoan(cfg) {
         savedEl.textContent = `−${inr(-saved)}`;
         $("po-saved-note").textContent =
           `you'd pay ${compact(-saved)} MORE interest — that EMI is below the ${inr(s.scheduledEmi)} scheduled`;
-      } else {
+      } else if (s.levers) {
         savedEl.textContent = inr(saved);
-        $("po-saved-note").textContent =
-          `${compact(combined.interest)} interest instead of ${compact(base.interest)}`;
+        $("po-saved-note").textContent = `${compact(combined.interest)} interest instead of ${compact(base.interest)}`;
+      } else {
+        savedEl.textContent = inr(combined.interest);
+        $("po-saved-note").textContent = `${compact(balance + combined.interest)} repaid in all — set a lever to see what you'd save`;
       }
     }
 
-    const rows = s.rows.map((r, i) => {
+    // Income check against what actually goes out each month.
+    const income = num(incomeEl, 0);
+    const verdict = $("hl-verdict");
+    const outgo = s.emiPaid + prepay;
+    if (income > 0 && balance > 0) {
+      const allowed = (income * cfg.foir) / 100;
+      const share = (outgo / income) * 100;
+      const ok = outgo <= allowed;
+      verdict.hidden = false;
+      verdict.className = "hl-verdict " + (ok ? "ok" : "no");
+      verdict.textContent = ok
+        ? `${inr(outgo)} a month is ${share.toFixed(0)}% of your income — inside the ~${cfg.foir}% most lenders allow.`
+        : `${inr(outgo)} a month is ${share.toFixed(0)}% of your income. Lenders usually stop near ${cfg.foir}%, so expect to be offered less — around ${compact(allowed)} a month.`;
+    } else {
+      verdict.hidden = true;
+    }
+
+    // The lever table.
+    $("po-rows").innerHTML = s.rows.map((r, i) => {
       const cls = (i === s.rows.length - 1 && s.levers > 1) ? ' class="hl-total"' : "";
       if (!r.closes) {
         return `<tr${cls}><td>${r.label}</td><td class="num loss" colspan="3">Never — the payment doesn't cover the interest</td></tr>`;
@@ -270,15 +276,47 @@ function initHomeLoan(cfg) {
         : `<td class="num gain">${inr(r.saved)}</td>`;
       return `<tr${cls}><td>${r.label}</td><td class="num">${yrsMo(r.months)}</td>` +
              `<td class="num">${inr(r.interest)}</td>${savedCell}</tr>`;
-    });
-    $("po-rows").innerHTML = rows.join("");
+    }).join("");
+
+    // The ladder: extra per month on top of the EMI paid and what's parked.
+    const rows = ladder(balance, ratePct, s.emiPaid, parked);
+    $("hl-ladder").innerHTML = rows.length ? rows.map((r) =>
+      `<tr><td>${r.base ? "Nothing" : inr(r.monthly) + `<span class="hl-pm">about ${inr(r.monthly * 12)} a year</span>`}</td>` +
+      `<td class="num">${yrsMo(r.months)}</td><td class="num">${compact(r.interest)}</td>` +
+      `<td class="num gain">${r.base ? "—" : compact(r.saved)}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="loss">That EMI doesn't cover the interest, so no amount of extra finishes it on this schedule.</td></tr>`;
+
+    // The classic rule of thumb, priced: one extra EMI a year ≈ a twelfth a month.
+    const thumb = $("hl-thumb");
+    if (rows.length && combined.closes) {
+      const extra = payoff(balance, ratePct, s.emiPaid, s.scheduledEmi / 12, parked);
+      thumb.textContent = `One extra EMI a year (about ${inr(s.scheduledEmi / 12)} a month) ends it in ${(extra.months / 12).toFixed(1)} years and saves ${compact(rows[0].interest - extra.interest)}.`;
+    } else {
+      thumb.textContent = "";
+    }
+
+    // The schedule, as set above.
+    const showNet = parked > 0;
+    $("sched-net-head").hidden = !showNet;
+    $("sched-rows").innerHTML = combined.yearly.map((y) =>
+      `<tr><td>${y.year}</td><td class="num">${inr(y.opening)}</td><td class="num">${inr(y.paid)}</td>` +
+      `<td class="num">${inr(y.interest)}</td><td class="num">${inr(y.principal)}</td>` +
+      `<td class="num">${inr(y.closing)}</td>` + (showNet ? `<td class="num">${inr(y.net)}</td>` : "") + `</tr>`).join("")
+      || `<tr><td colspan="7" class="loss">No schedule — the loan never closes as set.</td></tr>`;
+    $("sched-note").textContent = showNet
+      ? "Nominal rupees. “Owed at end” is the book balance; the last column nets off what's parked — the loan is closed when that reaches zero, and the parked money is yours again."
+      : "Nominal rupees. A partial final year is shown as a year of its own.";
   }
 
-  [priceEl, stateEl, rateEl, yearsEl, incomeEl, sanctionEl].forEach(
-    (el) => el && el.addEventListener("input", recalc));
-  stateEl.addEventListener("change", recalc);
-  [poBalance, poRate, poYears, poEmi, poPrepay, poParked].forEach(
-    (el) => el && el.addEventListener("input", recalcPayoff));
-  recalc();
-  recalcPayoff();
+  function recalcAll() { recalcHouse(); recalcLoan(); }
+
+  [priceEl, sanctionEl].forEach((el) => el.addEventListener("input", recalcAll));
+  stateEl.addEventListener("input", recalcHouse);
+  stateEl.addEventListener("change", recalcHouse);
+  amountEl.addEventListener("input", () => { linked = false; syncAmountHint(); recalcLoan(); });
+  relinkEl.addEventListener("click", (e) => { e.preventDefault(); linked = true; syncAmountHint(); recalcAll(); });
+  [rateEl, yearsEl, emiEl, prepayEl, parkedEl, incomeEl].forEach((el) => el && el.addEventListener("input", recalcLoan));
+  [modeBuy, modeHave].forEach((el) => el && el.addEventListener("change", () => { setMode(); recalcLoan(); }));
+  setMode();
+  recalcLoan();
 }

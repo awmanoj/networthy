@@ -2318,8 +2318,8 @@ _HOME_FAQ = [
     {"q": "Does prepaying a home loan actually help?",
      "a": "Enormously, and earlier is worth far more than later, because the early years "
           "of an EMI are almost entirely interest. On a ₹75 lakh loan at 8.5% over 20 "
-          "years, paying roughly ₹1.1 lakh extra a year — about ₹9,000 a month — ends the "
-          "loan five years early and saves over ₹22 lakh in interest."},
+          "years, paying about ₹8,800 extra a month — roughly ₹1.05 lakh a year — ends "
+          "the loan five years early and saves over ₹23 lakh in interest."},
     {"q": "Should I prepay the loan or invest the money instead?",
      "a": "Compare your loan rate against what you'd earn after tax, and remember a "
           "prepayment is a guaranteed, risk-free return equal to your interest rate. At "
@@ -2351,6 +2351,9 @@ def how_much_house(request: Request):
                    "ltv": sanctioned["ltv"] * 100,
                    "cash": _HOME_EG_PRICE - sanctioned["loan"] + duty_eg,
                    "cash_at_cap": _HOME_EG_PRICE - loan + duty_eg}
+    eg = homeloan.PAYOFF_EXAMPLE
+    assert eg["balance"] == loan      # the reference loan IS the worked example's loan
+    payoff = homeloan.payoff_scenarios(**eg)
     return templates.TemplateResponse(
         "home_loan.html",
         {
@@ -2374,8 +2377,12 @@ def how_much_house(request: Request):
                         * homeloan.effective_pct(homeloan.duty_for(homeloan.DEFAULT_STATE)) / 100.0,
                 "duty_pct": homeloan.effective_pct(homeloan.duty_for(homeloan.DEFAULT_STATE)),
             },
-            "ladder": homeloan.ladder(loan, homeloan.DEFAULT_RATE_PCT, homeloan.DEFAULT_YEARS),
-            "base_emi": homeloan.emi(loan, homeloan.DEFAULT_RATE_PCT, homeloan.DEFAULT_YEARS),
+            # The default state, server-rendered: the lever table, the ladder and
+            # the year-by-year schedule for the reference loan with nothing extra.
+            "payoff": payoff,
+            "ladder": homeloan.ladder(eg["balance"], eg["rate_pct"], payoff["scheduled_emi"]),
+            "schedule": payoff["combined"]["yearly"],
+            "base_emi": payoff["scheduled_emi"],
             "defaults": {"rate": homeloan.DEFAULT_RATE_PCT, "years": homeloan.DEFAULT_YEARS,
                          "foir": homeloan.DEFAULT_FOIR_PCT},
             # One object, built here and dumped once. Assembling it out of five
@@ -2401,9 +2408,6 @@ def how_much_house(request: Request):
             # of the price and lends its slab on *that*. The prose figure the FAQ
             # quotes comes from here, so the two can't disagree.
             "sanction_eg": sanction_eg,
-            # Closing a loan you already have — the reference loan, server-rendered.
-            "payoff_eg": homeloan.PAYOFF_EXAMPLE,
-            "payoff": homeloan.payoff_scenarios(**homeloan.PAYOFF_EXAMPLE),
             "faq": _HOME_FAQ,
             "page_title": "How Much House Can I Afford? (India, with stamp duty)",
             "page_description": (

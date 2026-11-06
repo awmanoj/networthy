@@ -19,31 +19,75 @@
     <strong>stamp duty and registration are not covered by the loan</strong>, and on a
     ₹1 crore flat that's several lakh in cash on top of the down payment. And the bank's
     ceiling isn't what you'll be offered — enter the loan you've actually been sanctioned
-    and the down payment, cash and EMI are worked from that.
+    and everything below is worked from that.
     {% if not user %}Everything here is worked out in your browser; nothing you type is
     sent anywhere.{% endif %}
   </p>
 
-  <div class="hl-controls">
+  <div class="hl-mode" role="radiogroup" aria-label="Buying, or already have a loan">
+    <input type="radio" name="hl-mode" id="hl-mode-buy" value="buy" checked>
+    <label for="hl-mode-buy">I'm buying</label>
+    <input type="radio" name="hl-mode" id="hl-mode-have" value="have">
+    <label for="hl-mode-have">I already have a loan</label>
+  </div>
+
+  <div id="hl-house">
+    <div class="hl-controls">
+      <label class="hl-in">
+        <span>Property price</span>
+        <span class="hl-box"><i>₹</i>
+          <input id="hl-price" type="text" inputmode="decimal" autocomplete="off"
+                 value="1,00,00,000" aria-label="Property price"></span>
+      </label>
+      <label class="hl-in">
+        <span>Loan you'll actually get <em>blank = RBI's maximum</em></span>
+        <span class="hl-box"><i>₹</i>
+          <input id="hl-sanction" type="text" inputmode="decimal" autocomplete="off"
+                 placeholder="sanctioned or expected" aria-label="Loan amount sanctioned or expected from the bank"></span>
+      </label>
+      <label class="hl-in">
+        <span>Where</span>
+        <select id="hl-state" aria-label="State">
+          {% for s in states %}
+          <option value="{{ s.state }}"{{ ' selected' if s.state == default_state else '' }}>{{ s.state }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <section class="hl-cards hl-two">
+      <div class="dash-card hl-stat">
+        <span class="eyebrow">Cash you need up front</span>
+        <span class="hl-figure num" id="hl-cash">₹{{ "{:,.0f}".format(eg.down + eg.duty) }}</span>
+        <span class="hero-note" id="hl-cash-note">₹{{ "{:,.0f}".format(eg.down) }} down payment + ₹{{ "{:,.0f}".format(eg.duty) }} stamp duty &amp; registration ({{ "%.2f"|format(eg.duty_pct) }}%)</span>
+      </div>
+      <div class="dash-card hl-stat">
+        <span class="eyebrow" id="hl-loan-eyebrow">Bank can lend</span>
+        <span class="hl-figure num" id="hl-loan">₹{{ "{:,.0f}".format(eg.loan) }}</span>
+        <span class="hero-note" id="hl-loan-note">{{ "%.0f"|format(eg.ltv) }}% of the price — RBI's cap for a loan {{ eg.band }}</span>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- One loan. For a buyer it's the loan above; for a borrower, what's still owed. -->
+<section class="dash-card hl-ladder-card" id="loan">
+  <h2 id="hl-loan-heading">The loan</h2>
+  <p class="muted imp-lead" id="hl-loan-lead">
+    Three levers shorten a loan, and they're not the same lever: pay a bigger EMI than the
+    bank asks for, send a fixed extra sum to principal every month, or — on an overdraft-style
+    loan such as SBI MaxGain, HDFC or BoB “Smart Home”, ICICI Money Saver — park money in the
+    linked account, where it's charged no interest but stays yours to withdraw. Set what you
+    actually do and everything below follows.
+  </p>
+
+  <div class="hl-controls hl-payoff-controls">
     <label class="hl-in">
-      <span>Property price</span>
+      <span id="hl-amount-label">Loan amount <em id="hl-amount-hint">from the house above</em>
+        <a href="#loan" id="hl-relink" class="hl-link" hidden>use the house figure</a></span>
       <span class="hl-box"><i>₹</i>
-        <input id="hl-price" type="text" inputmode="decimal" autocomplete="off"
-               value="1,00,00,000" aria-label="Property price"></span>
-    </label>
-    <label class="hl-in">
-      <span>Loan you'll actually get <em>blank = RBI's maximum</em></span>
-      <span class="hl-box"><i>₹</i>
-        <input id="hl-sanction" type="text" inputmode="decimal" autocomplete="off"
-               placeholder="sanctioned or expected" aria-label="Loan amount sanctioned or expected from the bank"></span>
-    </label>
-    <label class="hl-in">
-      <span>Where</span>
-      <select id="hl-state" aria-label="State">
-        {% for s in states %}
-        <option value="{{ s.state }}"{{ ' selected' if s.state == default_state else '' }}>{{ s.state }}</option>
-        {% endfor %}
-      </select>
+        <input id="hl-amount" type="text" inputmode="decimal" autocomplete="off"
+               value="{{ "{:,.0f}".format(eg.loan) }}" aria-label="Loan amount, or what you still owe"></span>
     </label>
     <label class="hl-in hl-sm">
       <span>Interest rate</span>
@@ -51,9 +95,27 @@
             value="{{ defaults.rate }}" aria-label="Interest rate"><i>%</i></span>
     </label>
     <label class="hl-in hl-sm">
-      <span>Tenure</span>
+      <span id="hl-years-label">Tenure</span>
       <span class="hl-box"><input id="hl-years" type="number" step="1" min="1" max="30"
-            value="{{ defaults.years }}" aria-label="Tenure in years"><i>yrs</i></span>
+            value="{{ defaults.years }}" aria-label="Years left on the loan"><i>yrs</i></span>
+    </label>
+    <label class="hl-in">
+      <span>EMI you pay <em>blank = the scheduled EMI</em></span>
+      <span class="hl-box"><i>₹</i>
+        <input id="po-emi" type="text" inputmode="decimal" autocomplete="off"
+               placeholder="{{ "{:,.0f}".format(base_emi) }}" aria-label="EMI you actually pay each month"></span>
+    </label>
+    <label class="hl-in">
+      <span>Extra to principal each month <em>optional</em></span>
+      <span class="hl-box"><i>₹</i>
+        <input id="po-prepay" type="text" inputmode="decimal" autocomplete="off"
+               placeholder="0" aria-label="Monthly prepayment to principal"></span>
+    </label>
+    <label class="hl-in">
+      <span>Parked in the OD account <em>MaxGain-style loans only</em></span>
+      <span class="hl-box"><i>₹</i>
+        <input id="po-parked" type="text" inputmode="decimal" autocomplete="off"
+               placeholder="0" aria-label="Money parked in the linked overdraft account"></span>
     </label>
     <label class="hl-in">
       <span>Your monthly income <em>optional</em></span>
@@ -63,133 +125,37 @@
                placeholder="to check eligibility" aria-label="Monthly income"></span>
     </label>
   </div>
-</section>
-
-<section class="hl-cards">
-  <div class="dash-card hl-stat">
-    <span class="eyebrow">Cash you need up front</span>
-    <span class="hl-figure num" id="hl-cash">—</span>
-    <span class="hero-note" id="hl-cash-note"></span>
-  </div>
-  <div class="dash-card hl-stat">
-    <span class="eyebrow" id="hl-loan-eyebrow">Bank can lend</span>
-    <span class="hl-figure num" id="hl-loan">—</span>
-    <span class="hero-note" id="hl-loan-note"></span>
-  </div>
-  <div class="dash-card hl-stat">
-    <span class="eyebrow">Monthly EMI</span>
-    <span class="hl-figure num" id="hl-emi">—</span>
-    <span class="hero-note" id="hl-emi-note"></span>
-  </div>
-</section>
-
-<p class="hl-verdict" id="hl-verdict" hidden></p>
-
-<!-- The point of the page. -->
-<section class="dash-card hl-ladder-card">
-  <h2>Pay a little extra each year, and finish years early</h2>
-  <p class="muted imp-lead">
-    The early years of an EMI are almost entirely interest, so money put in now is worth
-    far more than money put in later. This is the same loan, ended early — and what it
-    takes to do it.
-  </p>
-  <div class="stand-table-wrap">
-    <table class="stand-table">
-      <thead>
-        <tr><th>Extra paid each year</th><th class="num">Loan ends in</th>
-            <th class="num">Total interest</th><th class="num">You save</th></tr>
-      </thead>
-      <tbody id="hl-ladder">
-        {# Server-rendered for the reference loan, so a crawler and a reader with
-           JavaScript off both see real figures rather than an empty table. #}
-        {% for r in ladder %}
-        <tr>
-          <td>{% if r.base %}Nothing{% else %}₹{{ "{:,.0f}".format(r.annual) }}<span class="hl-pm">₹{{ "{:,.0f}".format(r.annual / 12) }}/month</span>{% endif %}</td>
-          <td class="num">{{ "%.0f"|format(r.years) }} yrs</td>
-          <td class="num">₹{{ "{:,.0f}".format(r.interest) }}</td>
-          <td class="num gain">{{ "—" if r.base else "₹" ~ "{:,.0f}".format(r.saved) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <p class="muted stand-note" id="hl-thumb"></p>
-</section>
-
-<!-- Already have a loan: the three levers, each alone and together. -->
-<section class="dash-card hl-ladder-card" id="payoff">
-  <h2>Already have a loan? Here's what actually shortens it</h2>
-  <p class="muted imp-lead">
-    Three levers, and they're not the same lever. Pay a bigger EMI than the bank asks for,
-    send a fixed sum to principal every month, or — on an overdraft-style loan such as SBI
-    MaxGain, HDFC or BoB “Smart Home”, ICICI Money Saver — park money in the linked account,
-    where it's charged no interest but stays yours to withdraw. Each is shown on its own,
-    so you can see which one is doing the work.
-  </p>
-
-  <div class="hl-controls hl-payoff-controls">
-    <label class="hl-in">
-      <span>Still owed</span>
-      <span class="hl-box"><i>₹</i>
-        <input id="po-balance" type="text" inputmode="decimal" autocomplete="off"
-               value="{{ "{:,.0f}".format(payoff_eg.balance) }}" aria-label="Outstanding loan balance"></span>
-    </label>
-    <label class="hl-in hl-sm">
-      <span>Interest rate</span>
-      <span class="hl-box"><input id="po-rate" type="number" step="0.05" min="1" max="20"
-            value="{{ payoff_eg.rate_pct }}" aria-label="Interest rate"><i>%</i></span>
-    </label>
-    <label class="hl-in hl-sm">
-      <span>Years left</span>
-      <span class="hl-box"><input id="po-years" type="number" step="1" min="1" max="30"
-            value="{{ payoff_eg.years_left }}" aria-label="Years left on the loan"><i>yrs</i></span>
-    </label>
-    <label class="hl-in">
-      <span>EMI you pay <em>blank = the scheduled EMI</em></span>
-      <span class="hl-box"><i>₹</i>
-        <input id="po-emi" type="text" inputmode="decimal" autocomplete="off"
-               value="{{ "{:,.0f}".format(payoff_eg.emi_paid) }}" aria-label="EMI you actually pay each month"></span>
-    </label>
-    <label class="hl-in">
-      <span>Extra to principal each month <em>optional</em></span>
-      <span class="hl-box"><i>₹</i>
-        <input id="po-prepay" type="text" inputmode="decimal" autocomplete="off"
-               value="{{ "{:,.0f}".format(payoff_eg.monthly_prepay) }}" aria-label="Monthly prepayment to principal"></span>
-    </label>
-    <label class="hl-in">
-      <span>Parked in the OD account <em>MaxGain-style loans only</em></span>
-      <span class="hl-box"><i>₹</i>
-        <input id="po-parked" type="text" inputmode="decimal" autocomplete="off"
-               value="{{ "{:,.0f}".format(payoff_eg.parked) }}" aria-label="Money parked in the linked overdraft account"></span>
-    </label>
-  </div>
 
   <section class="hl-cards hl-payoff-cards">
     <div class="dash-card hl-stat">
       <span class="eyebrow">Loan ends in</span>
       <span class="hl-figure num" id="po-ends">{{ payoff.combined.months // 12 }} yrs{% if payoff.combined.months % 12 %} {{ payoff.combined.months % 12 }} mo{% endif %}</span>
-      <span class="hero-note" id="po-ends-note">instead of {{ payoff.base.months // 12 }} years on the bank's schedule</span>
+      <span class="hero-note" id="po-ends-note">on the bank's schedule — set a lever above to see what changes</span>
     </div>
     <div class="dash-card hl-stat">
-      <span class="eyebrow">Interest you save</span>
-      <span class="hl-figure num gain" id="po-saved">₹{{ "{:,.0f}".format(payoff.base.interest - payoff.combined.interest) }}</span>
-      <span class="hero-note" id="po-saved-note">₹{{ "{:,.0f}".format(payoff.combined.interest) }} interest instead of ₹{{ "{:,.0f}".format(payoff.base.interest) }}</span>
+      {# With no lever set there is nothing saved yet; the card shows the cost instead. #}
+      <span class="eyebrow" id="po-saved-eyebrow">Total interest</span>
+      <span class="hl-figure num" id="po-saved">₹{{ "{:,.0f}".format(payoff.combined.interest) }}</span>
+      <span class="hero-note" id="po-saved-note">₹{{ "{:,.0f}".format(eg.loan + payoff.combined.interest) }} repaid in all — set a lever to see what you'd save</span>
     </div>
     <div class="dash-card hl-stat">
       <span class="eyebrow">Scheduled EMI</span>
       <span class="hl-figure num" id="po-sched">₹{{ "{:,.0f}".format(payoff.scheduled_emi) }}</span>
-      <span class="hero-note" id="po-sched-note">what the bank asks for over {{ payoff_eg.years_left }} years</span>
+      <span class="hero-note" id="po-sched-note">what the bank asks for over {{ defaults.years }} years</span>
     </div>
   </section>
 
+  <p class="hl-verdict" id="hl-verdict" hidden></p>
+
+  <h3>If you only…</h3>
   <div class="stand-table-wrap">
     <table class="stand-table">
       <thead>
-        <tr><th>If you only…</th><th class="num">Loan ends in</th>
+        <tr><th>Lever</th><th class="num">Loan ends in</th>
             <th class="num">Total interest</th><th class="num">You save</th></tr>
       </thead>
       <tbody id="po-rows">
-        {# Server-rendered for the reference loan, so the figures are in the HTML. #}
+        {# Server-rendered for the default state, so the figures are in the HTML. #}
         {% for r in payoff.rows %}
         <tr{% if loop.last and payoff.levers > 1 %} class="hl-total"{% endif %}>
           <td>{{ r.label }}</td>
@@ -207,15 +173,72 @@
       </tbody>
     </table>
   </div>
-  <p class="muted stand-note" id="po-note">
+  <p class="muted stand-note">
     Parked money isn't repayment — you can take it back — but interest is charged only on what's
     owed <em>minus</em> what's parked, so it shortens the loan exactly like a prepayment of the same
-    size would. The loan counts as closed when the balance has fallen to the parked amount:
-    net outstanding is nil, and the parked money is simply yours again. A monthly prepayment
-    and a higher EMI are the same rupees by two names — they're kept apart here because people
-    decide them separately.
+    size would. It's modelled as held flat; money you add every month is the “extra each month”
+    lever. A monthly prepayment and a higher EMI are the same rupees by two names — kept apart
+    because people decide them separately.
   </p>
 </section>
+
+<!-- The point of the page. -->
+<section class="dash-card hl-ladder-card">
+  <h2>Pay a little extra each month, and finish years early</h2>
+  <p class="muted imp-lead">
+    The early years of an EMI are almost entirely interest, so money put in now is worth
+    far more than money put in later. This is the same loan, ended early — and what it
+    takes, on top of the EMI you pay and whatever is parked.
+  </p>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr><th>Extra paid each month</th><th class="num">Loan ends in</th>
+            <th class="num">Total interest</th><th class="num">You save</th></tr>
+      </thead>
+      <tbody id="hl-ladder">
+        {% for r in ladder %}
+        <tr>
+          <td>{% if r.base %}Nothing{% else %}₹{{ "{:,.0f}".format(r.monthly) }}<span class="hl-pm">about ₹{{ "{:,.0f}".format(r.monthly * 12) }} a year</span>{% endif %}</td>
+          <td class="num">{{ r.months // 12 }} yrs{% if r.months % 12 %} {{ r.months % 12 }} mo{% endif %}</td>
+          <td class="num">₹{{ "{:,.0f}".format(r.interest) }}</td>
+          <td class="num gain">{{ "—" if r.base else "₹" ~ "{:,.0f}".format(r.saved) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note" id="hl-thumb"></p>
+</section>
+
+<!-- The schedule: every year of the loan as set above. Collapsed; it's long. -->
+<details class="dash-card hl-ladder-card hl-sched" id="schedule">
+  <summary>Payment schedule, year by year
+    <span class="muted">Every year of the loan as it's set above — the EMI, the extra, what's parked. Opens on request; it's long.</span>
+  </summary>
+  <div class="stand-table-wrap">
+    <table class="stand-table">
+      <thead>
+        <tr><th>Year</th><th class="num">Owed at start</th><th class="num">Paid</th>
+            <th class="num">Interest</th><th class="num">Principal</th>
+            <th class="num">Owed at end</th><th class="num" id="sched-net-head" hidden>Net of parked</th></tr>
+      </thead>
+      <tbody id="sched-rows">
+        {% for y in schedule %}
+        <tr>
+          <td>{{ y.year }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(y.opening) }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(y.paid) }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(y.interest) }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(y.principal) }}</td>
+          <td class="num">₹{{ "{:,.0f}".format(y.closing) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted stand-note" id="sched-note">Nominal rupees. A partial final year is shown as a year of its own.</p>
+</details>
 
 <!-- Reference content: the indexable half. -->
 <section class="dash-card calc-doc">

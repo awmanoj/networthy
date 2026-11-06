@@ -13,8 +13,8 @@ Three things this gets right that a bank's EMI calculator doesn't:
    EMI at a share of income (FOIR). Whichever binds first is your real ceiling.
 
 3. **The prepayment question, asked the way people ask it.** Not "what do I save
-   if I pay ₹1 lakh" but "what do I have to pay to be done in ten years". That's
-   an inversion, so it's bisected — the same shape as `projection.corpus_requirement`.
+   if I pay ₹1 lakh" but "what do I have to pay a month to be done in ten years".
+   That's an inversion, so it's bisected — the same shape as `projection.corpus_requirement`.
 
 Two more, added once people had used it against a real sanction letter:
 
@@ -30,6 +30,15 @@ Two more, added once people had used it against a real sanction letter:
    Saver) — money parked in the linked account, which earns nothing but is
    charged no interest either. `payoff` runs all three; `payoff_scenarios` shows
    what each does alone, because the question is always "which one matters".
+
+**There is one loan and one month loop.** A new loan is an existing loan whose
+balance is the whole principal and whose tenure is the whole tenure, so the
+buying half of the page and the already-have-a-loan half feed the same `payoff`
+run: the ladder ("extra per month to finish in N years", `ladder`) is bisected
+on it, the lever table is read off it, and the year-by-year schedule it returns
+is the one the page shows. An earlier version kept a second loop for annual
+lump-sum prepayments; two loops meant two models that could not share inputs
+and quietly disagreed on the same loan.
 """
 
 from __future__ import annotations
@@ -111,7 +120,7 @@ DEFAULT_YEARS = 20
 # Banks cap the EMI at a share of net monthly income (FOIR). 50% is the common
 # ceiling for salaried borrowers; lenders tighten it at lower incomes.
 DEFAULT_FOIR_PCT = 50.0
-# Tenures the prepayment ladder answers for, given a 20-year loan.
+# Tenures the prepayment ladder answers for (those shorter than the loan).
 TARGET_YEARS = (15, 12, 10, 7, 5)
 
 
@@ -165,106 +174,23 @@ def emi(principal: float, rate_pct: float, years: float) -> float:
     return principal * r * factor / (factor - 1)
 
 
-def schedule(principal: float, rate_pct: float, years: float,
-             annual_prepay: float = 0.0, max_months: int | None = None) -> dict:
-    """Run the loan month by month. Returns months taken and interest paid.
-
-    The annual lump sum lands after every twelfth payment — which is how people
-    actually prepay, out of a bonus, rather than smoothly.
-    """
-    r = rate_pct / 1200.0
-    instalment = emi(principal, rate_pct, years)
-    cap = max_months or int(years * 12) + 1200
-    balance, interest, months = principal, 0.0, 0
-    yearly: list[dict] = []
-    year_interest = year_principal = 0.0
-
-    while balance > 0.005 and months < cap:
-        due = balance * r
-        pay = min(instalment, balance + due)
-        balance = balance + due - pay
-        interest += due
-        year_interest += due
-        year_principal += pay - due
-        months += 1
-        if months % 12 == 0:
-            if annual_prepay > 0 and balance > 0:
-                lump = min(annual_prepay, balance)
-                balance -= lump
-                year_principal += lump
-            yearly.append({"year": months // 12, "interest": year_interest,
-                           "principal": year_principal, "balance": max(balance, 0.0)})
-            year_interest = year_principal = 0.0
-
-    if months % 12:
-        yearly.append({"year": months // 12 + 1, "interest": year_interest,
-                       "principal": year_principal, "balance": max(balance, 0.0)})
-    return {"months": months, "interest": interest, "emi": instalment, "yearly": yearly}
-
-
-def prepay_for_target(principal: float, rate_pct: float, years: float,
-                      target_years: float) -> float | None:
-    """Annual lump sum that closes the loan in `target_years`. None if impossible.
-
-    Bisected rather than solved: the month loop clamps, rounds to whole months
-    and applies the lump sum in discrete jumps, so it doesn't invert cleanly. It
-    *is* monotonic in the prepayment amount, which is all bisection needs — the
-    same reasoning as projection.corpus_requirement.
-    """
-    target_months = int(round(target_years * 12))
-    if target_months >= int(round(years * 12)):
-        return 0.0
-    base = schedule(principal, rate_pct, years)
-    if base["months"] <= target_months:
-        return 0.0
-    # An upper bound that certainly clears it: the whole principal in year one.
-    lo, hi = 0.0, principal
-    if schedule(principal, rate_pct, years, hi)["months"] > target_months:
-        return None
-    for _ in range(60):
-        mid = (lo + hi) / 2
-        if schedule(principal, rate_pct, years, mid)["months"] <= target_months:
-            hi = mid
-        else:
-            lo = mid
-    return hi
-
-
-def ladder(principal: float, rate_pct: float, years: float) -> list[dict]:
-    """"Pay this much a year and you're done in N" — the page's whole argument."""
-    base = schedule(principal, rate_pct, years)
-    rows = [{"years": base["months"] / 12.0, "annual": 0.0, "interest": base["interest"],
-             "saved": 0.0, "months": base["months"], "base": True}]
-    for target in TARGET_YEARS:
-        if target * 12 >= base["months"]:
-            continue
-        annual = prepay_for_target(principal, rate_pct, years, target)
-        if annual is None:
-            continue
-        run = schedule(principal, rate_pct, years, annual)
-        rows.append({"years": run["months"] / 12.0, "annual": annual,
-                     "interest": run["interest"],
-                     "saved": base["interest"] - run["interest"],
-                     "months": run["months"], "base": False})
-    return rows
-
-
 # --- Closing a loan you already have ----------------------------------------
 
 # How long we are prepared to simulate before calling a loan "never closes".
 PAYOFF_MAX_MONTHS = 1200
 
-# The reference loan the server-rendered payoff table is worked through —
-# an ordinary mid-life home loan: ₹50 lakh still owed, 15 years to run, with all
-# three levers pulled modestly so every row of the table has something to show.
-PAYOFF_EXAMPLE = {"balance": 5_000_000.0, "rate_pct": DEFAULT_RATE_PCT, "years_left": 15,
-                  "emi_paid": 55_000.0, "monthly_prepay": 10_000.0, "parked": 500_000.0}
+# The reference loan the server-rendered tables are worked through: the page's
+# own default state — the ₹1 crore buyer's RBI-cap loan, scheduled EMI, nothing
+# extra, nothing parked — so what a crawler reads is what a visitor first sees.
+PAYOFF_EXAMPLE = {"balance": 7_500_000.0, "rate_pct": DEFAULT_RATE_PCT, "years_left": DEFAULT_YEARS,
+                  "emi_paid": None, "monthly_prepay": 0.0, "parked": 0.0}
 
 
 def payoff(balance: float, rate_pct: float, emi_paid: float,
            monthly_prepay: float = 0.0, parked: float = 0.0,
            max_months: int = PAYOFF_MAX_MONTHS) -> dict:
-    """Months and interest to clear `balance`, with the three levers a borrower holds.
+    """Months, interest and a year-by-year schedule to clear `balance`, with the
+    three levers a borrower holds.
 
     - `emi_paid` is what actually goes out each month — a stepped-up EMI is the
       quietest way people prepay, and banks let you raise it on request.
@@ -274,33 +200,108 @@ def payoff(balance: float, rate_pct: float, emi_paid: float,
     - `parked` is money sitting in a home-loan **overdraft** account (MaxGain and
       its cousins). It is not repayment — you can take it back — but interest is
       charged only on `balance − parked`, so it behaves like a prepayment that
-      stays liquid. The loan is *closed* when the book balance has fallen to the
-      parked amount: at that point net outstanding is nil and the parked money
-      is simply yours again.
+      stays liquid. It is modelled as held flat for the life of the loan; money
+      added to it every month is `monthly_prepay`. The loan is *closed* when the
+      book balance has fallen to the parked amount: net outstanding is nil and
+      the parked money is simply yours again.
 
     Interest accrues on the **net** outstanding each month and the payment is
-    applied to it, so a parked lump shortens the loan the way a prepayment of the
-    same size would. Returns `closes=False` (and `months=None`) when the monthly
-    payment doesn't even cover the interest — a loan like that grows rather than
-    ends, and saying "never" is more useful than a number in the thousands.
+    applied to it. `yearly` carries one row per (possibly partial) year — opening
+    and closing *book* balance, what was paid, how much of it was interest, and
+    the net balance after what's parked — which is the page's payment schedule.
+    Returns `closes=False` (and `months=None`) when the monthly payment doesn't
+    even cover the interest — a loan like that grows rather than ends, and
+    saying "never" is more useful than a number in the thousands.
     """
     r = rate_pct / 1200.0
-    net_start = max(balance - max(parked, 0.0), 0.0)
+    parked = max(parked, 0.0)
+    net_start = max(balance - parked, 0.0)
     net = net_start
     pay_each = max(emi_paid, 0.0) + max(monthly_prepay, 0.0)
     interest, months = 0.0, 0
+    yearly: list[dict] = []
+    y_open, y_paid, y_int = net + parked, 0.0, 0.0
+
+    def close_year() -> None:
+        yearly.append({"year": len(yearly) + 1, "opening": y_open, "paid": y_paid,
+                       "interest": y_int, "principal": y_paid - y_int,
+                       "closing": net + parked, "net": net})
+
     while net > 0.005 and months < max_months:
         due = net * r
         if pay_each <= due:
-            return {"months": None, "interest": None, "closes": False, "net_start": net_start}
+            return {"months": None, "interest": None, "closes": False,
+                    "net_start": net_start, "yearly": []}
         pay = min(pay_each, net + due)
         net = net + due - pay
         interest += due
+        y_paid += pay
+        y_int += due
         months += 1
+        if months % 12 == 0:
+            close_year()
+            y_open, y_paid, y_int = net + parked, 0.0, 0.0
+    if months % 12:
+        close_year()
     closes = net <= 0.005
     return {"months": months if closes else None,
             "interest": interest if closes else None,
-            "closes": closes, "net_start": net_start}
+            "closes": closes, "net_start": net_start, "yearly": yearly}
+
+
+def prepay_for_target(balance: float, rate_pct: float, emi_paid: float,
+                      target_years: float, parked: float = 0.0) -> float | None:
+    """Extra per month, on top of `emi_paid`, that closes the loan within
+    `target_years`. 0.0 if it already does; None if nothing can.
+
+    Bisected rather than solved: the month loop clamps and rounds to whole
+    months, so it doesn't invert cleanly. It *is* monotonic in the prepayment,
+    which is all bisection needs — the same reasoning as
+    projection.corpus_requirement.
+    """
+    target_months = int(round(target_years * 12))
+    base = payoff(balance, rate_pct, emi_paid, 0.0, parked)
+    if base["closes"] and base["months"] <= target_months:
+        return 0.0
+    # An upper bound that certainly clears it: the whole balance in month one.
+    lo, hi = 0.0, max(balance, 1.0)
+    top = payoff(balance, rate_pct, emi_paid, hi, parked)
+    if not top["closes"] or top["months"] > target_months:
+        return None
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        run = payoff(balance, rate_pct, emi_paid, mid, parked)
+        if run["closes"] and run["months"] <= target_months:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+def ladder(balance: float, rate_pct: float, emi_paid: float,
+           parked: float = 0.0) -> list[dict]:
+    """"Pay this much extra a month and you're done in N" — the page's argument.
+
+    Runs on the same loop as everything else, so it respects the EMI actually
+    paid and whatever is parked. The base row is that loan with nothing extra.
+    """
+    base = payoff(balance, rate_pct, emi_paid, 0.0, parked)
+    if not base["closes"]:
+        return []
+    rows = [{"years": base["months"] / 12.0, "monthly": 0.0, "interest": base["interest"],
+             "saved": 0.0, "months": base["months"], "base": True}]
+    for target in TARGET_YEARS:
+        if target * 12 >= base["months"]:
+            continue
+        monthly = prepay_for_target(balance, rate_pct, emi_paid, target, parked)
+        if monthly is None:
+            continue
+        run = payoff(balance, rate_pct, emi_paid, monthly, parked)
+        rows.append({"years": run["months"] / 12.0, "monthly": monthly,
+                     "interest": run["interest"],
+                     "saved": base["interest"] - run["interest"],
+                     "months": run["months"], "base": False})
+    return rows
 
 
 def payoff_scenarios(balance: float, rate_pct: float, years_left: float,
