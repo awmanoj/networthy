@@ -130,6 +130,114 @@ def test_affordability_works_backwards_from_income():
     assert out["price"] > out["loan"]                    # a deposit is still needed
 
 
+# --- The sanction letter beats the slab --------------------------------------
+
+def test_without_a_sanction_the_rbi_cap_is_the_loan():
+    out = h.loan_amount(10_000_000)
+    assert out["loan"] == 7_500_000 and not out["sanctioned"] and not out["over_cap"]
+    assert out["cap"] == out["loan"]
+
+
+def test_a_sanction_below_the_cap_is_the_loan_and_raises_the_cash_needed():
+    """A bank lends its slab on *its* valuation, not the agreement value. The
+    slab is still reported, as what the ceiling would have been."""
+    out = h.loan_amount(10_000_000, 6_500_000)
+    assert out["loan"] == 6_500_000 and out["sanctioned"]
+    assert out["ltv"] == pytest.approx(0.65)
+    assert out["cap"] == 7_500_000 and not out["over_cap"]
+
+
+def test_a_sanction_above_the_cap_is_flagged_and_never_exceeds_the_price():
+    assert h.loan_amount(3_500_000, 3_300_000)["over_cap"]          # cap is 80% = 28L
+    out = h.loan_amount(10_000_000, 12_000_000)
+    assert out["loan"] == 10_000_000 and out["over_cap"]
+
+
+def test_a_zero_or_blank_sanction_means_none():
+    assert h.loan_amount(10_000_000, 0) == h.loan_amount(10_000_000, None)
+
+
+# --- Closing a loan you already have -----------------------------------------
+
+def test_paying_the_scheduled_emi_matches_the_schedule_exactly():
+    """`payoff` with nothing extra is the same loan `schedule` runs, so the two
+    loops must agree on months and interest — or the page contradicts itself."""
+    sched = h.schedule(5_000_000, 8.5, 15)
+    run = h.payoff(5_000_000, 8.5, sched["emi"])
+    assert run["closes"] and run["months"] == 180 == sched["months"]
+    assert run["interest"] == pytest.approx(sched["interest"], rel=1e-9)
+
+
+def test_parked_money_shortens_the_loan_like_a_prepayment_of_the_same_size():
+    """The MaxGain claim: interest is charged on balance − parked, so ₹5 lakh in
+    the OD account ends the loan when ₹5 lakh paid off the principal would."""
+    sched = h.emi(5_000_000, 8.5, 15)
+    parked = h.payoff(5_000_000, 8.5, sched, parked=500_000)
+    prepaid = h.payoff(4_500_000, 8.5, sched)
+    assert parked["months"] == prepaid["months"]
+    assert parked["interest"] == pytest.approx(prepaid["interest"])
+    assert parked["net_start"] == 4_500_000
+
+
+def test_each_lever_shortens_the_loan_and_all_three_shorten_it_most():
+    s = h.payoff_scenarios(**h.PAYOFF_EXAMPLE)
+    base, *levers, combined = s["rows"]
+    assert s["levers"] == 3 and len(levers) == 3
+    for r in levers:
+        assert r["closes"] and r["months"] < base["months"] and r["saved"] > 0
+    assert combined["months"] < min(r["months"] for r in levers)
+    assert combined["saved"] > max(r["saved"] for r in levers)
+    assert combined["interest"] == pytest.approx(s["combined"]["interest"])
+
+
+def test_a_higher_emi_and_a_monthly_prepayment_are_the_same_rupees():
+    """Kept as separate inputs because people decide them separately — but the
+    arithmetic must not pretend they differ."""
+    sched = h.emi(5_000_000, 8.5, 15)
+    a = h.payoff(5_000_000, 8.5, sched + 10_000)
+    b = h.payoff(5_000_000, 8.5, sched, monthly_prepay=10_000)
+    assert a["months"] == b["months"] and a["interest"] == pytest.approx(b["interest"])
+
+
+def test_an_emi_that_does_not_cover_the_interest_never_closes():
+    """₹50 lakh at 8.5% accrues ~₹35,400 a month. Saying "never" is more useful
+    than a figure in the thousands of months, and `months` is None, not a number
+    the page could mistake for a date."""
+    run = h.payoff(5_000_000, 8.5, 30_000)
+    assert not run["closes"] and run["months"] is None and run["interest"] is None
+    s = h.payoff_scenarios(5_000_000, 8.5, 15, emi_paid=30_000)
+    assert s["rows"][1]["closes"] is False and s["rows"][1]["saved"] is None
+    assert s["combined"]["closes"] is False
+
+
+def test_fully_parked_balance_closes_immediately():
+    run = h.payoff(6_000_000, 8.0, 50_000, parked=6_000_000)
+    assert run["closes"] and run["months"] == 0 and run["interest"] == 0.0
+
+
+def test_scenario_rows_list_only_the_levers_actually_set():
+    """No lever → just the baseline. One lever → its row and no "together" row,
+    which would only repeat it. A blank EMI means the scheduled one."""
+    none = h.payoff_scenarios(5_000_000, 8.5, 15)
+    assert [r["label"] for r in none["rows"]] == ["Scheduled EMI, nothing extra"]
+    assert none["levers"] == 0 and none["emi_paid"] == pytest.approx(none["scheduled_emi"])
+
+    one = h.payoff_scenarios(5_000_000, 8.5, 15, parked=500_000)
+    assert [r["label"] for r in one["rows"]] == ["Scheduled EMI, nothing extra",
+                                                 "Parked in the OD account alone"]
+    assert one["levers"] == 1
+    assert one["combined"]["months"] == one["rows"][1]["months"]
+
+    two = h.payoff_scenarios(5_000_000, 8.5, 15, emi_paid=55_000, monthly_prepay=10_000)
+    assert two["rows"][-1]["label"] == "All of the above together" and two["levers"] == 2
+
+
+def test_an_emi_equal_to_the_scheduled_one_is_not_a_lever():
+    sched = h.emi(5_000_000, 8.5, 15)
+    s = h.payoff_scenarios(5_000_000, 8.5, 15, emi_paid=sched + 0.2)
+    assert s["levers"] == 0 and len(s["rows"]) == 1
+
+
 # --- The page -----------------------------------------------------------------
 
 @pytest.fixture
@@ -160,6 +268,24 @@ def test_the_numbers_are_server_rendered_for_a_crawler(client):
     assert "stamp duty" in body.lower()
 
 
+def test_the_payoff_table_and_sanction_example_are_server_rendered(client):
+    """Same rule as the ladder: the reference loan's rows and the worked sanction
+    figure are in the HTML, not painted in afterwards."""
+    body = client.get(PATH).text
+    assert "Already have a loan?" in body
+    s = h.payoff_scenarios(**h.PAYOFF_EXAMPLE)
+    for r in s["rows"]:
+        assert r["label"] in body
+        assert "{:,.0f}".format(r["interest"]) in body
+    assert 'id="hl-sanction"' in body
+    # The FAQ states the sanction example in prose; the template computes it.
+    # Both must describe the same flat.
+    valued = 9_000_000
+    loan = h.loan_amount(10_000_000, h.max_loan(valued)[0])["loan"]
+    assert "{:,.0f}".format(loan) in body                       # 7,200,000
+    assert "₹72 lakh" in body and "₹35.6 lakh" in body
+
+
 def test_the_browser_config_is_valid_json(client):
     """It's rendered into a <script>; `inf` would be valid Python and broken JSON."""
     body = client.get(PATH).text
@@ -168,6 +294,7 @@ def test_the_browser_config_is_valid_json(client):
     assert parsed["defaultState"] == h.DEFAULT_STATE
     assert len(parsed["ltv"]) == len(h.LTV_BANDS)
     assert all(isinstance(b[0], (int, float)) for b in parsed["ltv"])
+    assert parsed["payoffMaxMonths"] == h.PAYOFF_MAX_MONTHS
 
 
 def test_nothing_the_visitor_types_is_sent_anywhere():

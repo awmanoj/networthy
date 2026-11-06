@@ -466,6 +466,35 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   top LTV band's `inf` becomes a finite sentinel, because `Infinity` is valid JS but invalid
   JSON and a test asserts the block parses.
 
+  Two additions once people had used it against a real sanction letter, both in `homeloan.py`
+  with twins in `homeloan.js` (cross-checked in Node again, to 1e-6 across five loan shapes
+  including never-closes and fully-parked):
+  - **The slab is a ceiling, not the loan** (`loan_amount`). A bank applies its LTV to the
+    *lower* of the agreement value and its own valuation, so a 65–72% sanction is ordinary,
+    and every rupee it doesn't lend is cash up front. An optional "Loan sanctioned" input
+    wins over the cap when filled (clamped to the price; a sanction above the cap is flagged,
+    not refused), and the "Bank can lend" card re-labels itself and shows what the cap would
+    have been. `main.how_much_house` works a 90%-valuation example server-side
+    (`sanction_eg`) and `_HOME_FAQ` quotes those figures in prose — **keep them in step**;
+    the first draft of the FAQ said ₹67.5 lakh at 75% when the ₹90 lakh valuation actually
+    falls in the 80% slab (₹72 lakh). The test pins both.
+  - **Closing a loan you already have** (`payoff`, `payoff_scenarios`, `PAYOFF_EXAMPLE`, the
+    `#payoff` section). Three levers, shown **each alone and then together**, because the
+    question is always "which one matters": the EMI actually paid, a monthly prepayment to
+    principal (the same rupees as a higher EMI — pinned — kept as a separate input because
+    people decide them separately), and money **parked in a MaxGain-style overdraft
+    account**, which is not repayment but is charged no interest, so interest accrues on
+    balance − parked and the loan closes when the book balance falls to the parked sum
+    (pinned equal to a prepayment of the same size). Levers left off produce no row and the
+    "together" row appears only with two or more, so the table lists only what was set. A
+    payment that doesn't cover the interest returns `closes=False` with `months=None` and the
+    page says "Never" — a loan like that grows, and a number in the thousands of months would
+    be mistaken for a date. `payoff` at the scheduled EMI must agree with `schedule` to the
+    rupee (pinned), or the two halves of the page contradict each other. An EMI *below* the
+    scheduled one is allowed — the other levers may still carry the loan home — but then the
+    "you save" figure is negative, and both the JS and the template render it as a red
+    "−₹X" with a note saying you'd pay more, never as a green saving with a minus sign.
+
 - **`app/wealth.py`** — the "Where do you stand?" feature, a **public full page at
   `GET /how-rich-am-i`** (`main.how_rich_am_i`, template `standing.html`) reached from the Dashboard
   CTA tile, the landing page and the footer; pre-fills with the user's live sum-the-tree net worth

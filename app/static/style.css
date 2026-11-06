@@ -1845,6 +1845,11 @@ a.shot-demo:hover .shot-demo-hint { opacity: 1; transform: translateY(0); }
 .hl-ladder-card h2 { margin: 0 0 6px; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; }
 .hl-pm { display: block; font-size: 0.76rem; color: var(--muted); }
 .stand-table td.gain { color: var(--gain); font-weight: 600; }
+.stand-table td.loss { color: var(--loss); }
+.hl-payoff-controls { margin-top: 14px; margin-bottom: 18px; }
+.hl-payoff-cards { margin-bottom: 18px; }
+.hl-figure.gain { color: var(--gain); }
+.stand-table tr.hl-total td { font-weight: 600; border-top: 2px solid var(--border); }
 
 /* --- Tip jar ------------------------------------------------------------------ */
 .cof { text-align: center; }

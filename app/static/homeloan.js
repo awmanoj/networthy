@@ -11,7 +11,9 @@
 function initHomeLoan(cfg) {
   const $ = (id) => document.getElementById(id);
   const priceEl = $("hl-price"), stateEl = $("hl-state"), rateEl = $("hl-rate"),
-        yearsEl = $("hl-years"), incomeEl = $("hl-income");
+        yearsEl = $("hl-years"), incomeEl = $("hl-income"), sanctionEl = $("hl-sanction");
+  const poBalance = $("po-balance"), poRate = $("po-rate"), poYears = $("po-years"),
+        poEmi = $("po-emi"), poPrepay = $("po-prepay"), poParked = $("po-parked");
   if (!priceEl) return;
 
   const inr = (v) => "₹" + Math.round(v).toLocaleString("en-IN");
@@ -83,7 +85,63 @@ function initHomeLoan(cfg) {
     return hi;
   }
 
+  // RBI's slab caps the bank; it does not oblige it. A sanction letter wins when
+  // there is one, clamped to the price; the cap is reported alongside.
+  function loanAmount(price, sanctioned) {
+    const { loan: cap, ratio, label } = maxLoan(price);
+    if (!sanctioned || sanctioned <= 0) {
+      return { loan: cap, ratio, label, cap, sanctioned: false, overCap: false };
+    }
+    const loan = Math.min(sanctioned, price);
+    return { loan, ratio: price > 0 ? loan / price : 0, label, cap,
+             sanctioned: true, overCap: loan > cap + 0.5 };
+  }
+
+  // Closing a loan you already have. Interest accrues on balance − parked each
+  // month; the payment (EMI + monthly prepay) is applied to it. Closes when the
+  // net outstanding is nil. Never closes if the payment doesn't cover interest.
+  function payoff(balance, ratePct, emiPaid, monthlyPrepay = 0, parked = 0) {
+    const r = ratePct / 1200;
+    const netStart = Math.max(balance - Math.max(parked, 0), 0);
+    let net = netStart, interest = 0, months = 0;
+    const payEach = Math.max(emiPaid, 0) + Math.max(monthlyPrepay, 0);
+    while (net > 0.005 && months < cfg.payoffMaxMonths) {
+      const due = net * r;
+      if (payEach <= due) return { months: null, interest: null, closes: false, netStart };
+      const pay = Math.min(payEach, net + due);
+      net = net + due - pay;
+      interest += due;
+      months++;
+    }
+    const closes = net <= 0.005;
+    return { months: closes ? months : null, interest: closes ? interest : null, closes, netStart };
+  }
+
+  function payoffScenarios(balance, ratePct, yearsLeft, emiPaid, monthlyPrepay, parked) {
+    const sched = emi(balance, ratePct, yearsLeft);
+    const paid = (!emiPaid || emiPaid <= 0) ? sched : emiPaid;
+    const base = payoff(balance, ratePct, sched);
+    const row = (label, run) => ({
+      label, months: run.months, interest: run.interest, closes: run.closes,
+      saved: (run.closes && base.closes) ? base.interest - run.interest : null,
+    });
+    const rows = [row("Scheduled EMI, nothing extra", base)];
+    const emiChanged = Math.abs(paid - sched) > 0.5;
+    if (emiChanged) rows.push(row("EMI of this size alone", payoff(balance, ratePct, paid)));
+    if (monthlyPrepay > 0) rows.push(row("Monthly prepayment alone", payoff(balance, ratePct, sched, monthlyPrepay)));
+    if (parked > 0) rows.push(row("Parked in the OD account alone", payoff(balance, ratePct, sched, 0, parked)));
+    const combined = payoff(balance, ratePct, paid, monthlyPrepay, parked);
+    const levers = (emiChanged ? 1 : 0) + (monthlyPrepay > 0 ? 1 : 0) + (parked > 0 ? 1 : 0);
+    if (levers > 1) rows.push(row("All of the above together", combined));
+    return { scheduledEmi: sched, emiPaid: paid, base, combined, rows, levers };
+  }
+
   // --- render ----------------------------------------------------------------
+  const yrsMo = (m) => {
+    const y = Math.floor(m / 12), mo = m % 12;
+    return `${y} yrs` + (mo ? ` ${mo} mo` : "");
+  };
+
   function recalc() {
     const price = num(priceEl, 1e7);
     const ratePct = num(rateEl, cfg.rate);
@@ -94,13 +152,19 @@ function initHomeLoan(cfg) {
     const duty = cfg.duty[stateEl.value] || cfg.duty[cfg.defaultState];
     const dutyPct = duty.effective;
 
-    const { loan, ratio, label } = maxLoan(price);
+    const la = loanAmount(price, num(sanctionEl, 0));
+    const { loan, ratio, label } = la;
     const down = price - loan;
     const dutyAmt = (price * dutyPct) / 100;
     const cash = down + dutyAmt;
 
     $("hl-loan").textContent = inr(loan);
-    $("hl-loan-note").textContent = `${Math.round(ratio * 100)}% of the price — RBI's cap for a loan ${label}`;
+    $("hl-loan-eyebrow").textContent = la.sanctioned ? "Your sanctioned loan" : "Bank can lend";
+    $("hl-loan-note").textContent = la.sanctioned
+      ? (la.overCap
+          ? `${Math.round(ratio * 100)}% of the price — above RBI's ${Math.round((la.cap / price) * 100)}% cap for a loan ${label}; check the letter`
+          : `${Math.round(ratio * 100)}% of the price — RBI's cap would have allowed ${compact(la.cap)}`)
+      : `${Math.round(ratio * 100)}% of the price — RBI's cap for a loan ${label}`;
     $("hl-cash").textContent = inr(cash);
     $("hl-cash-note").textContent =
       `${compact(down)} down payment + ${compact(dutyAmt)} stamp duty & registration ` +
@@ -150,8 +214,70 @@ function initHomeLoan(cfg) {
       `and saves ${compact(base.interest - extra.interest)}.`;
   }
 
-  [priceEl, stateEl, rateEl, yearsEl, incomeEl].forEach(
+  function recalcPayoff() {
+    if (!poBalance) return;
+    const balance = num(poBalance, 0);
+    const ratePct = num(poRate, cfg.rate);
+    const years = Math.max(1, num(poYears, cfg.years));
+    const s = payoffScenarios(balance, ratePct, years, num(poEmi, 0), num(poPrepay, 0), num(poParked, 0));
+    poEmi.placeholder = inr(s.scheduledEmi).replace("₹", "");
+    $("po-sched").textContent = inr(s.scheduledEmi);
+    $("po-sched-note").textContent = `what the bank asks for over ${years.toFixed(0)} years`;
+
+    const { base, combined } = s;
+    const savedEl = $("po-saved");
+    savedEl.classList.remove("loss");
+    savedEl.classList.add("gain");
+    if (balance <= 0 || !base.closes) {
+      $("po-ends").textContent = "—";
+      $("po-ends-note").textContent = "enter what you still owe, the rate and the years left";
+      savedEl.textContent = "—";
+      $("po-saved-note").textContent = "";
+    } else if (!combined.closes) {
+      $("po-ends").textContent = "Never";
+      $("po-ends-note").textContent = "that EMI doesn't even cover the interest — the loan grows";
+      savedEl.textContent = "—";
+      $("po-saved-note").textContent = `the scheduled EMI is ${inr(s.scheduledEmi)}`;
+    } else {
+      const saved = base.interest - combined.interest;
+      $("po-ends").textContent = yrsMo(combined.months);
+      $("po-ends-note").textContent = s.levers
+        ? `instead of ${yrsMo(base.months)} on the bank's schedule`
+        : "on the bank's schedule — set a lever above to see what changes";
+      // An EMI below the scheduled one can still close (the other levers carry
+      // it) but costs more; say so rather than paint a negative saving green.
+      if (saved < -0.5) {
+        savedEl.classList.remove("gain");
+        savedEl.classList.add("loss");
+        savedEl.textContent = `−${inr(-saved)}`;
+        $("po-saved-note").textContent =
+          `you'd pay ${compact(-saved)} MORE interest — that EMI is below the ${inr(s.scheduledEmi)} scheduled`;
+      } else {
+        savedEl.textContent = inr(saved);
+        $("po-saved-note").textContent =
+          `${compact(combined.interest)} interest instead of ${compact(base.interest)}`;
+      }
+    }
+
+    const rows = s.rows.map((r, i) => {
+      const cls = (i === s.rows.length - 1 && s.levers > 1) ? ' class="hl-total"' : "";
+      if (!r.closes) {
+        return `<tr${cls}><td>${r.label}</td><td class="num loss" colspan="3">Never — the payment doesn't cover the interest</td></tr>`;
+      }
+      const savedCell = i === 0 ? '<td class="num gain">—</td>'
+        : r.saved < -0.5 ? `<td class="num loss">−${inr(-r.saved)}</td>`
+        : `<td class="num gain">${inr(r.saved)}</td>`;
+      return `<tr${cls}><td>${r.label}</td><td class="num">${yrsMo(r.months)}</td>` +
+             `<td class="num">${inr(r.interest)}</td>${savedCell}</tr>`;
+    });
+    $("po-rows").innerHTML = rows.join("");
+  }
+
+  [priceEl, stateEl, rateEl, yearsEl, incomeEl, sanctionEl].forEach(
     (el) => el && el.addEventListener("input", recalc));
   stateEl.addEventListener("change", recalc);
+  [poBalance, poRate, poYears, poEmi, poPrepay, poParked].forEach(
+    (el) => el && el.addEventListener("input", recalcPayoff));
   recalc();
+  recalcPayoff();
 }

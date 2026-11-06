@@ -2297,6 +2297,24 @@ _HOME_FAQ = [
      "a": "At least 10–25% of the price depending on the loan slab, plus stamp duty and "
           "registration. On a ₹1 crore property in urban Karnataka that's ₹25 lakh down "
           "plus ₹7.6 lakh in duty — ₹32.6 lakh in cash, not ₹25 lakh."},
+    {"q": "Why did the bank sanction less than 80% of the price?",
+     "a": "Because RBI's slab is a ceiling on the bank, not a promise to you. Lenders "
+          "apply the ratio to the lower of the agreement value and their own valuation, "
+          "and a valuer coming in 10–15% under the price you're paying is routine — so a "
+          "sanction of 65–70% is ordinary, not a mistake. Every rupee the bank doesn't "
+          "lend is a rupee more you need in cash: on a ₹1 crore flat the bank values at ₹90 "
+          "lakh, its 80% slab lends ₹72 lakh — 72% of what you're paying — and your cash "
+          "goes from ₹32.6 lakh to ₹35.6 lakh. "
+          "Enter the sanctioned figure above and the page works from that instead."},
+    {"q": "What is a MaxGain or overdraft home loan, and does parking money in it help?",
+     "a": "SBI MaxGain, HDFC and Bank of Baroda's \"Smart Home\" and ICICI's Money Saver "
+          "link the loan to an overdraft account. Money you park there is not a "
+          "repayment — you can take it back any time — but interest is charged only on "
+          "the balance minus what's parked, so it shortens the loan like a prepayment of "
+          "the same size while staying liquid. On a ₹50 lakh loan at 8.5% with 15 years "
+          "left, ₹5 lakh parked and left alone ends it about three years early. The "
+          "catch: it earns nothing, so it only beats a fixed deposit if you'd otherwise "
+          "earn less than your loan rate after tax, which at 8.5% is usually the case."},
     {"q": "Does prepaying a home loan actually help?",
      "a": "Enormously, and earlier is worth far more than later, because the early years "
           "of an EMI are almost entirely interest. On a ₹75 lakh loan at 8.5% over 20 "
@@ -2326,6 +2344,13 @@ def how_much_house(request: Request):
     user = request.state.user
     income = storage.get_annual_income(user.id) if user else None
     loan, ltv, band = homeloan.max_loan(_HOME_EG_PRICE)
+    duty_eg = _HOME_EG_PRICE * homeloan.effective_pct(homeloan.duty_for(homeloan.DEFAULT_STATE)) / 100.0
+    valued_at = _HOME_EG_PRICE * 0.9
+    sanctioned = homeloan.loan_amount(_HOME_EG_PRICE, homeloan.max_loan(valued_at)[0])
+    sanction_eg = {"valued_at": valued_at, "loan": sanctioned["loan"],
+                   "ltv": sanctioned["ltv"] * 100,
+                   "cash": _HOME_EG_PRICE - sanctioned["loan"] + duty_eg,
+                   "cash_at_cap": _HOME_EG_PRICE - loan + duty_eg}
     return templates.TemplateResponse(
         "home_loan.html",
         {
@@ -2369,14 +2394,24 @@ def how_much_house(request: Request):
                 "years": homeloan.DEFAULT_YEARS,
                 "foir": homeloan.DEFAULT_FOIR_PCT,
                 "targets": list(homeloan.TARGET_YEARS),
+                "payoffMaxMonths": homeloan.PAYOFF_MAX_MONTHS,
             },
             "my_monthly_income": (income / 12.0) if income else None,
+            # A sanction below RBI's cap, worked: the bank values the flat at 90%
+            # of the price and lends its slab on *that*. The prose figure the FAQ
+            # quotes comes from here, so the two can't disagree.
+            "sanction_eg": sanction_eg,
+            # Closing a loan you already have — the reference loan, server-rendered.
+            "payoff_eg": homeloan.PAYOFF_EXAMPLE,
+            "payoff": homeloan.payoff_scenarios(**homeloan.PAYOFF_EXAMPLE),
             "faq": _HOME_FAQ,
             "page_title": "How Much House Can I Afford? (India, with stamp duty)",
             "page_description": (
                 "Work out what a home really costs in India — RBI loan-to-value limits, "
-                "the down payment, stamp duty your loan won't cover, the EMI, and exactly "
-                "how much to prepay each year to finish a 20-year loan in 10."
+                "the down payment, stamp duty your loan won't cover, the EMI, how much to "
+                "prepay each year to finish a 20-year loan in 10 — and, for a loan you "
+                "already have, what a higher EMI, a monthly prepayment or money parked in a "
+                "MaxGain-style overdraft account each does to the end date."
             ),
             "canonical_path": HOME_PATH,
         },
