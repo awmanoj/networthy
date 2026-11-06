@@ -17,7 +17,9 @@
     Two things decide it: what RBI lets a bank lend against the property, and what your
     income can service. Then there's the part nobody budgets for —
     <strong>stamp duty and registration are not covered by the loan</strong>, and on a
-    ₹1 crore flat that's several lakh in cash on top of the down payment.
+    ₹1 crore flat that's several lakh in cash on top of the down payment. And the bank's
+    ceiling isn't what you'll be offered — enter the loan you've actually been sanctioned
+    and the down payment, cash and EMI are worked from that.
     {% if not user %}Everything here is worked out in your browser; nothing you type is
     sent anywhere.{% endif %}
   </p>
@@ -28,6 +30,12 @@
       <span class="hl-box"><i>₹</i>
         <input id="hl-price" type="text" inputmode="decimal" autocomplete="off"
                value="1,00,00,000" aria-label="Property price"></span>
+    </label>
+    <label class="hl-in">
+      <span>Loan you'll actually get <em>blank = RBI's maximum</em></span>
+      <span class="hl-box"><i>₹</i>
+        <input id="hl-sanction" type="text" inputmode="decimal" autocomplete="off"
+               placeholder="sanctioned or expected" aria-label="Loan amount sanctioned or expected from the bank"></span>
     </label>
     <label class="hl-in">
       <span>Where</span>
@@ -53,12 +61,6 @@
         <input id="hl-income" type="text" inputmode="decimal" autocomplete="off"
                value="{{ (my_monthly_income|round|int) if my_monthly_income else '' }}"
                placeholder="to check eligibility" aria-label="Monthly income"></span>
-    </label>
-    <label class="hl-in">
-      <span>Loan sanctioned <em>optional</em></span>
-      <span class="hl-box"><i>₹</i>
-        <input id="hl-sanction" type="text" inputmode="decimal" autocomplete="off"
-               placeholder="if the bank has told you" aria-label="Loan amount sanctioned by the bank"></span>
     </label>
   </div>
 </section>

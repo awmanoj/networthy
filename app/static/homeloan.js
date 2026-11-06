@@ -167,7 +167,8 @@ function initHomeLoan(cfg) {
       : `${Math.round(ratio * 100)}% of the price — RBI's cap for a loan ${label}`;
     $("hl-cash").textContent = inr(cash);
     $("hl-cash-note").textContent =
-      `${compact(down)} down payment + ${compact(dutyAmt)} stamp duty & registration ` +
+      `${compact(down)} down payment` + (la.sanctioned ? " (price − your loan)" : "") +
+      ` + ${compact(dutyAmt)} stamp duty & registration ` +
       `(${dutyPct.toFixed(2)}%)` + (duty.verified ? "" : " — rate not recently verified");
 
     const base = run(loan, ratePct, years, 0);
