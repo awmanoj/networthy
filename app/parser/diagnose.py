@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 
-from ._common import extract_text
+from ._common import decrypt, extract_text, layer_names
 
 # One line is enough to see the column layout, and fewer lines means less chance
 # of an unexpected format leaking something the masking didn't anticipate.
@@ -44,12 +44,21 @@ def diagnose(file_bytes: bytes, password: str | None, kind: str = "NSDL") -> dic
     """A structural report on a statement that wouldn't parse. Never raises."""
     report: dict = {"kind": kind, "opened": False, "chars": 0, "lines": 0,
                     "isin_lines": 0, "sections_found": [], "sections_missing": [],
-                    "anchors": {}, "samples": [], "error": None}
+                    "anchors": {}, "samples": [], "layers": [], "hidden_layers": [],
+                    "error": None}
     try:
         text = extract_text(file_bytes, password)
     except Exception as exc:                      # noqa: BLE001 — this is the report
         report["error"] = type(exc).__name__
         return report
+
+    # Optional-content layers are a known way for a statement to read fine in a
+    # viewer and garble in a text extractor (the bilingual 2026 NSDL format).
+    # Names only — a layer is called HINDI, never anything about the holder.
+    try:
+        report["layers"], report["hidden_layers"] = layer_names(decrypt(file_bytes, password))
+    except Exception:                             # noqa: BLE001
+        pass
 
     report["opened"] = True
     report["chars"] = len(text)
@@ -86,6 +95,9 @@ def as_text(report: dict) -> str:
     ]
     for name, hit in report["anchors"].items():
         out.append(f"  {name:<17}: {'matched' if hit else 'NO MATCH'}")
+    if report.get("layers"):
+        hidden = ", ".join(report["hidden_layers"]) or "none"
+        out.append(f"  content layers   : {', '.join(report['layers'])} (hidden: {hidden})")
     if report["sections_missing"]:
         out.append(f"  headings not found: {', '.join(report['sections_missing'])}")
     if report["samples"]:

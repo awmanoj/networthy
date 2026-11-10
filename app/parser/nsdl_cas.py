@@ -33,12 +33,19 @@ _to_float = to_float
 # Indian-grouped rupee amounts, e.g. "12,34,567.89" or "1,000" or "45000.50".
 _AMOUNT_RE = r"(?:\d{1,2},)?(?:\d{2},)*\d{3}(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?"
 
-# "as on 30-Jun-2024", "as on 30/06/2024", "as on 30-JUN-2024"
+# "as on 30-Jun-2024", "as on 30/06/2024", "as on 30-JUN-2024". Some statements
+# never say "as on" at all and only give "Statement for the period from
+# 01-May-2025 to 31-May-2025" — the period's end is the statement date (two of
+# 134 real statements, a decade apart, needed this).
 _DATE_PATTERNS = [
     re.compile(
         r"as on\s+(\d{1,2})[-/\s]([A-Za-z]{3,})[-/\s](\d{4})", re.IGNORECASE
     ),
     re.compile(r"as on\s+(\d{1,2})[-/](\d{1,2})[-/](\d{4})", re.IGNORECASE),
+    re.compile(
+        r"period\s+from\s+\d{1,2}[-/][A-Za-z]{3,}[-/]\d{4}\s+to\s+"
+        r"(\d{1,2})[-/]([A-Za-z]{3,})[-/](\d{4})", re.IGNORECASE
+    ),
 ]
 
 # The consolidated total goes by a few names across CAS variants.
@@ -271,6 +278,39 @@ def _leading_description(lines: list[str], idx: int) -> str:
     return " ".join(reversed(picked))
 
 
+# Where the holdings end. A CAS is holdings first, then a *transaction*
+# statement for the month — demat credits/debits and MF purchases, every row
+# of which carries an ISIN and amounts and so reads exactly like a holding.
+# Nothing in the row says "this already happened"; only the section does. The
+# parser used to run straight through it, and on 124 of 134 real statements
+# the rows it added came to between 18% and 1,289% of the portfolio — a
+# wrong number shown with a warning, every month, for a decade of files. The
+# heading has had three spellings; all three are anchored to the start of a
+# line so the "Transactions" tab in the running page header can't match.
+_TRANSACTIONS_RE = re.compile(
+    r"^\s*(?:Transactions|.*\bSummary\s+of\s+Transactions\b.*|"
+    r".*Transaction\s+Statement\s+for\s+the\s+Period\b.*)\s*$",
+    re.I | re.M,
+)
+# The half-yearly "Total Expense Ratio (**) & Commission Paid" table (new in
+# September 2026) lists every scheme with its ISIN, the TER and the commission
+# in rupees — so each row parses as a holding worth its commission. Its rows
+# alone start with the period they cover: "APR-26 TO SEP-26 INF…".
+_TER_ROW_RE = re.compile(r"^[A-Z]{3}-\d{2}\s+TO\s+[A-Z]{3}-\d{2}\b.*$", re.I | re.M)
+# The running page header ("Summary Holdings Transactions Your Account About
+# NSDL") contains the word NSDL and so flipped the section to demat in the
+# middle of the mutual-fund table on every page break.
+_PAGE_NAV_RE = re.compile(r"^\s*Summary\s+Holdings\s+Transactions\b", re.I)
+
+
+def holdings_text(text: str) -> str:
+    """The part of the statement that lists what is held, not what moved."""
+    m = _TRANSACTIONS_RE.search(text)
+    if m:
+        text = text[: m.start()]
+    return _TER_ROW_RE.sub("", text)
+
+
 def _find_accounts(text: str) -> list[Account]:
     """Group the statement's holdings under their source accounts.
 
@@ -278,6 +318,7 @@ def _find_accounts(text: str) -> list[Account]:
     section/account could not be pinned down still surface under a synthesised
     catch-all account so nothing is silently dropped.
     """
+    text = holdings_text(text)
     accounts: list[Account] = []
     section = Section.UNKNOWN
     current: Account | None = None
@@ -305,7 +346,7 @@ def _find_accounts(text: str) -> list[Account]:
 
     for raw_line in _rejoin_wrapped_rows(text.splitlines()):
         line = raw_line.strip()
-        if not line:
+        if not line or _PAGE_NAV_RE.match(line):
             continue
 
         new_section = _match_section(line)

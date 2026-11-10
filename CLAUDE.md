@@ -85,6 +85,32 @@ upload PDF(s)  →  parse_cas()  →  Snapshot + Accounts/Holdings  →  SQLite 
   CAS has no per-holding rows to explode. Shares decrypt/text/float helpers with the CAMS
   parser via `app/parser/_common.py`.
 
+- **The bilingual NSDL CAS (August 2026 generator) and what the holdings aren't**
+  (`_common.visible_layers_only`, `_common._page_text`, `nsdl_cas.holdings_text`,
+  `test_layers.py`). NSDL switched generators in August 2026 (iText 5 → PDFlib wrapped by
+  iText 9, the page content inside one Form XObject) and from September writes a Hindi
+  translation in a PDF **optional-content layer** named `HINDI`, OFF by default, over an
+  `ENGLISH` one. A viewer shows English; pdfplumber ignores layer visibility and interleaves
+  both glyph by glyph ("ToTotatall", "1155,,8800"). Holding rows survive, every heading and
+  total doesn't — hence "could not find the portfolio total". `extract_text` now does what the
+  viewer does: strips hidden-layer `BDC…EMC` blocks from every content stream (recursing into
+  forms) with pikepdf **before** pdfplumber, and collapses a visible layer that repeats the base
+  content line for line (October 2026 draws labels twice). Exact, not statistical; a file with
+  no layers passes through byte-for-byte; nothing in it raises. Validated against the owner's
+  **134 real statements (2015–2026)** — never commit any; the harness takes the PAN at run
+  time. That run also exposed the larger bug: the parser kept reading ISIN rows past the
+  **Transactions** heading (the month's demat/MF movements, which look exactly like holdings),
+  so **124 of 134 parses over-counted by 18%–1,289%** with only the reconciliation banner to
+  say so. `holdings_text` cuts at that heading (three spellings, line-anchored so the page
+  nav strip can't match), drops the half-yearly **Total Expense Ratio** rows (`APR-26 TO
+  SEP-26 INF…`, each worth its commission), and the page nav strip ("Summary Holdings
+  Transactions … About NSDL") no longer flips the section to demat mid-table. The date also
+  falls back to the end of "Statement for the period from … to …". Result: 130/134 reconcile
+  within 1%, zero failures; the four left under-count 1.5–4.8% from wrapped MF folio rows, and
+  about half of all names carry column bleed ("NOT AVAILABLE", ARN codes, tickers) — both are
+  the **word-coordinate column reader** that remains the next step. `diagnose.py` now names the
+  content layers, so the next generator change is visible in a bug report.
+
 - **When a statement won't parse** (`CASParseError.cause`, `app/parser/diagnose.py`, the
   failure block in `upload.html`) — the highest-stakes screen in the app: it's the first thing
   a new user does, and a statement we can't read is the most likely reason someone tries this
